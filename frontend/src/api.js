@@ -27,4 +27,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ flag_id: flagId, decision_outcome: decisionOutcome }),
     }),
+  getAnalytics: () => request("/analytics"),
+  getReviewHistory: () => request("/review-decisions"),
 };

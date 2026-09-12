@@ -1,8 +1,8 @@
 """
 Flask REST API for the SalesMesh fraud detection system.
 
-Exposes internal endpoints (Section 3.4.2, 3.5.2) that the Streamlit dashboard
-will call to retrieve flagged agent data and submit review decisions. This
+Exposes internal endpoints (Section 3.4.2, 3.5.2) that the React dashboard
+calls to retrieve flagged agent data and submit review decisions. This
 API is the only channel through which the dashboard accesses stored data,
 per the system architecture diagram (Figure 4.2).
 
@@ -12,21 +12,26 @@ Endpoints:
   GET  /api/flagged-agents        -> list of flagged agents (protected, FR-02)
   GET  /api/agents/<agent_id>     -> feature evidence for one agent (protected, FR-03)
   POST /api/review-decisions      -> submit a review decision (protected, FR-04)
+  GET  /api/review-decisions      -> list past review decisions (protected)
+  GET  /api/analytics             -> aggregate platform statistics (protected)
   GET  /api/health                -> unprotected health check
 """
 
 import os
+import uuid
+from datetime import datetime
 from flask import Flask, jsonify, request, session
+from flask_cors import CORS
 from src.db import get_session, Agent, FeatureVector, FraudFlag, ReviewDecision
 from src.auth import verify_login, login_required
-from datetime import datetime
-
-import uuid
 
 app = Flask(__name__)
-from flask_cors import CORS
 CORS(app, supports_credentials=True, origins=["http://localhost:5173"])
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-change-in-production")
+
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
+if not FLASK_SECRET_KEY:
+    raise RuntimeError("FLASK_SECRET_KEY not set in .env")
+app.secret_key = FLASK_SECRET_KEY
 
 
 @app.route("/api/login", methods=["POST"])
@@ -160,6 +165,80 @@ def submit_review_decision():
     except Exception as e:
         db_session.rollback()
         return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+
+@app.route("/api/review-decisions", methods=["GET"])
+@login_required
+def list_review_decisions():
+    db_session = get_session()
+    try:
+        decisions = (
+            db_session.query(ReviewDecision)
+            .order_by(ReviewDecision.decision_timestamp.desc())
+            .all()
+        )
+        results = []
+        for d in decisions:
+            flag = db_session.query(FraudFlag).filter(FraudFlag.flag_id == d.flag_id).first()
+            vector = (
+                db_session.query(FeatureVector).filter(FeatureVector.vector_id == flag.vector_id).first()
+                if flag else None
+            )
+            results.append({
+                "decision_id": d.decision_id,
+                "agent_id": vector.agent_id if vector else None,
+                "reviewer_id": d.reviewer_id,
+                "decision_outcome": d.decision_outcome,
+                "decision_timestamp": d.decision_timestamp.isoformat(),
+            })
+        return jsonify({"count": len(results), "decisions": results})
+    finally:
+        db_session.close()
+
+
+@app.route("/api/analytics", methods=["GET"])
+@login_required
+def get_analytics():
+    db_session = get_session()
+    try:
+        vectors = db_session.query(FeatureVector).all()
+        agents = {a.agent_id: a for a in db_session.query(Agent).all()}
+        flags = {f.vector_id: f for f in db_session.query(FraudFlag).all()}
+
+        score_buckets = {"0.0-0.2": 0, "0.2-0.4": 0, "0.4-0.6": 0, "0.6-0.8": 0, "0.8-1.0": 0}
+        region_counts: dict = {}
+        freq_sum = dist_sum = sim_sum = 0.0
+
+        for v in vectors:
+            flag = flags.get(v.vector_id)
+            agent = agents.get(v.agent_id)
+            if not flag or not agent:
+                continue
+            freq_sum += v.submission_frequency
+            dist_sum += v.time_of_day_dist
+            sim_sum += v.customer_similarity
+
+            bucket_index = min(int(flag.suspicion_score * 5), 4)
+            bucket_label = list(score_buckets.keys())[bucket_index]
+            score_buckets[bucket_label] += 1
+
+            region_counts.setdefault(agent.region, {"flagged": 0, "total": 0})
+            region_counts[agent.region]["total"] += 1
+            if flag.flag_status == "flagged":
+                region_counts[agent.region]["flagged"] += 1
+
+        count = len(vectors) or 1
+        return jsonify({
+            "score_distribution": [{"bucket": k, "count": v} for k, v in score_buckets.items()],
+            "region_breakdown": [{"region": r, **c} for r, c in region_counts.items()],
+            "platform_averages": {
+                "submission_frequency": round(freq_sum / count, 1),
+                "time_of_day_dist": round(dist_sum / count, 3),
+                "customer_similarity": round(sim_sum / count, 3),
+            },
+        })
     finally:
         db_session.close()
 
