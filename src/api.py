@@ -20,10 +20,12 @@ from flask import Flask, jsonify, request, session
 from src.db import get_session, Agent, FeatureVector, FraudFlag, ReviewDecision
 from src.auth import verify_login, login_required
 from datetime import datetime
+
 import uuid
 
 app = Flask(__name__)
-
+from flask_cors import CORS
+CORS(app, supports_credentials=True, origins=["http://localhost:5173"])
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-change-in-production")
 
 
