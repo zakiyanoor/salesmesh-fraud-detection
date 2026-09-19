@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { Drawer, Box, Typography, Button, Divider, List, ListItemButton, ListItemIcon, ListItemText } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/SpaceDashboardOutlined";
+import PeopleIcon from "@mui/icons-material/PeopleAltOutlined";
 import InsightsIcon from "@mui/icons-material/InsightsOutlined";
 import HistoryIcon from "@mui/icons-material/HistoryOutlined";
 import { api } from "../api";
@@ -9,6 +10,7 @@ export const DRAWER_WIDTH = 240;
 
 const NAV_ITEMS = [
   { label: "Flagged Agents", path: "/", icon: <DashboardIcon /> },
+  { label: "All Agents", path: "/all-agents", icon: <PeopleIcon /> },
   { label: "Analytics", path: "/analytics", icon: <InsightsIcon /> },
   { label: "Review History", path: "/history", icon: <HistoryIcon /> },
 ];

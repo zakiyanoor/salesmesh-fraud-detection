@@ -1,3 +1,4 @@
+# Superseded by pipeline.py and detector.py; kept for historical reference of the original model comparison.
 """
 Feature engineering for the SalesMesh fraud detection system.
 

@@ -2,28 +2,32 @@ import { createTheme } from "@mui/material/styles";
 
 const theme = createTheme({
   palette: {
-    mode: "dark",
+    mode: "light",
     background: {
-      default: "#14161A",
-      paper: "#1B1E24",
+      default: "#F5F7FA",
+      paper: "#FFFFFF",
     },
     text: {
-      primary: "#E8E9ED",
-      secondary: "#9AA0AC",
+      primary: "#1A1D21",
+      secondary: "#6B7280",
     },
-    divider: "#2A2E37",
+    divider: "#E0E4E8",
     primary: {
-      main: "#E8A33D",
-      contrastText: "#14161A",
+      main: "#1976D2",
+      contrastText: "#FFFFFF",
     },
+    // Status colours are darkened so they stay readable as text on white (≥ 4.5:1).
     error: {
-      main: "#C4544A",
+      main: "#D32F2F",
     },
     warning: {
-      main: "#D9B65C",
+      main: "#B45309",
     },
     success: {
-      main: "#6B9080",
+      main: "#2E7D4F",
+    },
+    action: {
+      selected: "rgba(25, 118, 210, 0.08)",
     },
   },
   typography: {
@@ -42,10 +46,10 @@ const theme = createTheme({
   components: {
     MuiPaper: {
       styleOverrides: {
-        root: {
+        root: ({ theme }) => ({
           backgroundImage: "none",
-          border: "1px solid #2A2E37",
-        },
+          border: `1px solid ${theme.palette.divider}`,
+        }),
       },
     },
     MuiButton: {

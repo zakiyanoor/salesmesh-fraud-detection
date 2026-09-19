@@ -9,7 +9,7 @@ Uses SQLAlchemy as the ORM (Section 3.5.4), connecting to PostgreSQL.
 
 import os
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, ForeignKey, Boolean
+from sqlalchemy import create_engine, text, Column, String, Integer, Float, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from datetime import datetime
 
@@ -63,6 +63,9 @@ class FeatureVector(Base):
     submission_frequency = Column(Integer)
     time_of_day_dist = Column(Float)
     customer_similarity = Column(Float)
+    # Fraction of the agent's customers also served by other agents. Nullable:
+    # vectors written before this feature existed have no value.
+    collusion_score = Column(Float)
 
     agent = relationship("Agent", back_populates="feature_vectors")
     fraud_flag = relationship("FraudFlag", back_populates="feature_vector", uselist=False)
@@ -95,9 +98,25 @@ class ReviewDecision(Base):
     fraud_flag = relationship("FraudFlag", back_populates="review_decision")
 
 
+def migrate_schema():
+    """
+    Adds columns introduced after a table was first created.
+
+    Base.metadata.create_all() only creates missing tables; it never alters an
+    existing one, so a new model column needs an explicit ALTER. Every
+    statement here must be idempotent (ADD COLUMN IF NOT EXISTS) so it is safe
+    to run on every start.
+    """
+    with engine.begin() as conn:
+        conn.execute(text(
+            "ALTER TABLE feature_vectors ADD COLUMN IF NOT EXISTS collusion_score DOUBLE PRECISION"
+        ))
+
+
 def create_all_tables():
-    """Creates all five tables in the database if they don't already exist."""
+    """Creates all five tables if they don't already exist, then applies column migrations."""
     Base.metadata.create_all(engine)
+    migrate_schema()
     print("All tables created successfully.")
 
 
