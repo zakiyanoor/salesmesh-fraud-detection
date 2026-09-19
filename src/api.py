@@ -10,6 +10,7 @@ Endpoints:
   POST /api/login                 -> authenticate and start a session (FR-01)
   POST /api/logout                -> end the current session
   GET  /api/flagged-agents        -> list of flagged agents (protected, FR-02)
+  GET  /api/all-agents            -> every agent with latest features and status (protected)
   GET  /api/agents/<agent_id>     -> feature evidence for one agent (protected, FR-03)
   POST /api/review-decisions      -> submit a review decision (protected, FR-04)
   GET  /api/review-decisions      -> list past review decisions (protected)
@@ -22,6 +23,7 @@ import uuid
 from datetime import datetime
 from flask import Flask, jsonify, request, session
 from flask_cors import CORS
+from sqlalchemy import and_, func
 from src.db import get_session, Agent, FeatureVector, FraudFlag, ReviewDecision
 from src.auth import verify_login, login_required
 
@@ -32,6 +34,34 @@ FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
 if not FLASK_SECRET_KEY:
     raise RuntimeError("FLASK_SECRET_KEY not set in .env")
 app.secret_key = FLASK_SECRET_KEY
+
+
+def latest_vector_ids(db_session):
+    """
+    Query yielding the vector_id of each agent's newest FeatureVector.
+
+    Agents are re-scored every detection cycle, so they accumulate one vector
+    per analysis period. analysis_period is "YYYY-MM" so it sorts
+    lexicographically; vector_id breaks ties so the pick is deterministic when
+    a period was analysed more than once. Filter on `FeatureVector.vector_id
+    .in_(latest_vector_ids(db_session))` to see each agent exactly once.
+    """
+    ranked = (
+        db_session.query(
+            FeatureVector.vector_id.label("vector_id"),
+            func.row_number().over(
+                partition_by=FeatureVector.agent_id,
+                order_by=(FeatureVector.analysis_period.desc(), FeatureVector.vector_id.desc()),
+            ).label("rn"),
+        )
+        .subquery()
+    )
+    return db_session.query(ranked.c.vector_id).filter(ranked.c.rn == 1)
+
+
+def round_or_none(value, digits: int = 3):
+    """Round a nullable column; vectors stored before a feature existed hold NULL."""
+    return None if value is None else round(value, digits)
 
 
 @app.route("/api/login", methods=["POST"])
@@ -67,6 +97,7 @@ def get_flagged_agents():
             .join(FeatureVector, FraudFlag.vector_id == FeatureVector.vector_id)
             .join(Agent, FeatureVector.agent_id == Agent.agent_id)
             .filter(FraudFlag.flag_status == "flagged")
+            .filter(FeatureVector.vector_id.in_(latest_vector_ids(db_session)))
             .order_by(FraudFlag.suspicion_score.desc())
             .all()
         )
@@ -88,6 +119,44 @@ def get_flagged_agents():
         db_session.close()
 
 
+@app.route("/api/all-agents", methods=["GET"])
+@login_required
+def get_all_agents():
+    db_session = get_session()
+    try:
+        results = (
+            db_session.query(Agent, FeatureVector, FraudFlag)
+            .select_from(Agent)
+            .outerjoin(
+                FeatureVector,
+                and_(
+                    FeatureVector.agent_id == Agent.agent_id,
+                    FeatureVector.vector_id.in_(latest_vector_ids(db_session)),
+                ),
+            )
+            .outerjoin(FraudFlag, FraudFlag.vector_id == FeatureVector.vector_id)
+            .order_by(Agent.agent_id)
+            .all()
+        )
+
+        agents = []
+        for agent, vector, flag in results:
+            agents.append({
+                "agent_id": agent.agent_id,
+                "region": agent.region,
+                "status": "flagged" if flag and flag.flag_status == "flagged" else "clear",
+                "suspicion_score": round(flag.suspicion_score, 3) if flag else None,
+                "submission_frequency": vector.submission_frequency if vector else None,
+                "time_of_day_dist": round(vector.time_of_day_dist, 3) if vector else None,
+                "customer_similarity": round(vector.customer_similarity, 3) if vector else None,
+                "collusion_score": round_or_none(vector.collusion_score) if vector else None,
+            })
+
+        return jsonify({"count": len(agents), "agents": agents})
+    finally:
+        db_session.close()
+
+
 @app.route("/api/agents/<agent_id>", methods=["GET"])
 @login_required
 def get_agent_detail(agent_id):
@@ -100,6 +169,7 @@ def get_agent_detail(agent_id):
         vector = (
             db_session.query(FeatureVector)
             .filter(FeatureVector.agent_id == agent_id)
+            .filter(FeatureVector.vector_id.in_(latest_vector_ids(db_session)))
             .first()
         )
         flag = None
@@ -118,6 +188,7 @@ def get_agent_detail(agent_id):
                 "submission_frequency": vector.submission_frequency if vector else None,
                 "time_of_day_dist": round(vector.time_of_day_dist, 3) if vector else None,
                 "customer_similarity": round(vector.customer_similarity, 3) if vector else None,
+                "collusion_score": round_or_none(vector.collusion_score),
             } if vector else None,
             "flag": {
                 "flag_id": flag.flag_id,
@@ -203,7 +274,11 @@ def list_review_decisions():
 def get_analytics():
     db_session = get_session()
     try:
-        vectors = db_session.query(FeatureVector).all()
+        vectors = (
+            db_session.query(FeatureVector)
+            .filter(FeatureVector.vector_id.in_(latest_vector_ids(db_session)))
+            .all()
+        )
         agents = {a.agent_id: a for a in db_session.query(Agent).all()}
         flags = {f.vector_id: f for f in db_session.query(FraudFlag).all()}
 

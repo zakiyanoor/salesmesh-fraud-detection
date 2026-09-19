@@ -66,6 +66,7 @@ export default function AgentDetail({ username, onLogout }) {
               ["Submission frequency", features?.submission_frequency],
               ["Time-of-day distribution", features?.time_of_day_dist],
               ["Customer similarity", features?.customer_similarity],
+              ["Collusion score", features?.collusion_score],
             ].map(([label, value]) => (
               <Box key={label} sx={{ display: "flex", justifyContent: "space-between", py: 1.2 }}>
                 <Typography variant="body2" color="text.secondary">{label}</Typography>
@@ -109,7 +110,7 @@ export default function AgentDetail({ username, onLogout }) {
                       {ratio.toFixed(0)}% of average
                     </Typography>
                   </Box>
-                  <Box sx={{ height: 8, bgcolor: "#2A2E37", borderRadius: 4, overflow: "hidden" }}>
+                  <Box sx={{ height: 8, bgcolor: "divider", borderRadius: 4, overflow: "hidden" }}>
                     <Box sx={{ height: "100%", width: `${Math.min(ratio, 200) / 2}%`, bgcolor: isHigh ? "error.main" : "primary.main" }} />
                   </Box>
                 </Box>

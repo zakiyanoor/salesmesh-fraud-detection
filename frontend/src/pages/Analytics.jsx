@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Typography, Paper, CircularProgress } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import Sidebar, { DRAWER_WIDTH } from "../components/Sidebar";
 import { api } from "../api";
@@ -7,6 +8,12 @@ import { api } from "../api";
 export default function Analytics({ username, onLogout }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const theme = useTheme();
+  const tooltipStyle = {
+    background: theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    color: theme.palette.text.primary,
+  };
 
   useEffect(() => {
     api.getAnalytics().then(setData).catch(onLogout).finally(() => setLoading(false));
@@ -30,11 +37,11 @@ export default function Analytics({ username, onLogout }) {
             <Typography variant="overline" color="text.secondary">Suspicion score distribution</Typography>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={data.score_distribution}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2E37" />
-                <XAxis dataKey="bucket" stroke="#9AA0AC" fontSize={12} />
-                <YAxis stroke="#9AA0AC" fontSize={12} allowDecimals={false} />
-                <Tooltip contentStyle={{ background: "#1B1E24", border: "1px solid #2A2E37" }} />
-                <Bar dataKey="count" fill="#E8A33D" radius={[3, 3, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                <XAxis dataKey="bucket" stroke={theme.palette.text.secondary} fontSize={12} />
+                <YAxis stroke={theme.palette.text.secondary} fontSize={12} allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Bar dataKey="count" fill={theme.palette.primary.main} radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </Paper>
@@ -43,12 +50,12 @@ export default function Analytics({ username, onLogout }) {
             <Typography variant="overline" color="text.secondary">Flagged agents by region</Typography>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={data.region_breakdown}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2E37" />
-                <XAxis dataKey="region" stroke="#9AA0AC" fontSize={12} />
-                <YAxis stroke="#9AA0AC" fontSize={12} allowDecimals={false} />
-                <Tooltip contentStyle={{ background: "#1B1E24", border: "1px solid #2A2E37" }} />
-                <Bar dataKey="flagged" fill="#C4544A" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="total" fill="#2A2E37" radius={[3, 3, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                <XAxis dataKey="region" stroke={theme.palette.text.secondary} fontSize={12} />
+                <YAxis stroke={theme.palette.text.secondary} fontSize={12} allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Bar dataKey="flagged" fill={theme.palette.error.main} radius={[3, 3, 0, 0]} />
+                <Bar dataKey="total" fill={theme.palette.grey[400]} radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </Paper>

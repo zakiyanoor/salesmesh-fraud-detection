@@ -1,16 +1,33 @@
+import random
 from datetime import datetime
 from types import SimpleNamespace
+import numpy as np
+from faker import Faker
+import src.data_generation as data_generation
+from src.detector import FraudDetector
 from src.pipeline import (
+    build_feature_row,
     compute_submission_frequency,
     compute_time_of_day_entropy,
     compute_repetition_score,
     compute_sequential_score,
     compute_customer_similarity,
+    compute_collusion_score,
 )
 
 
 def make_record(hour: int) -> SimpleNamespace:
     return SimpleNamespace(timestamp=datetime(2026, 8, 1, hour, 0, 0))
+
+
+def make_activation(agent_id: str, customer_id: str, hour: int = 12) -> SimpleNamespace:
+    return SimpleNamespace(
+        agent_id=agent_id, customer_id=customer_id, timestamp=datetime(2026, 8, 1, hour, 0, 0)
+    )
+
+
+def customer_ids_of(agent_id: str, records: list) -> list[str]:
+    return [r.customer_id for r in records if r.agent_id == agent_id]
 
 
 def test_submission_frequency_counts_records() -> None:
@@ -57,3 +74,101 @@ def test_sequential_score_low_for_random_ids() -> None:
 def test_customer_similarity_takes_max_of_both_signals() -> None:
     sequential_ids = [f"CUST{i}" for i in range(20000, 20010)]
     assert compute_customer_similarity(sequential_ids) == 1.0
+
+
+def test_collusion_score_zero_when_no_customers_shared() -> None:
+    records = [make_activation("A1", f"CUST{i}") for i in range(5)]
+    records += [make_activation("A2", f"CUST{i}") for i in range(100, 105)]
+    assert compute_collusion_score("A1", customer_ids_of("A1", records), records) == 0.0
+    assert compute_collusion_score("A2", customer_ids_of("A2", records), records) == 0.0
+
+
+def test_collusion_score_is_one_for_both_agents_sharing_all_customers() -> None:
+    shared = [f"CUST{i}" for i in range(5)]
+    records = [make_activation("A1", c) for c in shared] + [make_activation("A2", c) for c in shared]
+    assert compute_collusion_score("A1", customer_ids_of("A1", records), records) == 1.0
+    assert compute_collusion_score("A2", customer_ids_of("A2", records), records) == 1.0
+
+
+def test_collusion_score_is_fraction_of_customers_shared() -> None:
+    records = [make_activation("A1", f"CUST{i}") for i in range(4)]
+    records.append(make_activation("A2", "CUST0"))
+    assert compute_collusion_score("A1", customer_ids_of("A1", records), records) == 0.25
+    assert compute_collusion_score("A2", customer_ids_of("A2", records), records) == 1.0
+
+
+def test_collusion_score_ignores_the_agents_own_records() -> None:
+    records = [make_activation("A1", "CUST1"), make_activation("A1", "CUST1")]
+    assert compute_collusion_score("A1", ["CUST1", "CUST1"], records) == 0.0
+
+
+def test_collusion_score_counts_distinct_customers_not_repeats() -> None:
+    own = ["CUST1"] * 9 + ["CUST2"]
+    records = [make_activation("A1", c) for c in own] + [make_activation("A2", "CUST1")]
+    assert compute_collusion_score("A1", own, records) == 0.5
+
+
+def test_collusion_score_zero_for_agent_with_no_customers() -> None:
+    assert compute_collusion_score("A1", [], [make_activation("A2", "CUST1")]) == 0.0
+
+
+def test_build_feature_row_includes_collusion_score_from_all_records() -> None:
+    a1 = [make_activation("A1", "CUST1", hour=9), make_activation("A1", "CUST2", hour=10)]
+    a2 = [make_activation("A2", "CUST1", hour=9)]
+    row = build_feature_row("A1", a1, a1 + a2)
+    assert row["collusion_score"] == 0.5
+    assert row["submission_frequency"] == 2
+
+
+def generate_ring_dataset(seed: int = 42):
+    """Regenerate the synthetic data in memory, returning (agents_df, ring agent ids, records)."""
+    saved = (random.getstate(), np.random.get_state())
+    try:
+        random.seed(seed)
+        np.random.seed(seed)
+        Faker.seed(seed)
+        agents_df = data_generation.generate_agents(
+            data_generation.NUM_LEGIT_AGENTS, data_generation.NUM_FRAUD_AGENTS
+        )
+        fraud_ids = agents_df[agents_df["is_fraud"]]["agent_id"].tolist()
+        # Ring membership isn't saved by the generator, so draw the rings once to read
+        # them off, then rewind so generate_activation_records draws the same ones.
+        state = (random.getstate(), np.random.get_state())
+        rings, _, _ = data_generation.assign_fraud_agent_pools(
+            fraud_ids, data_generation.NUM_COLLUSION_RINGS, data_generation.AGENTS_PER_RING
+        )
+        random.setstate(state[0])
+        np.random.set_state(state[1])
+        activations = data_generation.generate_activation_records(agents_df)
+    finally:
+        random.setstate(saved[0])
+        np.random.set_state(saved[1])
+
+    records = [
+        SimpleNamespace(agent_id=r.agent_id, customer_id=r.customer_id, timestamp=r.timestamp)
+        for r in activations.itertuples()
+    ]
+    return agents_df, [agent for ring in rings for agent in ring], records
+
+
+def test_collusion_ring_agents_from_synthetic_data_score_high_and_are_flagged() -> None:
+    agents_df, ring_agents, records = generate_ring_dataset()
+    by_agent: dict[str, list] = {}
+    for record in records:
+        by_agent.setdefault(record.agent_id, []).append(record)
+
+    rows = [build_feature_row(agent_id, recs, records) for agent_id, recs in by_agent.items()]
+    collusion = {row["agent_id"]: row["collusion_score"] for row in rows}
+
+    legit_agents = agents_df[~agents_df["is_fraud"]]["agent_id"]
+    assert len(ring_agents) == 9
+    assert all(collusion[a] > 0.9 for a in ring_agents)
+    assert all(collusion[a] < 0.1 for a in legit_agents)
+
+    results = FraudDetector().score(rows)
+    flagged = {r.agent_id for r in results if r.is_flagged}
+    assert set(ring_agents) <= flagged
+
+    # With collusion in the feature set the rings are the most suspicious agents of all.
+    top_nine = {r.agent_id for r in sorted(results, key=lambda r: -r.suspicion_score)[:9]}
+    assert top_nine == set(ring_agents)

@@ -21,6 +21,7 @@ export const api = {
     request("/login", { method: "POST", body: JSON.stringify({ username, password }) }),
   logout: () => request("/logout", { method: "POST" }),
   getFlaggedAgents: () => request("/flagged-agents"),
+  getAllAgents: () => request("/all-agents"),
   getAgentDetail: (agentId) => request(`/agents/${agentId}`),
   submitReviewDecision: (flagId, decisionOutcome) =>
     request("/review-decisions", {

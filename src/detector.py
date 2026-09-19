@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
 
-FEATURE_COLUMNS = ["submission_frequency", "time_of_day_dist", "customer_similarity"]
+FEATURE_COLUMNS = ["submission_frequency", "time_of_day_dist", "customer_similarity", "collusion_score"]
 
 
 @dataclass
