@@ -61,6 +61,23 @@ def compute_collusion_score(agent_id: str, customer_ids: list[str], all_records:
     return len(shared) / len(own)
 
 
+def compute_client_category_breakdown(records: list) -> dict:
+    """
+    Distinct clients and categories touched by an agent's activation records.
+
+    client_id and category are pass-through context from other SalesMesh
+    modules (not owned by this service): they carry no fraud signal, so they
+    are deliberately never added to build_feature_row / FEATURE_COLUMNS.
+    They're surfaced here, unchanged, as evidence for admins reviewing a flag
+    (see GET /api/agents/<agent_id>) -- an agent can legitimately work across
+    several clients and categories.
+    """
+    return {
+        "client_ids": sorted({r.client_id for r in records if r.client_id}),
+        "categories": sorted({r.category for r in records if r.category}),
+    }
+
+
 def build_feature_row(agent_id: str, records: list, all_records: list) -> dict:
     customer_ids = [r.customer_id for r in records]
     return {

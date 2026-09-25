@@ -135,6 +135,31 @@ def test_agent_detail_uses_the_same_latest_vector_as_all_agents(client) -> None:
     assert detail["flag"]["suspicion_score"] == listed["suspicion_score"]
 
 
+def test_agent_detail_includes_context_separate_from_features(client) -> None:
+    client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
+    body = client.get("/api/agents/A1104").get_json()
+
+    assert "context" in body
+    assert "client_id" not in body["features"]
+    assert "category" not in body["features"]
+
+    context = body["context"]
+    assert "client_ids" in context and "categories" in context
+    assert isinstance(context["client_ids"], list) and isinstance(context["categories"], list)
+    assert len(context["client_ids"]) > 0
+    assert len(context["categories"]) > 0
+
+
+def test_agent_detail_context_lists_only_known_clients_and_categories(client) -> None:
+    from src.data_generation import CLIENTS, CATEGORIES
+
+    client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
+    context = client.get("/api/agents/A1104").get_json()["context"]
+
+    assert set(context["client_ids"]) <= set(CLIENTS)
+    assert set(context["categories"]) <= set(CATEGORIES)
+
+
 def test_agent_detail_returns_404_for_unknown_agent(client) -> None:
     client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
     response = client.get("/api/agents/NONEXISTENT")

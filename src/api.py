@@ -24,8 +24,9 @@ from datetime import datetime
 from flask import Flask, jsonify, request, session
 from flask_cors import CORS
 from sqlalchemy import and_, func
-from src.db import get_session, Agent, FeatureVector, FraudFlag, ReviewDecision
+from src.db import get_session, Agent, ActivationRecord, FeatureVector, FraudFlag, ReviewDecision
 from src.auth import verify_login, login_required
+from src.pipeline import compute_client_category_breakdown
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins=["http://localhost:5173"])
@@ -180,6 +181,12 @@ def get_agent_detail(agent_id):
                 .first()
             )
 
+        agent_records = (
+            db_session.query(ActivationRecord)
+            .filter(ActivationRecord.agent_id == agent_id)
+            .all()
+        )
+
         response = {
             "agent_id": agent.agent_id,
             "region": agent.region,
@@ -190,6 +197,11 @@ def get_agent_detail(agent_id):
                 "customer_similarity": round(vector.customer_similarity, 3) if vector else None,
                 "collusion_score": round_or_none(vector.collusion_score),
             } if vector else None,
+            # Pass-through context from other SalesMesh modules -- not used as a
+            # detection feature, kept separate from "features" for that reason.
+            # An agent can work across several clients/categories, so this is a
+            # breakdown of distinct values rather than a single client_id/category.
+            "context": compute_client_category_breakdown(agent_records),
             "flag": {
                 "flag_id": flag.flag_id,
                 "suspicion_score": round(flag.suspicion_score, 3),
