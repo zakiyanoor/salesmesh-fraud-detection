@@ -22,7 +22,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
 
-FEATURE_COLUMNS = ["submission_frequency", "time_of_day_dist", "customer_similarity"]
+FEATURE_COLUMNS = ["submission_frequency", "time_of_day_dist", "customer_similarity", "collusion_score"]
 
 CONTAMINATION = 0.13  # 15 fraud agents out of 115 total ≈ 0.13
 
