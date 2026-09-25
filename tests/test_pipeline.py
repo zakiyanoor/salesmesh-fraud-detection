@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import numpy as np
 from faker import Faker
 import src.data_generation as data_generation
-from src.detector import FraudDetector
+from src.detector import FEATURE_COLUMNS, FraudDetector
 from src.pipeline import (
     build_feature_row,
     compute_submission_frequency,
@@ -13,6 +13,7 @@ from src.pipeline import (
     compute_sequential_score,
     compute_customer_similarity,
     compute_collusion_score,
+    compute_client_category_breakdown,
 )
 
 
@@ -20,9 +21,15 @@ def make_record(hour: int) -> SimpleNamespace:
     return SimpleNamespace(timestamp=datetime(2026, 8, 1, hour, 0, 0))
 
 
-def make_activation(agent_id: str, customer_id: str, hour: int = 12) -> SimpleNamespace:
+def make_activation(
+    agent_id: str, customer_id: str, hour: int = 12, client_id: str | None = None, category: str | None = None
+) -> SimpleNamespace:
     return SimpleNamespace(
-        agent_id=agent_id, customer_id=customer_id, timestamp=datetime(2026, 8, 1, hour, 0, 0)
+        agent_id=agent_id,
+        customer_id=customer_id,
+        timestamp=datetime(2026, 8, 1, hour, 0, 0),
+        client_id=client_id,
+        category=category,
     )
 
 
@@ -118,6 +125,56 @@ def test_build_feature_row_includes_collusion_score_from_all_records() -> None:
     row = build_feature_row("A1", a1, a1 + a2)
     assert row["collusion_score"] == 0.5
     assert row["submission_frequency"] == 2
+
+
+def test_client_id_and_category_are_not_detection_features() -> None:
+    """client_id/category are pass-through context from other SalesMesh modules,
+    not fraud signal, so they must never enter the whitelist the detector scores on."""
+    assert "client_id" not in FEATURE_COLUMNS
+    assert "category" not in FEATURE_COLUMNS
+
+    a1 = [make_activation("A1", "CUST1", hour=9, client_id="Acme", category="fintech")]
+    row = build_feature_row("A1", a1, a1)
+    assert "client_id" not in row
+    assert "category" not in row
+
+
+def test_client_category_breakdown_returns_distinct_sorted_values() -> None:
+    records = [
+        make_activation("A1", "CUST1", client_id="Acme", category="fintech"),
+        make_activation("A1", "CUST2", client_id="Acme", category="fintech"),
+        make_activation("A1", "CUST3", client_id="Zenith", category="fashion"),
+    ]
+    breakdown = compute_client_category_breakdown(records)
+    assert breakdown == {"client_ids": ["Acme", "Zenith"], "categories": ["fashion", "fintech"]}
+
+
+def test_client_category_breakdown_empty_for_no_records() -> None:
+    assert compute_client_category_breakdown([]) == {"client_ids": [], "categories": []}
+
+
+def test_data_generation_assigns_client_id_and_category_from_known_lists() -> None:
+    agents_df = data_generation.generate_agents(5, 2)
+    activations = data_generation.generate_activation_records(agents_df)
+
+    assert not activations.empty
+    assert set(activations["client_id"].unique()) <= set(data_generation.CLIENTS)
+    assert set(activations["category"].unique()) <= set(data_generation.CATEGORIES)
+    # An agent can legitimately work across several clients/categories (SRS).
+    assert activations.groupby("agent_id")["client_id"].nunique().max() > 1
+
+
+def test_client_id_and_category_are_not_correlated_with_fraud_status() -> None:
+    """Assigned independently of is_fraud: both groups should draw from (most
+    of) the same pool, i.e. client_id/category carry no fraud signal."""
+    agents_df = data_generation.generate_agents(30, 10)
+    activations = data_generation.generate_activation_records(agents_df)
+
+    fraud_agent_ids = set(agents_df[agents_df["is_fraud"]]["agent_id"])
+    fraud_clients = set(activations[activations["agent_id"].isin(fraud_agent_ids)]["client_id"])
+    legit_clients = set(activations[~activations["agent_id"].isin(fraud_agent_ids)]["client_id"])
+
+    assert len(fraud_clients & legit_clients) >= len(data_generation.CLIENTS) - 1
 
 
 def generate_ring_dataset(seed: int = 42):

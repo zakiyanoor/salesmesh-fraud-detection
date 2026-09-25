@@ -49,6 +49,12 @@ class ActivationRecord(Base):
     timestamp = Column(DateTime)
     customer_id = Column(String)
     activation_status = Column(String)
+    # Pass-through context from other SalesMesh modules (client management,
+    # catalogue) -- this service doesn't own them and never treats them as
+    # fraud features (see FEATURE_COLUMNS in detector.py). Nullable: records
+    # written before these columns existed have no value.
+    client_id = Column(String)
+    category = Column(String)
 
     agent = relationship("Agent", back_populates="activation_records")
 
@@ -110,6 +116,12 @@ def migrate_schema():
     with engine.begin() as conn:
         conn.execute(text(
             "ALTER TABLE feature_vectors ADD COLUMN IF NOT EXISTS collusion_score DOUBLE PRECISION"
+        ))
+        conn.execute(text(
+            "ALTER TABLE activation_records ADD COLUMN IF NOT EXISTS client_id VARCHAR"
+        ))
+        conn.execute(text(
+            "ALTER TABLE activation_records ADD COLUMN IF NOT EXISTS category VARCHAR"
         ))
 
 
