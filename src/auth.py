@@ -7,15 +7,27 @@ username/password authentication with hashed password storage, session
 management, and role-based access control.
 
 Adds the Administrator entity (not explicitly in the original ERD, but
-required to support login) and a login_required decorator that protects
-any Flask route it is applied to.
+required to support login), a login_required decorator that protects any
+Flask route it is applied to, and a role_required decorator that further
+restricts a route to one role.
+
+Roles:
+  fraud_analyst       -> proposes review decisions
+  compliance_officer  -> confirms review decisions proposed by someone else
 """
 
 from functools import wraps
 from flask import session, jsonify, request
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import Column, String
+from sqlalchemy.orm import validates
 from src.db import Base, get_session, engine
+
+ROLE_FRAUD_ANALYST = "fraud_analyst"
+ROLE_COMPLIANCE_OFFICER = "compliance_officer"
+VALID_ROLES = (ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER)
+
+MIN_PASSWORD_LENGTH = 12
 
 
 class Administrator(Base):
@@ -24,7 +36,13 @@ class Administrator(Base):
     admin_id = Column(String, primary_key=True)
     username = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
-    role = Column(String, default="administrator")
+    role = Column(String, nullable=False)
+
+    @validates("role")
+    def validate_role(self, key, value):
+        if value not in VALID_ROLES:
+            raise ValueError(f"role must be one of {VALID_ROLES}, got {value!r}")
+        return value
 
 
 def create_admin_table():
@@ -33,7 +51,10 @@ def create_admin_table():
     print("Administrators table created successfully.")
 
 
-def create_admin_user(admin_id, username, password, role="administrator"):
+def create_admin_user(admin_id, username, password, role):
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters long")
+
     db_session = get_session()
     try:
         existing = db_session.query(Administrator).filter(Administrator.username == username).first()
@@ -49,7 +70,7 @@ def create_admin_user(admin_id, username, password, role="administrator"):
         )
         db_session.add(admin)
         db_session.commit()
-        print(f"Administrator '{username}' created successfully.")
+        print(f"Administrator '{username}' ({role}) created successfully.")
     finally:
         db_session.close()
 
@@ -74,6 +95,42 @@ def login_required(f):
     return decorated
 
 
+def role_required(role):
+    """
+    Restricts a route to admins with the given role.
+
+    Returns 401 if nobody is logged in (same as login_required, so it can be
+    used on its own) and 403 if the logged-in admin has a different role.
+    """
+    if role not in VALID_ROLES:
+        raise ValueError(f"role must be one of {VALID_ROLES}, got {role!r}")
+
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            if "admin_id" not in session:
+                return jsonify({"error": "Authentication required"}), 401
+            if session.get("role") != role:
+                return jsonify({"error": f"This action requires the '{role}' role"}), 403
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
+
+
 if __name__ == "__main__":
     create_admin_table()
-    create_admin_user(admin_id="ADM001", username="admin", password="ChangeMe123!")
+    # DEMO / TEST ACCOUNTS ONLY. These credentials are committed to the repo and
+    # are used by the integration tests -- never seed them into a production
+    # database.
+    create_admin_user(
+        admin_id="ADM_ANALYST_01",
+        username="analyst_01",
+        password="RiverbankTrader42",
+        role=ROLE_FRAUD_ANALYST,
+    )
+    create_admin_user(
+        admin_id="ADM_COMPLIANCE_01",
+        username="compliance_01",
+        password="MarigoldStation17",
+        role=ROLE_COMPLIANCE_OFFICER,
+    )

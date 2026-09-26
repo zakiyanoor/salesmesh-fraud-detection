@@ -13,6 +13,12 @@ Three fraud sub-patterns are modelled, matching the literature basis:
 3. Collusion: two or more agents share overlapping customer_id values
    (Concept Note: "collude with others"; Chang et al., 2024)
 
+Each activation record also carries client_id and category: which client
+account and product line the agent was activating a customer for. These
+reflect the shared platform entities described in the SRS (Section 6.1) and
+are attached independently of fraud status, so they provide operational
+context on an agent's profile without acting as fraud signals themselves.
+
 Output: data/synthetic/agents.csv and data/synthetic/activation_records.csv
 """
 
