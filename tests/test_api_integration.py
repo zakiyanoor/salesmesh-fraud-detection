@@ -111,7 +111,6 @@ def test_agent_detail_returns_features_for_known_agent(client) -> None:
     assert "features" in body
 
 
-@pytest.mark.skip(reason="collusion_score is computed by the collusion-detection feature (pipeline.py/scheduler.py), which is out of scope for sprint-3/backend-database and lands separately")
 def test_agent_detail_includes_collusion_score(client) -> None:
     login(client, ANALYST)
     features = client.get("/api/agents/A1104").get_json()["features"]

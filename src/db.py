@@ -54,8 +54,10 @@ class ActivationRecord(Base):
     timestamp = Column(DateTime)
     customer_id = Column(String)
     activation_status = Column(String)
-    # Pass-through operational context (which client account / product line
-    # this activation was for). Not used as a fraud-detection feature.
+    # Pass-through context from other SalesMesh modules (client management,
+    # catalogue) -- this service doesn't own them and never treats them as
+    # fraud features (see FEATURE_COLUMNS in detector.py). Nullable: records
+    # written before these columns existed have no value.
     client_id = Column(String)
     category = Column(String)
 
@@ -72,6 +74,8 @@ class FeatureVector(Base):
     submission_frequency = Column(Integer)
     time_of_day_dist = Column(Float)
     customer_similarity = Column(Float)
+    # Fraction of the agent's customers also served by other agents. Nullable:
+    # vectors written before this feature existed have no value.
     collusion_score = Column(Float)
 
     agent = relationship("Agent", back_populates="feature_vectors")

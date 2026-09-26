@@ -35,27 +35,17 @@ np.random.seed(42)
 
 REGIONS = ["Nairobi", "Mombasa", "Kisumu", "Nakuru", "Eldoret"]
 
+# client_id and category are pass-through context from other SalesMesh modules
+# (client management, catalogue) -- this service doesn't own them. An agent
+# works across multiple clients and categories (SRS), so they're assigned per
+# activation record, independent of fraud status: realistic context, not a
+# fraud signal.
 CLIENTS = [
-    "Safaricom Retail",
-    "Equity Bank Agency Banking",
-    "KCB M-Pesa Agents",
-    "Jumia Kenya",
-    "Kenya Power Prepaid",
-    "NHIF Registration Drive",
-    "M-Kopa Solar",
-    "Tala Micro-loans",
+    "PesaLink Kenya", "FashionHub EA", "TechCorp Nairobi", "FinServe Africa",
+    "MobiPay Solutions", "UrbanStyle Retail", "AgriTech Ventures", "HealthLink Kenya",
 ]
 
-CATEGORIES = [
-    "SIM Registration",
-    "Mobile Money Account",
-    "Bank Agency Account",
-    "Insurance Policy",
-    "Loan Application",
-    "Merchant Till Registration",
-    "Utility Prepayment",
-    "E-commerce Account",
-]
+CATEGORIES = ["fintech", "fashion", "technology", "healthcare", "agriculture", "logistics", "e-commerce"]
 
 NUM_LEGIT_AGENTS = 100
 NUM_FRAUD_AGENTS = 15
@@ -181,19 +171,17 @@ def generate_activation_records(agents_df):
                 else:
                     customer_id = generate_legit_customer_id()
 
-                # client_id/category are assigned independently of fraud
-                # status and pattern, so they carry operational context
-                # without leaking a fraud signal.
                 records.append({
                     "record_id": f"R{record_id}",
                     "agent_id": agent_id_val,
                     "timestamp": timestamp_fn(day),
                     "customer_id": customer_id,
-                    "client_id": random.choice(CLIENTS),
-                    "category": random.choice(CATEGORIES),
                     "activation_status": random.choices(
                         ["completed", "pending", "failed"], weights=[0.85, 0.1, 0.05]
                     )[0],
+                    # Independent of fraud status/pattern -- context, not a fraud signal.
+                    "client_id": random.choice(CLIENTS),
+                    "category": random.choice(CATEGORIES),
                 })
                 record_id += 1
 
