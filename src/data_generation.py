@@ -13,6 +13,12 @@ Three fraud sub-patterns are modelled, matching the literature basis:
 3. Collusion: two or more agents share overlapping customer_id values
    (Concept Note: "collude with others"; Chang et al., 2024)
 
+Each activation record also carries client_id and category: which client
+account and product line the agent was activating a customer for. These
+reflect the shared platform entities described in the SRS (Section 6.1) and
+are attached independently of fraud status, so they provide operational
+context on an agent's profile without acting as fraud signals themselves.
+
 Output: data/synthetic/agents.csv and data/synthetic/activation_records.csv
 """
 
@@ -28,6 +34,28 @@ random.seed(42)
 np.random.seed(42)
 
 REGIONS = ["Nairobi", "Mombasa", "Kisumu", "Nakuru", "Eldoret"]
+
+CLIENTS = [
+    "Safaricom Retail",
+    "Equity Bank Agency Banking",
+    "KCB M-Pesa Agents",
+    "Jumia Kenya",
+    "Kenya Power Prepaid",
+    "NHIF Registration Drive",
+    "M-Kopa Solar",
+    "Tala Micro-loans",
+]
+
+CATEGORIES = [
+    "SIM Registration",
+    "Mobile Money Account",
+    "Bank Agency Account",
+    "Insurance Policy",
+    "Loan Application",
+    "Merchant Till Registration",
+    "Utility Prepayment",
+    "E-commerce Account",
+]
 
 NUM_LEGIT_AGENTS = 100
 NUM_FRAUD_AGENTS = 15
@@ -153,11 +181,16 @@ def generate_activation_records(agents_df):
                 else:
                     customer_id = generate_legit_customer_id()
 
+                # client_id/category are assigned independently of fraud
+                # status and pattern, so they carry operational context
+                # without leaking a fraud signal.
                 records.append({
                     "record_id": f"R{record_id}",
                     "agent_id": agent_id_val,
                     "timestamp": timestamp_fn(day),
                     "customer_id": customer_id,
+                    "client_id": random.choice(CLIENTS),
+                    "category": random.choice(CATEGORIES),
                     "activation_status": random.choices(
                         ["completed", "pending", "failed"], weights=[0.85, 0.1, 0.05]
                     )[0],
