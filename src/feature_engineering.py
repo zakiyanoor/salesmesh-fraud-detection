@@ -1,8 +1,10 @@
+# Superseded by pipeline.py and detector.py; kept for historical reference of the original model comparison.
 """
 Feature engineering for the SalesMesh fraud detection system.
 
-Computes three behavioural features per agent, per analysis period, matching
-Section 3.2.2 and Section 2.6 of the proposal.
+Computes four behavioural features per agent, per analysis period, matching
+Section 3.2.2 and Section 2.6 of the proposal (the fourth, collusion_score,
+matches the live pipeline.py).
 
 customer_similarity combines two signals, since Section 2.6 names two distinct
 fraud patterns (citing Tabassum et al., 2021):
@@ -97,6 +99,21 @@ def compute_customer_similarity(agent_records):
     return max(repetition, sequential)
 
 
+def compute_collusion_score(agent_id, agent_records, all_records):
+    """
+    Fraction of this agent's distinct customers that also appear in any OTHER
+    agent's records: 0 = no overlap, 1 = every customer is shared.
+    Mirrors compute_collusion_score in pipeline.py (not imported: pipeline.py
+    pulls in the database layer and works on ORM records, not DataFrames).
+    """
+    own = set(agent_records["customer_id"])
+    if not own:
+        return 0.0
+    others = all_records[all_records["agent_id"] != agent_id]["customer_id"]
+    shared = own & set(others)
+    return len(shared) / len(own)
+
+
 def compute_feature_vectors(activations_df, analysis_period_label="2026-08"):
     activations_df["timestamp"] = pd.to_datetime(activations_df["timestamp"])
 
@@ -107,6 +124,7 @@ def compute_feature_vectors(activations_df, analysis_period_label="2026-08"):
         submission_frequency = compute_submission_frequency(agent_records)
         time_of_day_dist = compute_time_of_day_entropy(agent_records)
         customer_similarity = compute_customer_similarity(agent_records)
+        collusion_score = compute_collusion_score(agent_id, agent_records, activations_df)
 
         feature_rows.append({
             "vector_id": f"FV{vector_id}",
@@ -115,6 +133,7 @@ def compute_feature_vectors(activations_df, analysis_period_label="2026-08"):
             "submission_frequency": submission_frequency,
             "time_of_day_dist": time_of_day_dist,
             "customer_similarity": customer_similarity,
+            "collusion_score": collusion_score,
         })
         vector_id += 1
 

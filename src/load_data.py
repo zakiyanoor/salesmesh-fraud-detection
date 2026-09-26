@@ -32,9 +32,9 @@ def load_activation_records(session):
             agent_id=row["agent_id"],
             timestamp=pd.to_datetime(row["timestamp"]),
             customer_id=row["customer_id"],
-            client_id=row["client_id"],
-            category=row["category"],
             activation_status=row["activation_status"],
+            client_id=row.get("client_id"),
+            category=row.get("category"),
         )
         session.merge(record)
     session.commit()

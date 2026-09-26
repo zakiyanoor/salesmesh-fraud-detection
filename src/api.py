@@ -41,9 +41,10 @@ from src.db import (
 from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER,
 )
+from src.pipeline import compute_client_category_breakdown
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True)
+CORS(app, supports_credentials=True, origins=["http://localhost:5173"])
 
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
 if not FLASK_SECRET_KEY:
@@ -109,25 +110,6 @@ def latest_vector_ids(db_session):
 def round_or_none(value, digits: int = 3):
     """Round a nullable column; vectors stored before a feature existed hold NULL."""
     return None if value is None else round(value, digits)
-
-
-def client_category_context(db_session, agent_id):
-    """Distinct client accounts and product categories this agent has activated for."""
-    client_ids = sorted({
-        row[0] for row in
-        db_session.query(ActivationRecord.client_id)
-        .filter(ActivationRecord.agent_id == agent_id)
-        .distinct()
-        if row[0] is not None
-    })
-    categories = sorted({
-        row[0] for row in
-        db_session.query(ActivationRecord.category)
-        .filter(ActivationRecord.agent_id == agent_id)
-        .distinct()
-        if row[0] is not None
-    })
-    return {"client_ids": client_ids, "categories": categories}
 
 
 @app.route("/api/login", methods=["POST"])
@@ -206,30 +188,32 @@ def get_flagged_agents():
 def get_all_agents():
     db_session = get_session()
     try:
-        vectors = (
-            db_session.query(FeatureVector)
-            .filter(FeatureVector.vector_id.in_(latest_vector_ids(db_session)))
+        rows = (
+            db_session.query(Agent, FeatureVector, FraudFlag)
+            .select_from(Agent)
+            .outerjoin(
+                FeatureVector,
+                and_(
+                    FeatureVector.agent_id == Agent.agent_id,
+                    FeatureVector.vector_id.in_(latest_vector_ids(db_session)),
+                ),
+            )
+            .outerjoin(FraudFlag, FraudFlag.vector_id == FeatureVector.vector_id)
+            .order_by(Agent.agent_id)
             .all()
         )
-        agents_by_id = {a.agent_id: a for a in db_session.query(Agent).all()}
-        flags_by_vector = {f.vector_id: f for f in db_session.query(FraudFlag).all()}
 
         results = []
-        for vector in vectors:
-            agent = agents_by_id.get(vector.agent_id)
-            if not agent:
-                continue
-            flag = flags_by_vector.get(vector.vector_id)
-
+        for agent, vector, flag in rows:
             results.append({
                 "agent_id": agent.agent_id,
                 "region": agent.region,
-                "status": flag.flag_status if flag else "clear",
+                "status": "flagged" if flag and flag.flag_status == "flagged" else "clear",
                 "suspicion_score": round_or_none(flag.suspicion_score) if flag else None,
-                "submission_frequency": vector.submission_frequency,
-                "time_of_day_dist": round_or_none(vector.time_of_day_dist),
-                "customer_similarity": round_or_none(vector.customer_similarity),
-                "collusion_score": round_or_none(vector.collusion_score),
+                "submission_frequency": vector.submission_frequency if vector else None,
+                "time_of_day_dist": round_or_none(vector.time_of_day_dist) if vector else None,
+                "customer_similarity": round_or_none(vector.customer_similarity) if vector else None,
+                "collusion_score": round_or_none(vector.collusion_score) if vector else None,
             })
 
         return jsonify({"count": len(results), "agents": results})
@@ -260,6 +244,12 @@ def get_agent_detail(agent_id):
                 .first()
             )
 
+        agent_records = (
+            db_session.query(ActivationRecord)
+            .filter(ActivationRecord.agent_id == agent_id)
+            .all()
+        )
+
         response = {
             "agent_id": agent.agent_id,
             "region": agent.region,
@@ -276,7 +266,11 @@ def get_agent_detail(agent_id):
                 "flag_status": flag.flag_status,
                 "model_version": flag.model_version,
             } if flag else None,
-            "context": client_category_context(db_session, agent_id),
+            # Pass-through context from other SalesMesh modules -- not used as a
+            # detection feature, kept separate from "features" for that reason.
+            # An agent can work across several clients/categories, so this is a
+            # breakdown of distinct values rather than a single client_id/category.
+            "context": compute_client_category_breakdown(agent_records),
         }
 
         return jsonify(response)
