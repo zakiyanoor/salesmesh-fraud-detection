@@ -1,6 +1,6 @@
 import pytest
-from src.api import app
 from src.db import get_session, FeatureVector
+from tests.helpers import ANALYST, login
 
 
 def _latest_period_by_agent() -> dict:
@@ -16,13 +16,6 @@ def _latest_period_by_agent() -> dict:
         db_session.close()
 
 
-@pytest.fixture
-def client():
-    app.config["TESTING"] = True
-    with app.test_client() as test_client:
-        yield test_client
-
-
 def test_health_check_requires_no_auth(client) -> None:
     response = client.get("/api/health")
     assert response.status_code == 200
@@ -35,13 +28,13 @@ def test_flagged_agents_rejects_unauthenticated(client) -> None:
 
 
 def test_login_with_invalid_credentials_fails(client) -> None:
-    response = client.post("/api/login", json={"username": "admin", "password": "wrong"})
+    response = client.post("/api/login", json={"username": ANALYST["username"], "password": "wrong"})
     assert response.status_code == 401
 
 
 def test_login_then_access_protected_route(client) -> None:
     login_response = client.post(
-        "/api/login", json={"username": "admin", "password": "ChangeMe123!"}
+        "/api/login", json={"username": ANALYST["username"], "password": ANALYST["password"]}
     )
     assert login_response.status_code == 200
 
@@ -58,7 +51,7 @@ def test_all_agents_rejects_unauthenticated(client) -> None:
 
 
 def test_all_agents_returns_every_agent_once_with_status(client) -> None:
-    client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
+    login(client, ANALYST)
     response = client.get("/api/all-agents")
     assert response.status_code == 200
     body = response.get_json()
@@ -74,7 +67,7 @@ def test_all_agents_returns_every_agent_once_with_status(client) -> None:
 
 
 def test_flagged_agents_lists_each_agent_once(client) -> None:
-    client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
+    login(client, ANALYST)
     body = client.get("/api/flagged-agents").get_json()
 
     agent_ids = [a["agent_id"] for a in body["flagged_agents"]]
@@ -83,7 +76,7 @@ def test_flagged_agents_lists_each_agent_once(client) -> None:
 
 
 def test_flagged_agents_only_reports_latest_analysis_period(client) -> None:
-    client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
+    login(client, ANALYST)
     latest_period = _latest_period_by_agent()
 
     for row in client.get("/api/flagged-agents").get_json()["flagged_agents"]:
@@ -91,14 +84,14 @@ def test_flagged_agents_only_reports_latest_analysis_period(client) -> None:
 
 
 def test_flagged_agents_matches_flagged_status_in_all_agents(client) -> None:
-    client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
+    login(client, ANALYST)
     flagged_ids = {a["agent_id"] for a in client.get("/api/flagged-agents").get_json()["flagged_agents"]}
     all_agents = client.get("/api/all-agents").get_json()["agents"]
     assert flagged_ids == {a["agent_id"] for a in all_agents if a["status"] == "flagged"}
 
 
 def test_analytics_counts_each_agent_once(client) -> None:
-    client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
+    login(client, ANALYST)
     all_agents = client.get("/api/all-agents").get_json()["agents"]
     scored = [a for a in all_agents if a["suspicion_score"] is not None]
     flagged = [a for a in scored if a["status"] == "flagged"]
@@ -110,7 +103,7 @@ def test_analytics_counts_each_agent_once(client) -> None:
 
 
 def test_agent_detail_returns_features_for_known_agent(client) -> None:
-    client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
+    login(client, ANALYST)
     response = client.get("/api/agents/A1104")
     assert response.status_code == 200
     body = response.get_json()
@@ -119,14 +112,14 @@ def test_agent_detail_returns_features_for_known_agent(client) -> None:
 
 
 def test_agent_detail_includes_collusion_score(client) -> None:
-    client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
+    login(client, ANALYST)
     features = client.get("/api/agents/A1104").get_json()["features"]
     assert "collusion_score" in features
     assert 0.0 <= features["collusion_score"] <= 1.0
 
 
 def test_agent_detail_uses_the_same_latest_vector_as_all_agents(client) -> None:
-    client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
+    login(client, ANALYST)
     detail = client.get("/api/agents/A1104").get_json()
     listed = next(a for a in client.get("/api/all-agents").get_json()["agents"] if a["agent_id"] == "A1104")
 
@@ -136,7 +129,7 @@ def test_agent_detail_uses_the_same_latest_vector_as_all_agents(client) -> None:
 
 
 def test_agent_detail_includes_context_separate_from_features(client) -> None:
-    client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
+    login(client, ANALYST)
     body = client.get("/api/agents/A1104").get_json()
 
     assert "context" in body
@@ -153,7 +146,7 @@ def test_agent_detail_includes_context_separate_from_features(client) -> None:
 def test_agent_detail_context_lists_only_known_clients_and_categories(client) -> None:
     from src.data_generation import CLIENTS, CATEGORIES
 
-    client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
+    login(client, ANALYST)
     context = client.get("/api/agents/A1104").get_json()["context"]
 
     assert set(context["client_ids"]) <= set(CLIENTS)
@@ -161,13 +154,13 @@ def test_agent_detail_context_lists_only_known_clients_and_categories(client) ->
 
 
 def test_agent_detail_returns_404_for_unknown_agent(client) -> None:
-    client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
+    login(client, ANALYST)
     response = client.get("/api/agents/NONEXISTENT")
     assert response.status_code == 404
 
 
 def test_logout_revokes_session(client) -> None:
-    client.post("/api/login", json={"username": "admin", "password": "ChangeMe123!"})
+    login(client, ANALYST)
     client.post("/api/logout")
 
     response = client.get("/api/flagged-agents")

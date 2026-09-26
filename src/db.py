@@ -2,7 +2,8 @@
 Database models and connection setup for the SalesMesh fraud detection system.
 
 Defines the five entities from the ERD (Section 3.4.3):
-Agents, Activation Records, Feature Vectors, Fraud Flags, Review Decisions.
+Agents, Activation Records, Feature Vectors, Fraud Flags, Review Decisions,
+plus the Admin Action Log audit trail.
 
 Uses SQLAlchemy as the ORM (Section 3.5.4), connecting to PostgreSQL.
 """
@@ -10,7 +11,7 @@ Uses SQLAlchemy as the ORM (Section 3.5.4), connecting to PostgreSQL.
 import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text, Column, String, Integer, Float, DateTime, ForeignKey, Boolean
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship, validates
 from datetime import datetime
 
 load_dotenv()
@@ -26,6 +27,10 @@ DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_POR
 engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
+
+DECISION_PENDING = "pending_confirmation"
+DECISION_CONFIRMED = "confirmed"
+DECISION_STATUSES = (DECISION_PENDING, DECISION_CONFIRMED)
 
 
 # --- Entity: Agents ---
@@ -100,8 +105,30 @@ class ReviewDecision(Base):
     reviewer_id = Column(String)
     decision_outcome = Column(String)
     decision_timestamp = Column(DateTime, default=datetime.utcnow)
+    # Dual control: a fraud_analyst proposes the decision, and it only takes
+    # effect once a different admin with the compliance_officer role confirms it.
+    status = Column(String, nullable=False, default=DECISION_PENDING)
+    confirmed_by = Column(String)
 
     fraud_flag = relationship("FraudFlag", back_populates="review_decision")
+
+    @validates("status")
+    def validate_status(self, key, value):
+        if value not in DECISION_STATUSES:
+            raise ValueError(f"status must be one of {DECISION_STATUSES}, got {value!r}")
+        return value
+
+
+# --- Audit trail: Admin Action Log ---
+class AdminActionLog(Base):
+    __tablename__ = "admin_action_log"
+
+    log_id = Column(String, primary_key=True)
+    admin_id = Column(String, nullable=False)
+    # e.g. "login", "logout", "propose_decision", "confirm_decision"
+    action = Column(String, nullable=False)
+    target_agent_id = Column(String)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 def migrate_schema():
@@ -123,10 +150,22 @@ def migrate_schema():
         conn.execute(text(
             "ALTER TABLE activation_records ADD COLUMN IF NOT EXISTS category VARCHAR"
         ))
+        # Decisions recorded before dual control existed were never confirmed
+        # by a compliance officer, so they start out pending rather than being
+        # silently treated as confirmed.
+        conn.execute(text(
+            "ALTER TABLE review_decisions ADD COLUMN IF NOT EXISTS status VARCHAR "
+            f"NOT NULL DEFAULT '{DECISION_PENDING}'"
+        ))
+        conn.execute(text(
+            "ALTER TABLE review_decisions ADD COLUMN IF NOT EXISTS confirmed_by VARCHAR"
+        ))
+        # admin_action_log is a new table, so create_all() creates it; nothing
+        # to ALTER here.
 
 
 def create_all_tables():
-    """Creates all five tables if they don't already exist, then applies column migrations."""
+    """Creates all tables if they don't already exist, then applies column migrations."""
     Base.metadata.create_all(engine)
     migrate_schema()
     print("All tables created successfully.")
