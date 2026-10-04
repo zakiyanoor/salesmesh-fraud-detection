@@ -1,6 +1,13 @@
+import sys
 from datetime import datetime
+from pathlib import Path
 
 import pytest
+
+# The synthetic data generator lives in ml/ (repo root); some tests use it to
+# build fixtures and known client/category lists. App code never imports ml/.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "ml"))
+
 from tests.helpers import TEST_ADMIN_IDS
 
 

@@ -3,7 +3,7 @@ from datetime import datetime
 from types import SimpleNamespace
 import numpy as np
 from faker import Faker
-import src.data_generation as data_generation
+import data_generation
 from src.detector import FEATURE_COLUMNS, FraudDetector
 from src.pipeline import (
     build_feature_row,

@@ -144,7 +144,7 @@ def test_agent_detail_includes_context_separate_from_features(client) -> None:
 
 
 def test_agent_detail_context_lists_only_known_clients_and_categories(client) -> None:
-    from src.data_generation import CLIENTS, CATEGORIES
+    from data_generation import CLIENTS, CATEGORIES
 
     login(client, ANALYST)
     context = client.get("/api/agents/A1104").get_json()["context"]

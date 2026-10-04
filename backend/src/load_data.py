@@ -9,10 +9,14 @@ feature engineering, and model scripts have produced their CSV outputs.
 
 import pandas as pd
 from datetime import datetime
+from pathlib import Path
 from src.db import get_session, Agent, ActivationRecord, FeatureVector, FraudFlag
 
+# The CSVs are produced by the scripts in ml/ (repo root), not by the backend.
+SYNTHETIC_DATA_DIR = Path(__file__).resolve().parents[2] / "ml" / "data" / "synthetic"
+
 def load_agents(session):
-    df = pd.read_csv("data/synthetic/agents.csv")
+    df = pd.read_csv(SYNTHETIC_DATA_DIR / "agents.csv")
     for _, row in df.iterrows():
         agent = Agent(
             agent_id=row["agent_id"],
@@ -25,7 +29,7 @@ def load_agents(session):
 
 
 def load_activation_records(session):
-    df = pd.read_csv("data/synthetic/activation_records.csv")
+    df = pd.read_csv(SYNTHETIC_DATA_DIR / "activation_records.csv")
     for _, row in df.iterrows():
         record = ActivationRecord(
             record_id=row["record_id"],
@@ -42,7 +46,7 @@ def load_activation_records(session):
 
 
 def load_feature_vectors(session):
-    df = pd.read_csv("data/synthetic/feature_vectors.csv")
+    df = pd.read_csv(SYNTHETIC_DATA_DIR / "feature_vectors.csv")
     for _, row in df.iterrows():
         vector = FeatureVector(
             vector_id=row["vector_id"],
@@ -62,7 +66,7 @@ def load_fraud_flags(session):
     Loads the LOF results as the primary fraud flags, since LOF was
     selected as the best-performing model (Section 3.2.4).
     """
-    df = pd.read_csv("data/synthetic/fraud_flags_lof.csv")
+    df = pd.read_csv(SYNTHETIC_DATA_DIR / "fraud_flags_lof.csv")
     for _, row in df.iterrows():
         flag = FraudFlag(
             flag_id=row["flag_id"],
