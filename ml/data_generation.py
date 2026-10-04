@@ -13,25 +13,63 @@ Three fraud sub-patterns are modelled, matching the literature basis:
 3. Collusion: two or more agents share overlapping customer_id values
    (Concept Note: "collude with others"; Chang et al., 2024)
 
+Version 2 (harder, less separable data). The v1 generator made every fraud
+agent trivially separable: fraud submitted only at 01:00-03:00, used 5-digit
+customer ids (legit used 6-digit), submitted ~8x the legit volume, and all
+three rings were the same template. v2 changes:
+- The three collusion rings are structurally different (RING_CONFIGS): ring
+  size (4/3/2 agents), shared pool size (300/120/40 customers), submission
+  timing (late night / evening / business hours) and daily volume all vary.
+- Fraud agents mix in normal-looking activity (FRAUD_NORMAL_ACTIVITY_SHARE of
+  their submissions use a fresh customer id at a normal daytime hour) and skip
+  some days, so no fraud agent is a pure pattern.
+- Fraud daily volume overlaps the legit range instead of sitting far above it.
+- A handful of legitimate agents overlap fraud behaviour: some submit
+  occasionally at night, some have regular repeat customers, some are simply
+  high-volume.
+- Every customer id is a 6-digit CUSTnnnnnn for every agent, so id length no
+  longer encodes the label.
+- Registration dates are relative to ANALYSIS_START rather than "now", so the
+  output is identical whenever it is regenerated with the same seed.
+
+agents.csv also carries `profile` (e.g. legit, legit_night, ring_1,
+sequential) and `ring_id`. These are ground-truth labels for evaluation and
+analysis only: no feature or model may read them.
+
 Each activation record also carries client_id and category: which client
 account and product line the agent was activating a customer for. These
 reflect the shared platform entities described in the SRS (Section 6.1) and
 are attached independently of fraud status, so they provide operational
 context on an agent's profile without acting as fraud signals themselves.
 
-Output: data/synthetic/agents.csv and data/synthetic/activation_records.csv
+Usage: python data_generation.py [--seed N] [--out-dir DIR]
+Output: <out-dir>/agents.csv and <out-dir>/activation_records.csv
+        (default out-dir: data/synthetic next to this file)
 """
 
-import pandas as pd
-import numpy as np
+import argparse
 import random
-from datetime import datetime
+from datetime import timedelta
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 from faker import Faker
 
+DEFAULT_SEED = 42
+DEFAULT_OUT_DIR = Path(__file__).resolve().parent / "data" / "synthetic"
+
 fake = Faker()
-Faker.seed(42)
-random.seed(42)
-np.random.seed(42)
+
+
+def seed_everything(seed):
+    """Seeds every random source the generator uses, so a seed fully determines the output."""
+    Faker.seed(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+
+
+seed_everything(DEFAULT_SEED)
 
 REGIONS = ["Nairobi", "Mombasa", "Kisumu", "Nakuru", "Eldoret"]
 
@@ -49,11 +87,69 @@ CATEGORIES = ["fintech", "fashion", "technology", "healthcare", "agriculture", "
 
 NUM_LEGIT_AGENTS = 100
 NUM_FRAUD_AGENTS = 15
-NUM_COLLUSION_RINGS = 3
-AGENTS_PER_RING = 3
 
-ANALYSIS_START = datetime(2026, 8, 1)
-ANALYSIS_END = datetime(2026, 8, 30)
+ANALYSIS_START = pd.Timestamp(2026, 8, 1)
+ANALYSIS_END = pd.Timestamp(2026, 8, 30)
+
+# Every customer id, legit or fraud, is CUST + 6 digits.
+CUSTOMER_ID_MIN = 100000
+CUSTOMER_ID_MAX = 999999
+
+# --- Legitimate agents ---
+LEGIT_DAILY_RANGE = (1, 8)
+LEGIT_ACTIVE_DAY_PROB = 0.85
+
+# A handful of legit agents overlap fraud behaviour (disjoint groups):
+LEGIT_NIGHT_AGENTS = 6         # occasionally submit late at night
+LEGIT_NIGHT_SHARE = 0.15       # share of their submissions at 00:00-04:59
+LEGIT_REPEAT_AGENTS = 6        # have regular repeat customers
+LEGIT_REPEAT_POOL_SIZE = 8     # size of each such agent's regular-customer list
+# Share of their submissions to a regular customer, drawn per agent: some legit
+# agents (renewals, top-ups) reuse customers heavily.
+LEGIT_REPEAT_SHARE_RANGE = (0.15, 0.50)
+LEGIT_BUSY_AGENTS = 4          # high-volume but otherwise normal
+LEGIT_BUSY_DAILY_RANGE = (6, 14)
+
+# --- Fraudulent agents ---
+FRAUD_ACTIVE_DAY_PROB = 0.90
+# Share of each fraud agent's submissions that look normal (fresh customer id,
+# normal daytime hour), so fraud agents are not pure patterns.
+FRAUD_NORMAL_ACTIVITY_SHARE = 0.30
+
+# Three structurally different rings (9 agents in total).
+RING_CONFIGS = [
+    {"size": 4, "pool_size": 300, "hours": "late_night", "daily_range": (8, 20)},
+    {"size": 3, "pool_size": 120, "hours": "evening", "daily_range": (5, 14)},
+    {"size": 2, "pool_size": 40, "hours": "business", "daily_range": (3, 10)},
+]
+NUM_COLLUSION_RINGS = len(RING_CONFIGS)
+
+# The remaining 6 fraud agents are split evenly between the two solo patterns.
+SEQUENTIAL_CONFIG = {"hours": "late_night", "daily_range": (6, 18)}
+DUPLICATE_CONFIG = {"hours": "early_morning", "daily_range": (5, 15), "pool_size": 25}
+
+
+def sample_hour(profile):
+    """Submission hour for a timing profile."""
+    if profile == "normal":
+        return int(np.clip(np.random.normal(loc=13, scale=3), 7, 19))
+    if profile == "business":
+        return int(np.clip(np.random.normal(loc=14, scale=2), 8, 18))
+    if profile == "late_night":
+        return random.randint(0, 4)
+    if profile == "early_morning":
+        return random.randint(4, 7)
+    if profile == "evening":
+        return random.randint(18, 23)
+    raise ValueError(f"unknown timing profile {profile!r}")
+
+
+def make_timestamp(day, hour):
+    return day.replace(hour=hour, minute=random.randint(0, 59), second=random.randint(0, 59))
+
+
+def random_customer_id():
+    return f"CUST{random.randint(CUSTOMER_ID_MIN, CUSTOMER_ID_MAX)}"
 
 
 def generate_agents(num_legit, num_fraud):
@@ -63,118 +159,137 @@ def generate_agents(num_legit, num_fraud):
     for _ in range(num_legit):
         agents.append({
             "agent_id": f"A{agent_id}",
-            "registration_timestamp": fake.date_time_between(start_date="-1y", end_date="-1m"),
+            "registration_timestamp": fake.date_time_between(
+                start_date=ANALYSIS_START - timedelta(days=365), end_date=ANALYSIS_START - timedelta(days=30)
+            ),
             "region": random.choice(REGIONS),
-            "is_fraud": False
+            "is_fraud": False,
         })
         agent_id += 1
 
     for _ in range(num_fraud):
         agents.append({
             "agent_id": f"A{agent_id}",
-            "registration_timestamp": fake.date_time_between(start_date="-6m", end_date="-2w"),
+            "registration_timestamp": fake.date_time_between(
+                start_date=ANALYSIS_START - timedelta(days=180), end_date=ANALYSIS_START - timedelta(days=14)
+            ),
             "region": random.choice(REGIONS),
-            "is_fraud": True
+            "is_fraud": True,
         })
         agent_id += 1
 
     return pd.DataFrame(agents)
 
 
-def random_timestamp_legit(day):
-    hour = int(np.clip(np.random.normal(loc=13, scale=3), 7, 19))
-    minute = random.randint(0, 59)
-    return day.replace(hour=hour, minute=minute, second=random.randint(0, 59))
+def assign_profiles(agents_df):
+    """
+    Returns {agent_id: (profile, ring_index or None)} for every agent.
 
+    Legit agents: LEGIT_NIGHT/REPEAT/BUSY_AGENTS of them get an overlapping
+    profile, the rest are plain "legit". Fraud agents: rings filled in
+    RING_CONFIGS order, the remainder split between sequential and duplicate.
+    """
+    legit_ids = agents_df[~agents_df["is_fraud"]]["agent_id"].tolist()
+    fraud_ids = agents_df[agents_df["is_fraud"]]["agent_id"].tolist()
+    random.shuffle(legit_ids)
+    random.shuffle(fraud_ids)
 
-def random_timestamp_fraud(day):
-    hour = random.choice([1, 2, 3])
-    minute = random.randint(0, 59)
-    return day.replace(hour=hour, minute=minute, second=random.randint(0, 59))
+    profiles = {}
+    special = (
+        ["legit_night"] * LEGIT_NIGHT_AGENTS
+        + ["legit_repeat"] * LEGIT_REPEAT_AGENTS
+        + ["legit_busy"] * LEGIT_BUSY_AGENTS
+    )
+    for i, agent_id in enumerate(legit_ids):
+        profiles[agent_id] = (special[i] if i < len(special) else "legit", None)
 
+    position = 0
+    for ring_index, config in enumerate(RING_CONFIGS):
+        for agent_id in fraud_ids[position:position + config["size"]]:
+            profiles[agent_id] = (f"ring_{ring_index + 1}", ring_index)
+        position += config["size"]
 
-def generate_legit_customer_id():
-    return f"CUST{random.randint(100000, 999999)}"
-
-
-def assign_fraud_agent_pools(fraud_agent_ids, num_rings, agents_per_ring):
-    fraud_agent_ids = list(fraud_agent_ids)
-    random.shuffle(fraud_agent_ids)
-
-    ring_agents = fraud_agent_ids[: num_rings * agents_per_ring]
-    remaining = fraud_agent_ids[num_rings * agents_per_ring:]
-
-    rings = [ring_agents[i:i + agents_per_ring] for i in range(0, len(ring_agents), agents_per_ring)]
-
+    remaining = fraud_ids[position:]
     half = len(remaining) // 2
-    solo_sequential = remaining[:half]
-    solo_duplicate = remaining[half:]
+    for agent_id in remaining[:half]:
+        profiles[agent_id] = ("sequential", None)
+    for agent_id in remaining[half:]:
+        profiles[agent_id] = ("duplicate", None)
 
-    return rings, solo_sequential, solo_duplicate
+    return profiles
 
 
-def generate_activation_records(agents_df):
-    records = []
-    record_id = 5000
+def generate_activation_records(agents_df, profiles=None):
+    """
+    Generates activation records for every agent. `profiles` (from
+    assign_profiles) is drawn here when not supplied.
+    """
+    if profiles is None:
+        profiles = assign_profiles(agents_df)
+
     days = pd.date_range(ANALYSIS_START, ANALYSIS_END, freq="D")
 
-    fraud_agent_ids = agents_df[agents_df["is_fraud"]]["agent_id"].tolist()
-    rings, solo_sequential, solo_duplicate = assign_fraud_agent_pools(
-        fraud_agent_ids, NUM_COLLUSION_RINGS, AGENTS_PER_RING
-    )
+    ring_pools = []
+    for config in RING_CONFIGS:
+        base = random.randint(CUSTOMER_ID_MIN, CUSTOMER_ID_MAX - config["pool_size"])
+        ring_pools.append([f"CUST{base + j}" for j in range(config["pool_size"])])
 
-    ring_pools = {}
-    for i, ring in enumerate(rings):
-        shared_base = random.randint(20000, 79000)
-        ring_pools[i] = [f"CUST{shared_base + j}" for j in range(200)]
-
-    ring_lookup = {}
-    for i, ring in enumerate(rings):
-        for agent_id in ring:
-            ring_lookup[agent_id] = i
+    records = []
+    record_id = 5000
 
     for _, agent in agents_df.iterrows():
-        agent_id_val = agent["agent_id"]
+        agent_id = agent["agent_id"]
+        profile, ring_index = profiles[agent_id]
+
+        # Per-agent state for the pattern-specific customer-id generators.
+        seq_next = random.randint(CUSTOMER_ID_MIN, CUSTOMER_ID_MAX - 2000)
+        duplicate_pool = [random_customer_id() for _ in range(DUPLICATE_CONFIG["pool_size"])]
+        regulars = [random_customer_id() for _ in range(LEGIT_REPEAT_POOL_SIZE)]
+        repeat_share = random.uniform(*LEGIT_REPEAT_SHARE_RANGE)
 
         if agent["is_fraud"]:
-            daily_count_range = (15, 45)
-            timestamp_fn = random_timestamp_fraud
+            if ring_index is not None:
+                config = RING_CONFIGS[ring_index]
+            elif profile == "sequential":
+                config = SEQUENTIAL_CONFIG
+            else:
+                config = DUPLICATE_CONFIG
+            daily_range = config["daily_range"]
+            active_prob = FRAUD_ACTIVE_DAY_PROB
         else:
-            daily_count_range = (1, 8)
-            timestamp_fn = random_timestamp_legit
-
-        pattern = None
-        if agent["is_fraud"]:
-            if agent_id_val in ring_lookup:
-                pattern = "collusion"
-            elif agent_id_val in solo_sequential:
-                pattern = "sequential"
-                seq_base = random.randint(10000, 19000)
-            elif agent_id_val in solo_duplicate:
-                pattern = "duplicate"
-                duplicate_pool = [f"CUST{random.randint(10000, 99999)}" for _ in range(20)]
+            daily_range = LEGIT_BUSY_DAILY_RANGE if profile == "legit_busy" else LEGIT_DAILY_RANGE
+            active_prob = LEGIT_ACTIVE_DAY_PROB
 
         for day in days:
-            if random.random() > 0.85 and not agent["is_fraud"]:
+            if random.random() > active_prob:
                 continue
 
-            n_submissions = random.randint(*daily_count_range)
-            for _ in range(n_submissions):
+            for _ in range(random.randint(*daily_range)):
                 if agent["is_fraud"]:
-                    if pattern == "collusion":
-                        customer_id = random.choice(ring_pools[ring_lookup[agent_id_val]])
-                    elif pattern == "sequential":
-                        customer_id = f"CUST{seq_base}"
-                        seq_base += 1
+                    if random.random() < FRAUD_NORMAL_ACTIVITY_SHARE:
+                        customer_id, hour = random_customer_id(), sample_hour("normal")
                     else:
-                        customer_id = random.choice(duplicate_pool)
+                        hour = sample_hour(config["hours"])
+                        if ring_index is not None:
+                            customer_id = random.choice(ring_pools[ring_index])
+                        elif profile == "sequential":
+                            customer_id = f"CUST{seq_next}"
+                            seq_next += 1
+                        else:
+                            customer_id = random.choice(duplicate_pool)
                 else:
-                    customer_id = generate_legit_customer_id()
+                    hour = sample_hour("normal")
+                    if profile == "legit_night" and random.random() < LEGIT_NIGHT_SHARE:
+                        hour = sample_hour("late_night")
+                    if profile == "legit_repeat" and random.random() < repeat_share:
+                        customer_id = random.choice(regulars)
+                    else:
+                        customer_id = random_customer_id()
 
                 records.append({
                     "record_id": f"R{record_id}",
-                    "agent_id": agent_id_val,
-                    "timestamp": timestamp_fn(day),
+                    "agent_id": agent_id,
+                    "timestamp": make_timestamp(day, hour),
                     "customer_id": customer_id,
                     "activation_status": random.choices(
                         ["completed", "pending", "failed"], weights=[0.85, 0.1, 0.05]
@@ -188,24 +303,35 @@ def generate_activation_records(agents_df):
     return pd.DataFrame(records)
 
 
-def main():
-    print("Generating synthetic agents...")
+def generate_dataset(seed=DEFAULT_SEED):
+    """Returns (agents_df, activations_df) for a seed; agents_df includes the profile labels."""
+    seed_everything(seed)
     agents_df = generate_agents(NUM_LEGIT_AGENTS, NUM_FRAUD_AGENTS)
+    profiles = assign_profiles(agents_df)
+    activations_df = generate_activation_records(agents_df, profiles)
+    agents_df["profile"] = agents_df["agent_id"].map(lambda a: profiles[a][0])
+    agents_df["ring_id"] = agents_df["agent_id"].map(
+        lambda a: f"ring_{profiles[a][1] + 1}" if profiles[a][1] is not None else ""
+    )
+    return agents_df, activations_df
 
-    print("Generating synthetic activation records...")
-    activations_df = generate_activation_records(agents_df)
 
-    import os
-    os.makedirs("data/synthetic", exist_ok=True)
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[1])
+    parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
+    args = parser.parse_args(argv)
 
-    agents_df.to_csv("data/synthetic/agents.csv", index=False)
-    activations_df.to_csv("data/synthetic/activation_records.csv", index=False)
+    print(f"Generating synthetic agents and activation records (seed {args.seed})...")
+    agents_df, activations_df = generate_dataset(args.seed)
+
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    agents_df.to_csv(args.out_dir / "agents.csv", index=False)
+    activations_df.to_csv(args.out_dir / "activation_records.csv", index=False)
 
     print(f"Done. {len(agents_df)} agents, {len(activations_df)} activation records.")
-    print(f"  - Legitimate agents: {NUM_LEGIT_AGENTS}")
-    print(f"  - Fraud-pattern agents: {NUM_FRAUD_AGENTS}")
-    print(f"    - Collusion rings: {NUM_COLLUSION_RINGS} rings of {AGENTS_PER_RING} agents each")
-    print("Saved to data/synthetic/agents.csv and data/synthetic/activation_records.csv")
+    print(agents_df["profile"].value_counts().to_string())
+    print(f"Saved to {args.out_dir / 'agents.csv'} and {args.out_dir / 'activation_records.csv'}")
 
 
 if __name__ == "__main__":

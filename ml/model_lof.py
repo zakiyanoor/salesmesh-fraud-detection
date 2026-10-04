@@ -1,109 +1,92 @@
-# Superseded by pipeline.py and detector.py; kept for historical reference of the original model comparison.
 """
 Local Outlier Factor (LOF) model for the SalesMesh fraud detection system.
 
-Trains LOF on the same standardised feature matrix used for Isolation Forest
-(submission_frequency, time_of_day_dist, customer_similarity), per Section
-3.2.3 and 3.5.6 of the proposal. LOF measures local density: an agent whose
-neighbourhood is much sparser than its neighbours' neighbourhoods is flagged
-as anomalous, which can catch agents unusual relative to a sub-group even
-if they are not extreme outliers overall.
+Trains LOF on the same standardised feature matrix used for Isolation Forest,
+per Sections 3.2.3 and 3.5.6 of the proposal. LOF measures local density: an
+agent whose neighbourhood is much sparser than its neighbours'
+neighbourhoods is flagged as anomalous, which can catch agents unusual
+relative to a sub-group even if they are not extreme outliers overall.
 
-Input: data/synthetic/feature_vectors.csv, data/synthetic/agents.csv
-Output: data/synthetic/fraud_flags_lof.csv
+v2 changes: fitted on the TRAINING agents only (split.py), with a scaler
+fitted on the training partition only and contamination =
+preprocessing.CONTAMINATION (an assumption, not the known fraud share).
+novelty=True is required so the fitted model can score agents it was not
+trained on (the test set). With novelty=True, scikit-learn's
+score_samples/predict are only valid on new data, so training-agent scores
+come from negative_outlier_factor_ instead. LOF is deterministic: the seed
+does not affect it. This script no longer reports metrics: test-set
+evaluation happens only in evaluate.py.
+
+Note: the live backend detector (backend/src/detector.py) still refits LOF
+with novelty=False and contamination=0.13 on every detection cycle; it was not
+changed by this redesign.
+
+Usage: python model_lof.py [--data-dir DIR]
+Input:  <data-dir>/feature_vectors.csv, agents.csv, train_test_split.csv
+Output: <data-dir>/fraud_flags_lof.csv (one row per agent, with its split)
 """
 
-import pandas as pd
-import numpy as np
+import argparse
+from dataclasses import dataclass
+from pathlib import Path
+
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
 
-FEATURE_COLUMNS = ["submission_frequency", "time_of_day_dist", "customer_similarity", "collusion_score"]
+from data_generation import DEFAULT_OUT_DIR, DEFAULT_SEED
+from preprocessing import CONTAMINATION, fit_scaler, flags_frame, load_partitions, scaled_features, write_flags
 
-CONTAMINATION = 0.13
+MODEL_VERSION = "lof_v2"
 N_NEIGHBORS = 20
 
 
-def load_data():
-    features_df = pd.read_csv("data/synthetic/feature_vectors.csv")
-    agents_df = pd.read_csv("data/synthetic/agents.csv")
-    merged = features_df.merge(agents_df[["agent_id", "is_fraud"]], on="agent_id", how="left")
-    return merged
+@dataclass
+class FittedLOF:
+    scaler: StandardScaler
+    model: LocalOutlierFactor
+
+    def score(self, df):
+        """Anomaly score per agent NOT in the training set; higher = more anomalous."""
+        return -self.model.score_samples(scaled_features(self.scaler, df))
+
+    def flag(self, df):
+        return self.model.predict(scaled_features(self.scaler, df)) == -1
+
+    def train_scores(self):
+        return -self.model.negative_outlier_factor_
+
+    def train_flags(self):
+        return self.model.negative_outlier_factor_ < self.model.offset_
 
 
-def train_lof(df):
-    X = df[FEATURE_COLUMNS].values
+def fit_detector(train_df, seed=DEFAULT_SEED, contamination=CONTAMINATION):
+    """Fits the scaler and LOF (novelty mode) on the training partition only. `seed` is unused."""
+    scaler = fit_scaler(train_df)
+    model = LocalOutlierFactor(n_neighbors=N_NEIGHBORS, contamination=contamination, novelty=True)
+    model.fit(scaled_features(scaler, train_df))
+    return FittedLOF(scaler, model)
 
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
 
-    model = LocalOutlierFactor(
-        n_neighbors=N_NEIGHBORS,
-        contamination=CONTAMINATION,
-        novelty=False,
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Train Local Outlier Factor on the training agents.")
+    parser.add_argument("--data-dir", type=Path, default=DEFAULT_OUT_DIR)
+    args = parser.parse_args(argv)
+
+    train_df, test_df = load_partitions(args.data_dir)
+    print(f"Training Local Outlier Factor on {len(train_df)} training agents (contamination {CONTAMINATION})...")
+    detector = fit_detector(train_df)
+
+    train_scores = detector.train_scores()
+    train_flags = detector.train_flags()
+    frame = write_flags(
+        args.data_dir / "fraud_flags_lof.csv",
+        flags_frame(train_df, train_scores, train_flags, train_scores, MODEL_VERSION),
+        flags_frame(test_df, detector.score(test_df), detector.flag(test_df), train_scores, MODEL_VERSION),
     )
 
-    predictions = model.fit_predict(X_scaled)
-    flagged = (predictions == -1)
-
-    raw_scores = model.negative_outlier_factor_
-    suspicion_score = 1 - (raw_scores - raw_scores.min()) / (raw_scores.max() - raw_scores.min())
-
-    return suspicion_score, flagged
-
-
-def evaluate(df, suspicion_score, flagged, label):
-    y_true = df["is_fraud"].astype(int).values
-    y_pred = flagged.astype(int)
-
-    precision = precision_score(y_true, y_pred, zero_division=0)
-    recall = recall_score(y_true, y_pred, zero_division=0)
-    f1 = f1_score(y_true, y_pred, zero_division=0)
-    roc_auc = roc_auc_score(y_true, suspicion_score)
-
-    tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
-
-    print(f"\n--- {label} Evaluation (development validation only) ---")
-    print(f"Precision: {precision:.3f}")
-    print(f"Recall:    {recall:.3f}")
-    print(f"F1-score:  {f1:.3f}")
-    print(f"ROC-AUC:   {roc_auc:.3f}")
-    print(f"\nConfusion matrix:")
-    print(f"  True negatives  (legit, not flagged): {tn}")
-    print(f"  False positives (legit, flagged):     {fp}")
-    print(f"  False negatives (fraud, not flagged): {fn}")
-    print(f"  True positives  (fraud, flagged):     {tp}")
-
-    return {"precision": precision, "recall": recall, "f1": f1, "roc_auc": roc_auc}
-
-
-def main():
-    print("Loading feature vectors and agent labels...")
-    df = load_data()
-
-    print("Training Local Outlier Factor...")
-    suspicion_score, flagged = train_lof(df)
-
-    df["suspicion_score"] = suspicion_score
-    df["flag_status"] = np.where(flagged, "flagged", "clear")
-    df["model_version"] = "lof_v1"
-
-    output_df = df[[
-        "vector_id", "agent_id", "suspicion_score", "flag_status", "model_version"
-    ]].copy()
-    output_df.insert(0, "flag_id", [f"FL{i+1}" for i in range(len(output_df))])
-
-    output_df.to_csv("data/synthetic/fraud_flags_lof.csv", index=False)
-
-    print(f"\nDone. {flagged.sum()} agents flagged out of {len(df)} total.")
-    print("\nTop 10 most suspicious agents (LOF):")
-    top10 = df.sort_values("suspicion_score", ascending=False).head(10)
-    print(top10[["agent_id", "is_fraud", "suspicion_score", "flag_status"]].to_string(index=False))
-
-    evaluate(df, suspicion_score, flagged, "Local Outlier Factor")
-
-    print("\nSaved to data/synthetic/fraud_flags_lof.csv")
+    print(f"Done. {int(train_flags.sum())} of {len(train_df)} training agents flagged; "
+          f"{len(test_df)} test agents scored (not evaluated here, see evaluate.py).")
+    print(f"Saved {len(frame)} flags to {args.data_dir / 'fraud_flags_lof.csv'}")
 
 
 if __name__ == "__main__":
