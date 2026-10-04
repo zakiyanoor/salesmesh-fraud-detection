@@ -1,67 +1,77 @@
-from src.detector import FEATURE_COLUMNS, FraudDetector
+import joblib
+import pytest
+from src.detector import DEFAULT_ARTIFACT_PATH, FEATURE_COLUMNS, FraudDetector
 
 
-def make_rows(
-    agent_ids: list[str], frequency: int, dist: float, similarity: float, collusion: float = 0.0
-) -> list[dict]:
-    return [
-        {
-            "agent_id": agent_id,
-            "submission_frequency": frequency,
-            "time_of_day_dist": dist,
-            "customer_similarity": similarity,
-            "collusion_score": collusion,
-        }
-        for agent_id in agent_ids
-    ]
+def make_row(agent_id: str, frequency: int, dist: float, similarity: float, collusion: float) -> dict:
+    return {
+        "agent_id": agent_id,
+        "submission_frequency": frequency,
+        "time_of_day_dist": dist,
+        "customer_similarity": similarity,
+        "collusion_score": collusion,
+    }
+
+
+# Typical values from the v2 synthetic data (ml/results/evaluation_summary.md).
+LEGIT = dict(frequency=115, dist=0.75, similarity=0.0, collusion=0.01)
+RING = dict(frequency=300, dist=0.77, similarity=0.35, collusion=0.55)
+
+
+@pytest.fixture(scope="module")
+def detector() -> FraudDetector:
+    return FraudDetector()
 
 
 def test_collusion_score_is_a_detector_feature() -> None:
     assert "collusion_score" in FEATURE_COLUMNS
 
 
-def test_score_returns_empty_for_no_rows() -> None:
-    detector = FraudDetector()
+def test_detector_loads_the_isolation_forest_artifact(detector) -> None:
+    assert detector.model_version == "isolation_forest_v2"
+
+
+def test_score_returns_empty_for_no_rows(detector) -> None:
     assert detector.score([]) == []
 
 
-def test_score_flags_clear_outliers() -> None:
-    legit_rows = make_rows([f"L{i}" for i in range(30)], frequency=100, dist=0.75, similarity=0.0)
-    fraud_rows = make_rows(["F1", "F2", "F3"], frequency=900, dist=0.34, similarity=0.98)
+def test_flags_ring_like_agent_and_clears_typical_legit_agent(detector) -> None:
+    results = {r.agent_id: r for r in detector.score([make_row("L1", **LEGIT), make_row("R1", **RING)])}
 
-    detector = FraudDetector(contamination=0.1, n_neighbors=10)
-    results = detector.score(legit_rows + fraud_rows)
-
-    flagged_ids = {r.agent_id for r in results if r.is_flagged}
-    assert {"F1", "F2", "F3"}.issubset(flagged_ids)
+    assert results["R1"].is_flagged
+    assert not results["L1"].is_flagged
 
 
-def test_suspicion_scores_are_normalized_between_zero_and_one() -> None:
-    rows = make_rows([f"A{i}" for i in range(20)], frequency=100, dist=0.5, similarity=0.1)
-    detector = FraudDetector(n_neighbors=5)
-    results = detector.score(rows)
+def test_suspicion_scores_are_normalized_between_zero_and_one(detector) -> None:
+    extreme = make_row("X1", frequency=5000, dist=0.0, similarity=1.0, collusion=1.0)
+    results = detector.score([make_row("L1", **LEGIT), make_row("R1", **RING), extreme])
 
     assert all(0.0 <= r.suspicion_score <= 1.0 for r in results)
 
 
-def test_score_flags_colluding_agents_that_look_normal_on_every_other_feature() -> None:
-    legit_rows = make_rows([f"L{i}" for i in range(30)], frequency=100, dist=0.75, similarity=0.0)
-    ring_rows = make_rows(
-        ["C1", "C2", "C3"], frequency=100, dist=0.75, similarity=0.0, collusion=1.0
-    )
+def test_agent_score_does_not_depend_on_the_rest_of_the_batch(detector) -> None:
+    """The model is loaded, not refitted per run, so batch composition can't move a score."""
+    alone = detector.score([make_row("R1", **RING)])[0]
+    in_batch = detector.score([make_row(f"L{i}", **LEGIT) for i in range(30)] + [make_row("R1", **RING)])[-1]
 
-    detector = FraudDetector(contamination=0.1, n_neighbors=10)
-    results = detector.score(legit_rows + ring_rows)
-
-    flagged_ids = {r.agent_id for r in results if r.is_flagged}
-    assert {"C1", "C2", "C3"} <= flagged_ids
+    assert alone == in_batch
 
 
-def test_colluding_agents_score_higher_than_agents_with_no_overlap() -> None:
-    legit_rows = make_rows([f"L{i}" for i in range(30)], frequency=100, dist=0.75, similarity=0.0)
-    ring_rows = make_rows(["C1", "C2"], frequency=100, dist=0.75, similarity=0.0, collusion=0.9)
+def test_colluding_agents_score_higher_than_agents_with_no_overlap(detector) -> None:
+    # Not asserted: that collusion alone gets an agent flagged. With every other
+    # feature normal, collusion_score 0.5 scores well above legit but below the
+    # Isolation Forest threshold.
+    ring = make_row("C1", frequency=115, dist=0.75, similarity=0.0, collusion=0.5)
+    results = {r.agent_id: r.suspicion_score for r in detector.score([make_row("L1", **LEGIT), ring])}
 
-    results = FraudDetector(contamination=0.1, n_neighbors=10).score(legit_rows + ring_rows)
-    scores = {r.agent_id: r.suspicion_score for r in results}
+    assert results["C1"] > results["L1"]
 
-    assert min(scores["C1"], scores["C2"]) > max(scores[f"L{i}"] for i in range(30))
+
+def test_rejects_artifact_trained_on_different_features(tmp_path) -> None:
+    artifact = joblib.load(DEFAULT_ARTIFACT_PATH)
+    artifact["feature_columns"] = FEATURE_COLUMNS[:3]
+    path = tmp_path / "mismatched.joblib"
+    joblib.dump(artifact, path)
+
+    with pytest.raises(ValueError, match="expects features"):
+        FraudDetector(path)

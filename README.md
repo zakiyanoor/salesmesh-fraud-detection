@@ -11,11 +11,11 @@ Unsupervised anomaly detection (Local Outlier Factor, benchmarked against Isolat
 ## Architecture
 - **Data**: PostgreSQL (Agents, Activation Records, Feature Vectors, Fraud Flags, Review Decisions, Administrators)
 - **Backend**: Flask REST API, session-based auth, SQLAlchemy ORM
-- **Detection**: Adapter-pattern `FraudDetector` (swappable model), scheduled via APScheduler
+- **Detection**: Isolation Forest trained offline in `ml/` (`ml/model.py`) and saved to `ml/models/isolation_forest_v2.joblib`; the backend's `FraudDetector` only loads that artifact and scores agents (no refitting). Detection cycles are scheduled via APScheduler
 - **Frontend**: React + MUI dashboard
 
 ## Repository layout
-- `ml/`: offline ML work: synthetic data generation (`data_generation.py`), feature engineering (`feature_engineering.py`), the Isolation Forest / LOF model comparison scripts (`model.py`, `model_lof.py`), their outputs in `ml/data/synthetic/`, and evaluation results in `ml/results/`
+- `ml/`: offline ML pipeline: synthetic data generation, cleaning, feature engineering, train/test split, Isolation Forest / LOF / baseline models, and evaluation (data in `ml/data/synthetic/`, results in `ml/results/`)
 - `backend/`: Flask API, auth, database layer, and the live detection pipeline (`src/pipeline.py`, `src/detector.py`)
 - `frontend/`: React dashboard
 
@@ -23,15 +23,22 @@ Unsupervised anomaly detection (Local Outlier Factor, benchmarked against Isolat
 
 ### ML
 
-The ML scripts use the same virtual environment and `backend/requirements.txt`. Run them from inside `ml/` (data paths such as `data/synthetic/...` are relative to it), in this order:
+The ML scripts use the same virtual environment and `backend/requirements.txt`. Run them from inside `ml/`, in this order:
 
 ```bash
 cd ml
-python data_generation.py      # -> data/synthetic/agents.csv, activation_records.csv
-python feature_engineering.py  # -> data/synthetic/feature_vectors.csv
-python model.py                # Isolation Forest baseline -> data/synthetic/fraud_flags.csv
-python model_lof.py            # LOF -> data/synthetic/fraud_flags_lof.csv
+python data_generation.py      # synthetic agents + activation records (seed 42)
+python clean_data.py           # validity/duplicate/null/outlier checks -> results/data_cleaning_report.md
+python feature_engineering.py  # per-agent feature vectors
+python split.py                # stratified 80/20 train/test split of agents
+python model.py                # Isolation Forest, fitted on training agents only
+python model_lof.py            # LOF (novelty mode), fitted on training agents only
+python baseline.py             # submission-frequency rule baseline
+python run_experiments.py      # full pipeline over seeds 1-5 -> results/multi_seed_results.csv
+python evaluate.py             # final evaluation on the held-out test agents
 ```
+
+Results and limitations are written up in `ml/results/evaluation_summary.md`.
 
 ### Backend
 

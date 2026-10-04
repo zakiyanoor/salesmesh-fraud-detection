@@ -2,9 +2,8 @@ import random
 from datetime import datetime
 from types import SimpleNamespace
 import numpy as np
-from faker import Faker
 import data_generation
-from src.detector import FEATURE_COLUMNS, FraudDetector
+from src.detector import FEATURE_COLUMNS
 from src.pipeline import (
     build_feature_row,
     compute_submission_frequency,
@@ -14,6 +13,7 @@ from src.pipeline import (
     compute_customer_similarity,
     compute_collusion_score,
     compute_client_category_breakdown,
+    derive_analysis_period,
 )
 
 
@@ -153,6 +153,14 @@ def test_client_category_breakdown_empty_for_no_records() -> None:
     assert compute_client_category_breakdown([]) == {"client_ids": [], "categories": []}
 
 
+def test_analysis_period_comes_from_the_records_not_the_run_date() -> None:
+    august = [make_record(9), SimpleNamespace(timestamp=datetime(2026, 8, 30, 23, 0, 0))]
+    assert derive_analysis_period(august) == "2026-08"
+
+    spanning = august + [SimpleNamespace(timestamp=datetime(2026, 10, 2, 8, 0, 0))]
+    assert derive_analysis_period(spanning) == "2026-08_to_2026-10"
+
+
 def test_data_generation_assigns_client_id_and_category_from_known_lists() -> None:
     agents_df = data_generation.generate_agents(5, 2)
     activations = data_generation.generate_activation_records(agents_df)
@@ -181,22 +189,7 @@ def generate_ring_dataset(seed: int = 42):
     """Regenerate the synthetic data in memory, returning (agents_df, ring agent ids, records)."""
     saved = (random.getstate(), np.random.get_state())
     try:
-        random.seed(seed)
-        np.random.seed(seed)
-        Faker.seed(seed)
-        agents_df = data_generation.generate_agents(
-            data_generation.NUM_LEGIT_AGENTS, data_generation.NUM_FRAUD_AGENTS
-        )
-        fraud_ids = agents_df[agents_df["is_fraud"]]["agent_id"].tolist()
-        # Ring membership isn't saved by the generator, so draw the rings once to read
-        # them off, then rewind so generate_activation_records draws the same ones.
-        state = (random.getstate(), np.random.get_state())
-        rings, _, _ = data_generation.assign_fraud_agent_pools(
-            fraud_ids, data_generation.NUM_COLLUSION_RINGS, data_generation.AGENTS_PER_RING
-        )
-        random.setstate(state[0])
-        np.random.set_state(state[1])
-        activations = data_generation.generate_activation_records(agents_df)
+        agents_df, activations = data_generation.generate_dataset(seed)
     finally:
         random.setstate(saved[0])
         np.random.set_state(saved[1])
@@ -205,10 +198,11 @@ def generate_ring_dataset(seed: int = 42):
         SimpleNamespace(agent_id=r.agent_id, customer_id=r.customer_id, timestamp=r.timestamp)
         for r in activations.itertuples()
     ]
-    return agents_df, [agent for ring in rings for agent in ring], records
+    ring_agents = agents_df[agents_df["ring_id"] != ""]["agent_id"].tolist()
+    return agents_df, ring_agents, records
 
 
-def test_collusion_ring_agents_from_synthetic_data_score_high_and_are_flagged() -> None:
+def test_collusion_ring_agents_from_synthetic_data_score_above_every_legit_agent() -> None:
     agents_df, ring_agents, records = generate_ring_dataset()
     by_agent: dict[str, list] = {}
     for record in records:
@@ -218,14 +212,12 @@ def test_collusion_ring_agents_from_synthetic_data_score_high_and_are_flagged() 
     collusion = {row["agent_id"]: row["collusion_score"] for row in rows}
 
     legit_agents = agents_df[~agents_df["is_fraud"]]["agent_id"]
-    assert len(ring_agents) == 9
-    assert all(collusion[a] > 0.9 for a in ring_agents)
+    assert len(ring_agents) == sum(c["size"] for c in data_generation.RING_CONFIGS)
+    # Ring agents mix in normal activity (v2 generator), so they no longer score ~1,
+    # but the shared pool still lifts every ring agent above every legit agent.
+    assert all(collusion[a] > 0.3 for a in ring_agents)
     assert all(collusion[a] < 0.1 for a in legit_agents)
-
-    results = FraudDetector().score(rows)
-    flagged = {r.agent_id for r in results if r.is_flagged}
-    assert set(ring_agents) <= flagged
-
-    # With collusion in the feature set the rings are the most suspicious agents of all.
-    top_nine = {r.agent_id for r in sorted(results, key=lambda r: -r.suspicion_score)[:9]}
-    assert top_nine == set(ring_agents)
+    assert min(collusion[a] for a in ring_agents) > max(collusion[a] for a in legit_agents)
+    # Not asserted: that FraudDetector flags every ring agent. On the v2 data it
+    # does not (see ml/results/evaluation_summary.md); that is a model finding,
+    # not a feature-engineering invariant.

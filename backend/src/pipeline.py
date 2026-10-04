@@ -2,12 +2,10 @@ from __future__ import annotations
 import re
 import uuid
 from collections import Counter
-from datetime import datetime, timezone
 import numpy as np
 from src.db import get_session, migrate_schema, ActivationRecord, FeatureVector, FraudFlag
 from src.detector import FraudDetector
 
-MODEL_VERSION = "lof_v1"
 ANALYSIS_PERIOD_FORMAT = "%Y-%m"
 
 
@@ -78,6 +76,18 @@ def compute_client_category_breakdown(records: list) -> dict:
     }
 
 
+def derive_analysis_period(records: list) -> str:
+    """
+    The period the analysed records cover: "YYYY-MM" when they fall in one
+    calendar month, else "YYYY-MM_to_YYYY-MM". Derived from the data (as in
+    ml/feature_engineering.py), not from when the cycle runs, so re-running a
+    cycle over the same records updates that period in place.
+    """
+    timestamps = [r.timestamp for r in records]
+    first, last = min(timestamps).strftime(ANALYSIS_PERIOD_FORMAT), max(timestamps).strftime(ANALYSIS_PERIOD_FORMAT)
+    return first if first == last else f"{first}_to_{last}"
+
+
 def build_feature_row(agent_id: str, records: list, all_records: list) -> dict:
     customer_ids = [r.customer_id for r in records]
     return {
@@ -121,7 +131,10 @@ def run_detection_cycle() -> dict:
         for record in records:
             by_agent.setdefault(record.agent_id, []).append(record)
 
-        analysis_period = datetime.now(timezone.utc).strftime(ANALYSIS_PERIOD_FORMAT)
+        if not records:
+            return {"agents_processed": 0, "flagged": 0}
+
+        analysis_period = derive_analysis_period(records)
         feature_rows = [build_feature_row(agent_id, recs, records) for agent_id, recs in by_agent.items()]
 
         detector = FraudDetector()
@@ -147,10 +160,15 @@ def run_detection_cycle() -> dict:
                 session.add(flag)
             flag.suspicion_score = result.suspicion_score
             flag.flag_status = "flagged" if result.is_flagged else "clear"
-            flag.model_version = MODEL_VERSION
+            flag.model_version = detector.model_version
 
         session.commit()
-        return {"agents_processed": len(feature_rows), "flagged": sum(r.is_flagged for r in results)}
+        return {
+            "analysis_period": analysis_period,
+            "model_version": detector.model_version,
+            "agents_processed": len(feature_rows),
+            "flagged": sum(r.is_flagged for r in results),
+        }
     finally:
         session.close()
 

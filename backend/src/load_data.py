@@ -55,6 +55,7 @@ def load_feature_vectors(session):
             submission_frequency=int(row["submission_frequency"]),
             time_of_day_dist=float(row["time_of_day_dist"]),
             customer_similarity=float(row["customer_similarity"]),
+            collusion_score=float(row["collusion_score"]),
         )
         session.merge(vector)
     session.commit()
@@ -63,10 +64,12 @@ def load_feature_vectors(session):
 
 def load_fraud_flags(session):
     """
-    Loads the LOF results as the primary fraud flags, since LOF was
-    selected as the best-performing model (Section 3.2.4).
+    Loads the Isolation Forest flags (ml/model.py) as the fraud flags. They
+    are produced by the same artifact the live detector loads
+    (ml/models/isolation_forest_v2.joblib), so a detection cycle over the
+    loaded records reproduces them.
     """
-    df = pd.read_csv(SYNTHETIC_DATA_DIR / "fraud_flags_lof.csv")
+    df = pd.read_csv(SYNTHETIC_DATA_DIR / "fraud_flags.csv")
     for _, row in df.iterrows():
         flag = FraudFlag(
             flag_id=row["flag_id"],
