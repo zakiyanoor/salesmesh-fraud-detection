@@ -48,3 +48,17 @@ def test_fitted_models_see_only_feature_columns():
         assert detector.model.n_features_in_ == len(feature_engineering.FEATURE_COLUMNS)
         assert not hasattr(detector.model, "feature_names_in_") or not any(
             is_id_column(c) for c in detector.model.feature_names_in_)
+
+
+def test_real_feature_matrix_contains_no_id_columns():
+    import data_generation as dg
+
+    data = dg.generate_dataset(3, n_agents=150, fraud_rate=0.15)
+    features = feature_engineering.compute_feature_vectors(data.activations, data.agents)
+    assert {"vector_id", "agent_id"} <= set(features.columns)
+    scaler = preprocessing.fit_scaler(features)
+    matrix = preprocessing.scaled_features(scaler, features)
+    assert matrix.shape == (len(features), len(feature_engineering.FEATURE_COLUMNS))
+    assert not any(is_id_column(c) for c in feature_engineering.FEATURE_COLUMNS)
+    assert "peer_group" not in feature_engineering.FEATURE_COLUMNS
+    assert np.isfinite(matrix).all()

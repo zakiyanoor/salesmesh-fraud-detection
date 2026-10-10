@@ -1,79 +1,80 @@
 """
-Shared preprocessing for the SalesMesh fraud detection models.
+Preprocessing (Step 6): partitions and scaling.
 
-Partitions: load_partitions joins the feature vectors to the saved
-train/test split (split.py). Only the training partition may be used to fit
-anything.
+StandardScaler is fitted on TRAINING agents' features only and then applied
+(transform only) to validation and test, so no validation or test agent
+influences the means and standard deviations. is_fraud and profile are
+carried along for evaluation only; models read FEATURE_COLUMNS alone.
 
-Scaling (Step 5): fit_scaler fits StandardScaler on the TRAINING features
-only. The test partition is only ever passed to scaler.transform, so test
-agents never influence the scaling means and standard deviations.
-
-Contamination (Step 6): CONTAMINATION = 0.10 is an ASSUMPTION, not a measured
-value. v1 used 0.13, which was exactly the generator's known fraud share
-(15/115), so both models were told the true fraud rate and flagged exactly 15
-agents by construction. A real deployment does not know its fraud rate.
-0.10 was chosen as a round-number prior, without looking at any model output
-or test data, for these reasons:
-- it is a common tooling default, not a number derived from this dataset:
-  PyOD uses contamination=0.1 for its detectors, and scikit-learn's
-  IsolationForest and LocalOutlierFactor defaulted to 0.1 before v0.22;
-- at the platform level it reads as "the review team can inspect roughly 1 in
-  10 agents per cycle", a workload assumption rather than a fraud-rate claim;
-- the alternative, estimating contamination from the training features with
-  an outlier heuristic, was rejected: with 92 training agents such an
-  estimate is itself very noisy, and a heuristic tuned on the same feature
-  distribution partly re-learns the fraud share it is meant not to know.
-It is deliberately not equal to the true share (13%): the results show what
-happens when the assumed rate is wrong, as it will be in production. The
-value only sets the flag threshold, so it changes precision/recall/F1 but
-not ROC-AUC, which is threshold-free.
+Usage: python preprocessing.py [--data-dir DIR]
+Output: ml/runs/<run_id>/ with scaler.joblib, scaler_stats.csv and scaling_sample.md
 """
 
+import argparse
 from pathlib import Path
 
+import joblib
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 from data_generation import DEFAULT_OUT_DIR
 from feature_engineering import FEATURE_COLUMNS
-from split import load_split
+from split import SPLITS, load_split
 
+# Assumed flag share for the v2 model scripts; Step 9 replaces it with a validated choice.
 CONTAMINATION = 0.10
+SAMPLE_SEED = 0
+SAMPLE_PER_SPLIT = 5
 
 
 def load_partitions(data_dir=DEFAULT_OUT_DIR):
-    """
-    Returns (train_df, test_df): feature vectors joined with is_fraud and the
-    split. is_fraud is carried along for evaluation only; models must use
-    FEATURE_COLUMNS alone.
-    """
+    """Returns {split: frame} with feature vectors joined to is_fraud, profile and split."""
     data_dir = Path(data_dir)
     features = pd.read_csv(data_dir / "feature_vectors.csv")
-    labels = pd.read_csv(data_dir / "labels.csv")[["agent_id", "is_fraud"]]
+    labels = pd.read_csv(data_dir / "labels.csv", keep_default_na=False)[["agent_id", "is_fraud", "profile"]]
     df = features.merge(labels, on="agent_id").merge(load_split(data_dir), on="agent_id")
-    train_df = df[df["split"] == "train"].reset_index(drop=True)
-    test_df = df[df["split"] == "test"].reset_index(drop=True)
-    return train_df, test_df
+    return {name: df[df["split"] == name].reset_index(drop=True) for name in SPLITS}
 
 
-def fit_scaler(train_df):
+def fit_scaler(train_df, columns=None):
     """StandardScaler fitted on the training partition's features only."""
-    return StandardScaler().fit(train_df[FEATURE_COLUMNS].values)
+    columns = list(columns or FEATURE_COLUMNS)
+    return StandardScaler().fit(train_df[columns].values)
 
 
-def scaled_features(scaler, df):
+def scaled_features(scaler, df, columns=None):
     """Applies an already-fitted scaler (transform only, never fit)."""
-    return scaler.transform(df[FEATURE_COLUMNS].values)
+    return scaler.transform(df[list(columns or FEATURE_COLUMNS)].values)
 
 
-# --- Model outputs ---
+def save_scaler(scaler, path, columns, train_agents):
+    joblib.dump({"scaler": scaler, "feature_columns": list(columns), "fitted_on": "train",
+                 "train_agents": int(train_agents)}, path)
+
+
+def scaling_sample(parts, scaler, columns):
+    rows = []
+    for name in ["train", "validation"]:
+        sample = parts[name].sample(SAMPLE_PER_SPLIT, random_state=SAMPLE_SEED)
+        scaled = pd.DataFrame(scaled_features(scaler, sample, columns), columns=columns, index=sample.index)
+        for idx in sample.index:
+            rows.append({"split": name, "agent_id": sample.at[idx, "agent_id"], "values": "raw",
+                         **{c: round(float(sample.at[idx, c]), 3) for c in columns}})
+            rows.append({"split": name, "agent_id": sample.at[idx, "agent_id"], "values": "scaled",
+                         **{c: round(float(scaled.at[idx, c]), 3) for c in columns}})
+    return pd.DataFrame(rows)
+
+
+def md_table(df):
+    header = "| " + " | ".join(df.columns) + " |"
+    return "\n".join([header, "|" + "---|" * len(df.columns)]
+                     + ["| " + " | ".join(str(v) for v in row) + " |" for row in df.values])
+
+
+# --- Model outputs (used by the v2 model scripts until Steps 7-8 replace them) ---
 
 def to_suspicion_score(raw_scores, train_raw_scores):
-    """
-    Maps raw anomaly scores (higher = more anomalous) to 0-1 using the
-    TRAINING score range, clipped, so test scores never rescale the output.
-    """
+    """Maps raw anomaly scores to 0-1 using the TRAINING score range, clipped."""
     low, high = train_raw_scores.min(), train_raw_scores.max()
     if high == low:
         return raw_scores * 0.0
@@ -81,7 +82,6 @@ def to_suspicion_score(raw_scores, train_raw_scores):
 
 
 def flags_frame(df, raw_scores, flagged, train_raw_scores, model_version):
-    """One fraud-flag row per agent, in the columns backend/src/load_data.py reads, plus `split`."""
     return pd.DataFrame({
         "vector_id": df["vector_id"].values,
         "agent_id": df["agent_id"].values,
@@ -92,8 +92,50 @@ def flags_frame(df, raw_scores, flagged, train_raw_scores, model_version):
     })
 
 
-def write_flags(path, train_frame, test_frame):
-    frame = pd.concat([train_frame, test_frame]).sort_values("agent_id").reset_index(drop=True)
+def write_flags(path, *frames):
+    frame = pd.concat(frames).sort_values("agent_id").reset_index(drop=True)
     frame.insert(0, "flag_id", [f"FL{i + 1}" for i in range(len(frame))])
     frame.to_csv(path, index=False)
     return frame
+
+
+def main(argv=None):
+    from run_utils import start_run
+
+    parser = argparse.ArgumentParser(description="Fit the StandardScaler on training agents only.")
+    parser.add_argument("--data-dir", type=Path, default=DEFAULT_OUT_DIR)
+    args = parser.parse_args(argv)
+
+    columns = list(FEATURE_COLUMNS)
+    inputs = [args.data_dir / f for f in ["feature_vectors.csv", "split.csv", "labels.csv"]]
+    parts = load_partitions(args.data_dir)
+    scaler = fit_scaler(parts["train"], columns)
+    run_dir = start_run("preprocess", SAMPLE_SEED, {"scaler": "StandardScaler", "fitted_on": "train",
+                                                    "feature_columns": columns}, inputs)
+    save_scaler(scaler, run_dir / "scaler.joblib", columns, len(parts["train"]))
+
+    all_agents = pd.concat(parts.values())
+    stats = pd.DataFrame({"scaler_mean": scaler.mean_, "train_mean": parts["train"][columns].mean().values,
+                          "all_agents_mean": all_agents[columns].mean().values,
+                          "scaler_std": scaler.scale_, "train_std_ddof0": parts["train"][columns].std(ddof=0).values,
+                          "all_agents_std_ddof0": all_agents[columns].std(ddof=0).values}, index=columns).round(4)
+    stats.to_csv(run_dir / "scaler_stats.csv")
+    after = pd.DataFrame({name: pd.DataFrame(scaled_features(scaler, df, columns), columns=columns).agg(["mean", "std"]).round(3).stack()
+                          for name, df in parts.items()})
+    sample = scaling_sample(parts, scaler, columns)
+    (run_dir / "scaling_sample.md").write_text(
+        f"# Before and after scaling (seed {SAMPLE_SEED}; scaler fitted on {len(parts['train'])} training agents)\n\n"
+        f"{md_table(sample)}\n\n## Scaler statistics\n\n{md_table(stats.reset_index().rename(columns={'index': 'feature'}))}\n",
+        encoding="utf-8")
+
+    print("Scaler statistics (fitted on train only):")
+    print(stats.to_string())
+    print("\nScaled mean and std per split:")
+    print(after.to_string())
+    print("\nBefore and after scaling sample:")
+    print(sample.to_string(index=False))
+    print(f"\nRun folder {run_dir}")
+
+
+if __name__ == "__main__":
+    main()

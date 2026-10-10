@@ -1,169 +1,145 @@
 """
-Feature engineering for the SalesMesh fraud detection system.
+Feature engineering (Step 4). Label-free: reads cleaned records and agents only.
 
-Computes four behavioural features per agent, per analysis period, matching
-Section 3.2.2 and Section 2.6 of the proposal. The formulas mirror the live
-backend pipeline (backend/src/pipeline.py), which works on ORM records rather
-than DataFrames, so offline evaluation measures the same features the
-deployed system computes.
-
-Input is the cleaned activation records from clean_data.py, never the raw file.
-
-Design decisions:
-- The analysis period is derived from the data's own timestamps (one
-  calendar month -> "YYYY-MM", matching the backend's ANALYSIS_PERIOD_FORMAT),
-  not hard-coded.
-- Features are computed over all agents' records for the period, before the
-  train/test split. Every feature is label-free and per agent, except
-  collusion_score, which by definition compares one agent's customers with
-  every other agent's. In deployment the detector sees all platform activity
-  for a period, so this mirrors production. The cost is that a test agent's
-  collusion_score can reflect overlap with a training agent in the same ring
-  (and vice versa); no labels cross the split, but the partitions are not
-  fully independent at the feature level.
-- Known limitation: time_of_day_dist measures how *spread out* submission
-  hours are, not *when* they happen, so an agent concentrated at 03:00 and
-  one concentrated at 14:00 look alike. Ring 3 in the v2 synthetic data
-  (business-hours ring) is invisible to this feature by design.
+One row per agent per analysis period [period_start, period_end). Exact
+definitions are in ml/DATA_CARD.md ("Feature definitions"):
+- submission_frequency: submissions in the agent's busiest SUBMISSION_WINDOW_HOURS sliding window
+- time_of_day_entropy: Shannon entropy of submission hours / log2(24), 0-1
+- customer_similarity: mean similarity of identifiers over all pairs of submissions
+- collusion_score: share of the agent's distinct customers also used by another agent
+  in the period (platform-wide overlap, as in deployment)
+- volume_vs_peers (candidate): submissions / leave-one-out median submissions of peers
+  (same primary category and former region, widened if fewer than PEER_MIN_GROUP agents)
 
 Usage: python feature_engineering.py [--data-dir DIR]
-Input:  <data-dir>/activation_records_clean.csv
-Output: <data-dir>/feature_vectors.csv
+Output: <data-dir>/feature_vectors.csv and ml/runs/<run_id>/ (run_info.json, feature_vectors.csv)
 """
 
 import argparse
-import re
-from collections import Counter
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from data_generation import DEFAULT_OUT_DIR
+from data_generation import ANALYSIS_END, ANALYSIS_START, COUNTY_TO_FORMER_PROVINCE, DEFAULT_OUT_DIR
 
-FEATURE_COLUMNS = ["submission_frequency", "time_of_day_dist", "customer_similarity", "collusion_score"]
-
-
-def derive_analysis_period(timestamps):
-    """
-    "YYYY-MM" for data that falls within one calendar month (the backend's
-    period format); "YYYY-MM_to_YYYY-MM" if it spans several.
-    """
-    months = sorted(pd.to_datetime(timestamps).dt.to_period("M").unique())
-    if not months:
-        raise ValueError("no timestamps to derive an analysis period from")
-    return str(months[0]) if len(months) == 1 else f"{months[0]}_to_{months[-1]}"
+SUBMISSION_WINDOW_HOURS = 24
+PEER_MIN_GROUP = 15
+BASE_FEATURES = ["submission_frequency", "time_of_day_entropy", "customer_similarity", "collusion_score"]
+CANDIDATE_FEATURE = "volume_vs_peers"
+ALL_FEATURES = BASE_FEATURES + [CANDIDATE_FEATURE]
+# Features the models use. Step 4 decision (run 20261011-023802_feature_checks): KEEP volume_vs_peers
+# (training AUC 0.780 > 0.55; max |Spearman| 0.807 <= 0.85).
+FEATURE_COLUMNS = ALL_FEATURES
+DEFAULT_PERIOD = (ANALYSIS_START, ANALYSIS_END + pd.Timedelta(days=1))
 
 
-# submission_frequency: how many activations the agent submitted in the period
-# (all statuses, see clean_data.py). Commission is paid per activation, so
-# inflating volume with fake or duplicate customers is the most direct way to
-# commit this fraud; an agent far above their peers' volume warrants review.
-def compute_submission_frequency(agent_records):
-    return len(agent_records)
+def submission_frequency(timestamps, window_hours=SUBMISSION_WINDOW_HOURS):
+    """Max submissions in any window [t, t + window); the max is reached by a window starting at a submission."""
+    times = np.sort(pd.to_datetime(timestamps).values)
+    if len(times) == 0:
+        return 0
+    ends = np.searchsorted(times, times + np.timedelta64(window_hours, "h"), side="left")
+    return int((ends - np.arange(len(times))).max())
 
 
-# time_of_day_dist: Shannon entropy of the agent's submission hours, normalised
-# to 0-1 (0 = every submission in one hour, 1 = evenly spread over 24 hours).
-# Scripted or batch-submitted fraud tends to cluster in a narrow window (often
-# off-hours), while genuine field activity spreads across the working day.
-def compute_time_of_day_entropy(agent_records):
-    hours = agent_records["timestamp"].dt.hour
-    hour_counts = Counter(hours)
-    total = sum(hour_counts.values())
-
-    if total == 0:
+def time_of_day_entropy(timestamps):
+    hours = pd.to_datetime(timestamps).dt.hour
+    if hours.empty:
         return 0.0
-
-    probabilities = [count / total for count in hour_counts.values()]
-    entropy = -sum(p * np.log2(p) for p in probabilities if p > 0)
-    return entropy / np.log2(24)
+    p = hours.value_counts(normalize=True).values
+    return float(-(p * np.log2(p)).sum() / np.log2(24))
 
 
-def compute_repetition_score(customer_ids):
-    """
-    Signal (a): repetition / near-duplicate reuse.
-    1 - (unique count / total). High = same customer id resubmitted often.
-    """
-    total = len(customer_ids)
-    if total == 0:
+def identifier_similarity(customer_ids):
+    """Mean over all unordered pairs of submissions of the share of matching digit positions."""
+    digits = np.array([list(str(c)[4:]) for c in customer_ids])
+    n = len(digits)
+    if n < 2:
         return 0.0
-    return 1 - (customer_ids.nunique() / total)
+    matches = sum(int((counts * (counts - 1) // 2).sum())
+                  for counts in (np.unique(digits[:, pos], return_counts=True)[1] for pos in range(digits.shape[1])))
+    return matches / (digits.shape[1] * n * (n - 1) / 2)
 
 
-def compute_sequential_score(customer_ids):
+def collusion_scores(records):
+    """Per agent: share of its distinct customers that at least one other agent also used."""
+    pairs = records[["agent_id", "customer_id"]].drop_duplicates()
+    owners = pairs.groupby("customer_id")["agent_id"].nunique()
+    return pairs.assign(shared=pairs["customer_id"].map(owners) > 1).groupby("agent_id")["shared"].mean()
+
+
+def primary_category(records):
+    counts = records.groupby(["agent_id", "category"]).size().rename("n").reset_index()
+    counts = counts.sort_values(["agent_id", "n", "category"], ascending=[True, False, True])
+    return counts.drop_duplicates("agent_id").set_index("agent_id")["category"]
+
+
+def volume_vs_peers(volume, category, region, min_group=PEER_MIN_GROUP):
     """
-    Signal (b): sequential identifier pattern.
-    Fraction of consecutive pairs among the agent's sorted unique numeric ids
-    that differ by exactly 1. CUST100052, CUST100053, CUST100054... scores ~1;
-    randomly assigned ids score ~0.
+    volume / leave-one-out median volume of peers. Peers: same primary category and
+    former region; if that group (agent included) is smaller than min_group, same
+    category in all regions; if still smaller, all agents. Returns (ratio, peer_level).
     """
-    numbers = sorted({
-        int(match.group(1))
-        for cid in customer_ids.unique()
-        if (match := re.search(r"(\d+)", str(cid)))
-    })
-    if len(numbers) < 2:
-        return 0.0
-    consecutive_gaps = sum(1 for i in range(1, len(numbers)) if numbers[i] - numbers[i - 1] == 1)
-    return consecutive_gaps / (len(numbers) - 1)
+    frame = pd.DataFrame({"volume": volume, "category": category, "region": region})
+    levels = [["category", "region"], ["category"], []]
+    ratio, level_used = pd.Series(np.nan, index=frame.index), pd.Series("", index=frame.index)
+    for keys in levels:
+        groups = frame.groupby(keys) if keys else [((), frame)]
+        for _, group in groups:
+            todo = group.index[ratio[group.index].isna()]
+            if len(todo) == 0 or (keys and len(group) < min_group):
+                continue
+            for agent in todo:
+                peers = group["volume"].drop(agent)
+                ratio[agent] = frame.at[agent, "volume"] / max(float(peers.median()), 1.0)
+                level_used[agent] = "+".join(keys) or "all"
+    return ratio, level_used
 
 
-# customer_similarity: max of the repetition and sequential scores (0-1).
-# Section 2.6 names two fake-customer patterns (Tabassum et al., 2021):
-# resubmitting the same customer, and fabricating customers with incrementing
-# ids. Each id in a sequential run is unique, so a repetition-only measure
-# misses it. Taking the max (not the mean) means either pattern alone is
-# enough to raise the score.
-def compute_customer_similarity(agent_records):
-    customer_ids = agent_records["customer_id"]
-    return max(compute_repetition_score(customer_ids), compute_sequential_score(customer_ids))
+def compute_feature_vectors(activations_df, agents_df, period_start=DEFAULT_PERIOD[0], period_end=DEFAULT_PERIOD[1]):
+    """Feature rows for every agent in agents_df, over records with period_start <= timestamp < period_end."""
+    period_start, period_end = pd.Timestamp(period_start), pd.Timestamp(period_end)
+    records = activations_df.assign(timestamp=pd.to_datetime(activations_df["timestamp"]))
+    records = records[(records["timestamp"] >= period_start) & (records["timestamp"] < period_end)]
+    agents = agents_df.set_index("agent_id")
+    grouped = records.groupby("agent_id")
 
+    table = pd.DataFrame(index=agents.index)
+    table["volume"] = grouped.size().reindex(agents.index, fill_value=0)
+    table["submission_frequency"] = grouped["timestamp"].apply(submission_frequency).reindex(agents.index, fill_value=0)
+    table["time_of_day_entropy"] = grouped["timestamp"].apply(time_of_day_entropy).reindex(agents.index, fill_value=0.0)
+    table["customer_similarity"] = grouped["customer_id"].apply(identifier_similarity).reindex(agents.index, fill_value=0.0)
+    table["collusion_score"] = collusion_scores(records).reindex(agents.index, fill_value=0.0).astype(float)
+    category = primary_category(records).reindex(agents.index, fill_value="none")
+    region = agents["region"].map(COUNTY_TO_FORMER_PROVINCE)
+    table["volume_vs_peers"], table["peer_group"] = volume_vs_peers(table["volume"], category, region)
 
-# collusion_score: fraction of the agent's distinct customers that also appear
-# in any OTHER agent's records (0 = none shared, 1 = all shared). Coordinated
-# rings register the same customers across several agent accounts (Chang et
-# al., 2024); independent agents rarely share customers. Counted per distinct
-# customer so repeating one shared customer isn't weighted by repetition.
-def compute_collusion_score(agent_id, agent_records, all_records):
-    own = set(agent_records["customer_id"])
-    if not own:
-        return 0.0
-    others = all_records[all_records["agent_id"] != agent_id]["customer_id"]
-    return len(own & set(others)) / len(own)
-
-
-def compute_feature_vectors(activations_df):
-    activations_df = activations_df.assign(timestamp=pd.to_datetime(activations_df["timestamp"]))
-    analysis_period = derive_analysis_period(activations_df["timestamp"])
-
-    feature_rows = []
-    for vector_number, (agent_id, agent_records) in enumerate(activations_df.groupby("agent_id"), start=1):
-        feature_rows.append({
-            "vector_id": f"FV{vector_number}",
-            "agent_id": agent_id,
-            "analysis_period": analysis_period,
-            "submission_frequency": compute_submission_frequency(agent_records),
-            "time_of_day_dist": compute_time_of_day_entropy(agent_records),
-            "customer_similarity": compute_customer_similarity(agent_records),
-            "collusion_score": compute_collusion_score(agent_id, agent_records, activations_df),
-        })
-
-    return pd.DataFrame(feature_rows)
+    table = table.reset_index()
+    table.insert(0, "vector_id", [f"FV{i + 1}" for i in range(len(table))])
+    table.insert(2, "analysis_period_start", period_start)
+    table.insert(3, "analysis_period_end", period_end)
+    return table[["vector_id", "agent_id", "analysis_period_start", "analysis_period_end", *ALL_FEATURES,
+                  "volume", "peer_group"]]
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Compute per-agent feature vectors from cleaned records.")
+    from run_utils import start_run
+
+    parser = argparse.ArgumentParser(description="Compute per-agent feature vectors (label-free).")
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_OUT_DIR)
     args = parser.parse_args(argv)
 
-    activations_df = pd.read_csv(args.data_dir / "activation_records_clean.csv")
-    features_df = compute_feature_vectors(activations_df)
-    features_df.to_csv(args.data_dir / "feature_vectors.csv", index=False)
-
-    print(f"Done. Computed feature vectors for {len(features_df)} agents, "
-          f"analysis period {features_df['analysis_period'].iloc[0]}.")
-    print(f"Saved to {args.data_dir / 'feature_vectors.csv'}")
+    inputs = [args.data_dir / "activation_records_clean.csv", args.data_dir / "agents.csv"]
+    features = compute_feature_vectors(pd.read_csv(inputs[0]), pd.read_csv(inputs[1]))
+    run_dir = start_run("features", None, {"submission_window_hours": SUBMISSION_WINDOW_HOURS,
+                                           "peer_min_group": PEER_MIN_GROUP, "period": [str(p) for p in DEFAULT_PERIOD],
+                                           "features": ALL_FEATURES}, inputs)
+    features.to_csv(run_dir / "feature_vectors.csv", index=False)
+    features.to_csv(args.data_dir / "feature_vectors.csv", index=False)
+    print(features[ALL_FEATURES].describe().round(3).to_string())
+    print("Peer group level used:", features["peer_group"].value_counts().to_dict())
+    print(f"Saved {len(features)} rows to {run_dir / 'feature_vectors.csv'} and {args.data_dir / 'feature_vectors.csv'}")
 
 
 if __name__ == "__main__":
