@@ -5,6 +5,7 @@ import pytest
 
 import data_generation as dg
 from clean_data import CUSTOMER_ID_PATTERN
+from data_checks import agent_table, chi_square_p
 from feature_engineering import compute_repetition_score, compute_sequential_score
 
 
@@ -26,8 +27,8 @@ def test_different_seed_gives_different_output(dataset):
 
 
 def test_default_counts_follow_n_agents_and_fraud_rate(dataset):
-    assert len(dataset.agents) == 600
-    assert int(dataset.labels["is_fraud"].sum()) == round(600 * 0.13)
+    assert len(dataset.agents) == dg.DEFAULT_N_AGENTS == 1000
+    assert int(dataset.labels["is_fraud"].sum()) == round(1000 * 0.13)
 
 
 def test_parameters_change_the_counts():
@@ -65,7 +66,7 @@ def test_every_pattern_and_hard_legit_group_is_present(dataset):
     profiles = dataset.labels["profile"].value_counts()
     for profile in ["legit", "legit_night", "legit_repeat", "legit_busy", "ring", "weak_ring", "sequential", "duplicate", "weak"]:
         assert profiles.get(profile, 0) > 0
-    assert (profiles[["legit_night", "legit_repeat", "legit_busy"]] == [42, 42, 31]).all()
+    assert (profiles[["legit_night", "legit_repeat", "legit_busy"]] == [70, 69, 52]).all()
 
 
 def test_rings_vary_in_size_pool_and_hours(dataset):
@@ -113,12 +114,13 @@ def test_records_pass_the_cleaning_formats(dataset):
     assert set(acts["agent_id"]) <= set(dataset.agents["agent_id"])
 
 
+@pytest.fixture(scope="module")
+def agents(dataset):
+    return agent_table(dataset)
+
+
 def collusion_scores(dataset):
-    pairs = dataset.activations[["agent_id", "customer_id"]].drop_duplicates()
-    owners = pairs.groupby("customer_id")["agent_id"].nunique()
-    shared = set(owners[owners > 1].index)
-    scores = pairs.groupby("agent_id")["customer_id"].apply(lambda s: s.isin(shared).mean())
-    return dataset.labels.set_index("agent_id").join(scores.rename("collusion"))
+    return agent_table(dataset)
 
 
 def test_regions_are_kenyan_counties_independent_of_label(dataset):
@@ -157,3 +159,56 @@ def test_weak_rings_share_less_than_strong_rings(dataset):
     strong = scores.loc[scores["profile"] == "ring", "collusion"]
     assert (weak > 0).all()
     assert weak.max() < strong.min()
+
+
+def test_every_county_has_at_least_the_floor(agents):
+    per_county = agents["region"].value_counts().reindex(dg.COUNTIES, fill_value=0)
+    assert per_county.min() >= dg.COUNTY_MIN_AGENTS
+
+
+def test_small_runs_relax_the_county_floor():
+    small = dg.generate_dataset(3, n_agents=50, fraud_rate=0.2)
+    assert len(small.agents) == 50
+
+
+def test_fraud_is_independent_of_county_region_category_and_client(agents):
+    for column in ["region", "former_region", "primary_category", "primary_client"]:
+        assert chi_square_p(agents, column) > 0.05, column
+
+
+def test_clients_reference_list(dataset):
+    clients = dataset.clients
+    assert len(clients) == 20 and clients["client_id"].is_unique
+    assert clients["name"].str.fullmatch(r"Client \d{2}").all()
+    assert set(clients["category"]) == set(dg.CATEGORIES) and len(dg.CATEGORIES) == 12
+
+
+def test_record_category_comes_from_its_client(dataset):
+    acts = dataset.activations
+    assert set(acts["client_id"]) <= set(dg.CLIENTS)
+    assert (acts["category"] == acts["client_id"].map(dg.CLIENT_CATEGORY)).all()
+
+
+def test_agents_work_with_one_to_three_clients_mostly_in_one_or_two_categories(agents):
+    assert agents["n_clients"].between(1, 3).all()
+    assert (agents["n_categories"] <= 2).mean() > 0.9
+
+
+def test_duplicate_fraud_resubmits_the_same_customer_for_the_same_client(dataset):
+    acts = dataset.activations.merge(dataset.labels, on="agent_id")
+    dup = acts[acts["profile"] == "duplicate"]
+    per_pair = dup.groupby(["agent_id", "customer_id"])["client_id"].agg(["size", "nunique"])
+    resubmitted = per_pair[per_pair["size"] > 1]
+    assert len(resubmitted) > 0
+    assert (resubmitted["nunique"] == 1).mean() > 0.9
+
+
+def test_same_customer_for_different_clients_is_rare(dataset):
+    per_pair = dataset.activations.groupby(["agent_id", "customer_id"])["client_id"].nunique()
+    assert 0 < (per_pair > 1).mean() < 0.05
+
+
+def test_timestamps_fall_in_the_observation_window(dataset):
+    ts = pd.to_datetime(dataset.activations["timestamp"])
+    assert ts.dt.tz is None and dg.TIMEZONE == "Africa/Nairobi"
+    assert ts.min() >= dg.ANALYSIS_START and ts.max() < dg.ANALYSIS_END + pd.Timedelta(days=1)
