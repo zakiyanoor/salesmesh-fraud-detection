@@ -74,9 +74,9 @@ def system_info():
 
 
 def start_run(kind, seed, parameters, data_files, runs_dir=RUNS_DIR):
-    """Creates ml/runs/<timestamp>_<kind>_s<seed>/ and writes run_info.json; returns the folder."""
+    """Creates ml/runs/<timestamp>_<kind>[_s<seed>]/ and writes run_info.json; returns the folder."""
     now = datetime.now()
-    base = f"{now:%Y%m%d-%H%M%S}_{kind}_s{seed}"
+    base = f"{now:%Y%m%d-%H%M%S}_{kind}" + (f"_s{seed}" if seed is not None else "")
     run_dir = Path(runs_dir) / base
     suffix = 1
     while run_dir.exists():

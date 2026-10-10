@@ -67,6 +67,23 @@ The v2 results and data are archived unchanged in `ml/results/archive_v2/` and `
 
 **Backend test now failing, not changed:** `test_api_integration.py::test_agent_detail_context_lists_only_known_clients_and_categories`. It compares the live database, which still holds v2 client names, with the new reference list. This is a real mismatch, and it disappears when the database is reloaded with v3 data. The API tests also hard-code agent `A1104`, which does not exist in v3. Both are to be resolved at Step 13.
 
+## Step 2: cleaning
+
+`clean_data.py` adds:
+- format checks for record, agent, customer and client ids;
+- `client_id` checked against `clients.csv`, and the category checked against the client's category;
+- removal of activations before the agent's registration;
+- checks on the `agents.csv` and `clients.csv` tables;
+- a near-duplicate check (flagged, kept).
+
+Flags are written to the run folder, never into the cleaned data. Results: 138,756 rows in and 138,756 rows out, with 0 invalid rows. Near duplicates: 65 same-customer records (38 agents) and 529 one-digit-away records (21 agents). In v2, cleaning ran on 16,341 rows and also removed none.
+
+## Step 3: exploratory analysis
+
+The new `eda.py` writes run `20261011-021303_eda_s0`, which holds 4 figures, a raw sample table, distributions by group and findings. Run `20261011-021228_eda_s0` is kept as superseded: its correlation figure clipped its axis labels.
+
+**Two generator shortcuts were found after the freeze.** No legitimate agent ever submits at 05:00–06:59 or 20:00–23:59, while 80 of 130 fraud agents do. Non-busy legitimate agents never exceed 8 records per day, while every weak fraud agent's busiest day is exactly 9. The generator is unchanged pending the author's decision.
+
 ## Model results
 
 Not yet re-run. This section will be filled in after Step 11, with old and new numbers side by side, and it will state whether the model choice changed.
