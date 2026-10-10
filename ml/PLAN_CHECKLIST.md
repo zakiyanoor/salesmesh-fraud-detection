@@ -3,6 +3,7 @@
 An item is ticked only when it has been done, with one line of evidence (a file, a number or a test name). At Step 13, every unticked item is listed.
 
 - [x] **Scope: U-CS 56 only; other SalesMesh modules out of scope.** Evidence: DATA_CARD.md "Scope" section; the generator has no client management, task limits, payouts or reputation.
+- [x] **Rule: record, activation and agent ids are never model inputs.** Evidence: `ml/tests/test_no_id_inputs.py`, 3 tests passing (`test_feature_columns_contain_no_id_column`, `test_feature_matrix_ignores_id_columns`, `test_fitted_models_see_only_feature_columns`). To be re-run against the Step 4 feature matrix.
 
 ## Step 0 and Step 1 (done)
 
@@ -30,13 +31,13 @@ An item is ticked only when it has been done, with one line of evidence (a file,
 
 ## Step 2: cleaning
 
-- [ ] Cleaning report.
-- [ ] Near-duplicate check.
+- [x] Cleaning report. Evidence: `ml/results/data_cleaning_report.md` and run `ml/runs/20261011-020933_clean/`. Checks covered missing values, duplicates, formats, invalid values and impossible timestamps; 138,756 rows in and 138,756 out (0 removed). Outlier policy is flag, not delete (140 agents are IQR outliers on volume). 14 tests in `ml/tests/test_clean_data.py` inject every kind of bad row.
+- [x] Near-duplicate check. Evidence: same customer and client within 10 minutes, 65 records from 38 agents; customer id one digit away within 10 minutes, 529 records from 21 agents. All are flagged and kept, in `record_flags.csv`. Test `test_near_duplicates_by_hand`.
 
 ## Step 3: exploratory analysis
 
-- [ ] Raw sample table.
-- [ ] Distributions by group.
+- [x] Raw sample table. Evidence: `ml/runs/20261011-021303_eda_s0/raw_sample.md`, with 8 raw activation records, 5 agents and 5 clients (seed 0).
+- [x] Distributions by group. Evidence: same run, `fig03_distributions_by_group.png` (9 descriptors × 9 groups), `descriptors_by_group.csv` (median and IQR), `fig02_volume_by_hour.png`, `fig01_class_balance.png`, `fig04_correlations.png` and `findings.md`.
 
 ## Step 4: features
 

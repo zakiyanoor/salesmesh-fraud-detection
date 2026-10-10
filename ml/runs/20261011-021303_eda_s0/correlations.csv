@@ -1,0 +1,10 @@
+,records,max_records_one_day,active_days,night_share,hour_entropy,distinct_customer_ratio,repeat_same_client_share,shared_customer_share,near_duplicates
+records,1.0,0.668,0.532,0.313,0.105,-0.192,0.269,0.135,0.334
+max_records_one_day,0.668,1.0,0.168,0.42,-0.008,-0.277,0.387,0.193,0.486
+active_days,0.532,0.168,1.0,0.115,0.054,-0.097,0.133,0.08,0.104
+night_share,0.313,0.42,0.115,1.0,0.308,-0.166,0.252,0.077,0.465
+hour_entropy,0.105,-0.008,0.054,0.308,1.0,0.103,-0.129,-0.088,-0.082
+distinct_customer_ratio,-0.192,-0.277,-0.097,-0.166,0.103,1.0,-0.694,-0.224,-0.199
+repeat_same_client_share,0.269,0.387,0.133,0.252,-0.129,-0.694,1.0,0.333,0.297
+shared_customer_share,0.135,0.193,0.08,0.077,-0.088,-0.224,0.333,1.0,0.044
+near_duplicates,0.334,0.486,0.104,0.465,-0.082,-0.199,0.297,0.044,1.0

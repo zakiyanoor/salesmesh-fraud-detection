@@ -314,7 +314,9 @@ The tests are run at agent level because records are not independent.
 | Registration date | Kolmogorov-Smirnov | 0.243 |
 | Record id | Mann-Whitney | 0.001 |
 
-The record id result is not a leak. Record ids are a deterministic function of timestamp order (ties broken by agent id, then customer id), so they carry no information beyond the timestamp. Fraud agents submit at different hours, which is what the test picks up. Record ids must not be used as a feature.
+The record id result is not a leak. Record ids are a deterministic function of timestamp order (ties broken by agent id, then customer id), so they carry no information beyond the timestamp. Fraud agents submit at different hours, which is what the test picks up.
+
+**Rule:** record ids, activation ids, agent ids and other id columns are never model inputs. `ml/tests/test_no_id_inputs.py` fails if any id column reaches the feature matrix.
 
 **Determinism:** the same seed gives byte-identical frames, and a different seed gives different data.
 
@@ -351,10 +353,9 @@ These definitions are fixed now, before any model is run. They are recorded here
 - The agent's submission count in its busiest 24-hour sliding window inside the period: the maximum, over all start times t, of submissions in [t, t + 24 h).
 - The window length is a named constant (`SUBMISSION_WINDOW_HOURS = 24`).
 
-**`customer_similarity`**
-- The mean pairwise similarity of the agent's customer identifiers, taken over all unordered pairs of the agent's submissions in the period.
-- The similarity of two ids is the fraction of the 8 digit positions that match. Identical ids score 1, ids from one sequential run share their leading digits, and two random ids score about 0.1.
-- **To confirm against the wording in Chapter 3 before Step 4.**
+**`customer_similarity`** (similarity of identifiers; definition confirmed by the author)
+- The mean similarity of identifiers over all unordered pairs of the agent's submissions in the period.
+- The similarity of two customer identifiers is the share of matching digit positions among the 8 digits. Identical identifiers score 1, identifiers from one sequential run share their leading digits, and two random identifiers score about 0.1.
 
 **`time_of_day_entropy`**
 - Normalised Shannon entropy of submission hours. The current column name is `time_of_day_dist`.
@@ -421,4 +422,9 @@ These changes to the generator were made after seeing labelled summaries. None i
 4. **Strong rings remain separable on `collusion_score` alone** (0.387 vs at most 0.074).
 5. **Weak fraud and weak rings are deliberately close to legitimate agents.** Low recall on them is the expected result.
 6. **The backend database still holds v2 data.** One backend test (`test_agent_detail_context_lists_only_known_clients_and_categories`) fails until the database is reloaded with this data. The API tests also hard-code agent `A1104`, which does not exist in v3.
-7. **Derived files in `ml/data/synthetic/` are out of date until Steps 2–5 regenerate them.** These are `activation_records_clean.csv`, `feature_vectors.csv`, `train_test_split.csv` and `fraud_flags*.csv`.
+7. **Derived files in `ml/data/synthetic/` are out of date until Steps 4–5 regenerate them.** These are `feature_vectors.csv`, `train_test_split.csv` and `fraud_flags*.csv`. `activation_records_clean.csv` was regenerated at Step 2.
+8. **Two generator shortcuts were found by the Step 3 EDA, after the freeze** (run `20261011-021303_eda_s0`, findings.md). Both come from hard-bounded ranges:
+   - **Hours:** legitimate hours are clipped to 07:00–19:59 (plus 00:00–04:59 for `legit_night`). No legitimate agent ever submits at 05:00–06:59 or 20:00–23:59, while 80 of 130 fraud agents do.
+   - **Daily volume:** non-busy legitimate daily volume is capped at 8. Every weak fraud agent's busiest day is exactly 9.
+
+   The generator has not been changed. Whether to fix this is the author's decision, and fixing it would be a fourth label-aware change.
