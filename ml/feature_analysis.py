@@ -6,8 +6,8 @@ candidate volume_vs_peers is written to the run folder before any AUC is
 computed.
 
 AUC convention: a feature's value is the score, higher = more suspicious.
-"Separation" = max(AUC, 1 - AUC), so a feature that is low for fraud also counts.
-A pattern is a shortcut risk when one feature alone gives separation >= SHORTCUT_SEPARATION.
+"Strength" = max(AUC, 1 - AUC), direction-free, so a feature that is low for fraud also counts.
+A pattern is a shortcut risk when one feature alone gives strength >= SHORTCUT_SEPARATION.
 
 Usage: python feature_analysis.py [--data-dir DIR]
 Output: ml/runs/<run_id>/ with decision_rule.md (written first), single_feature_auc.csv,
@@ -23,6 +23,7 @@ from sklearn.metrics import roc_auc_score
 
 from data_generation import DEFAULT_OUT_DIR
 from feature_engineering import ALL_FEATURES, BASE_FEATURES, CANDIDATE_FEATURE
+from labels_guard import load_labelled
 from split import SPLIT_FILE
 
 KEEP_MIN_AUC = 0.55
@@ -45,12 +46,7 @@ still compared on validation at Step 9, and both results are reported.
 
 
 def training_frame(data_dir):
-    features = pd.read_csv(data_dir / "feature_vectors.csv")
-    split = pd.read_csv(data_dir / SPLIT_FILE)
-    train_ids = split.loc[split["split"] == "train", "agent_id"]
-    labels = pd.read_csv(data_dir / "labels.csv", keep_default_na=False)
-    labels = labels[labels["agent_id"].isin(train_ids)]
-    return features.merge(labels[["agent_id", "is_fraud", "profile"]], on="agent_id", how="inner")
+    return load_labelled(data_dir, ["train"])["train"]
 
 
 def single_feature_auc(train):
@@ -64,7 +60,7 @@ def single_feature_auc(train):
             auc = roc_auc_score(y, pd.concat([legit[feature], positives[feature]]))
             rows.append({"feature": feature, "target": name, "legit_agents": len(legit),
                          "fraud_agents": len(positives), "auc": round(auc, 3),
-                         "separation": round(max(auc, 1 - auc), 3),
+                         "strength": round(max(auc, 1 - auc), 3),
                          "direction": "higher for fraud" if auc >= 0.5 else "lower for fraud"})
     return pd.DataFrame(rows)
 
@@ -98,8 +94,9 @@ def main(argv=None):
     correlations.to_csv(run_dir / "feature_correlations_train.csv")
 
     keep, auc, max_corr = decide(auc_table, correlations)
-    shortcuts = auc_table[auc_table["separation"] >= SHORTCUT_SEPARATION]
+    shortcuts = auc_table[auc_table["strength"] >= SHORTCUT_SEPARATION]
     wide = auc_table.pivot(index="feature", columns="target", values="auc")[["all_fraud", *FRAUD_PATTERNS]]
+    strength = auc_table.pivot(index="feature", columns="target", values="strength")[["all_fraud", *FRAUD_PATTERNS]]
     decision = (f"# Decision for {CANDIDATE_FEATURE}\n\nTraining agents: {len(train)} "
                 f"({int(train['is_fraud'].sum())} fraud).\n\n"
                 f"- Single-feature AUC (all fraud vs legitimate): {auc:.3f} (rule: > {KEEP_MIN_AUC})\n"
@@ -110,8 +107,11 @@ def main(argv=None):
     print(f"Training agents only: {len(train)} ({int(train['is_fraud'].sum())} fraud)\n")
     print("Single-feature ROC AUC (value = score, higher = more suspicious):")
     print(wide.to_string())
-    print(f"\nShortcut risk (separation >= {SHORTCUT_SEPARATION}):")
-    print(shortcuts[["feature", "target", "auc", "separation", "direction"]].to_string(index=False))
+    print("
+Direction-free strength max(AUC, 1 - AUC):")
+    print(strength.to_string())
+    print(f"\nShortcut risk (strength >= {SHORTCUT_SEPARATION}):")
+    print(shortcuts[["feature", "target", "auc", "strength", "direction"]].to_string(index=False))
     print("\nSpearman correlations (train):")
     print(correlations.to_string())
     print("\n" + decision)

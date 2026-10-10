@@ -72,7 +72,7 @@ Agents are the independent units, so the agent count sets how much evidence each
 
 ## Files and data dictionary
 
-All files are in `ml/data/synthetic/`. No feature or model may read `labels.csv` or `rings.csv`. `region` is not a model feature. Record, activation, agent and other id columns are never model inputs; `ml/tests/test_no_id_inputs.py` enforces this.
+All files are in `ml/data/synthetic/`. No feature or model may read `labels.csv` or `rings.csv`. `region` is not a model feature. After the split, labels are loaded only through `ml/labels_guard.py`. It drops test rows on read, and refuses test labels until the Step 11 final evaluation script unlocks them. Record, activation, agent and other id columns are never model inputs; `ml/tests/test_no_id_inputs.py` enforces this.
 
 **`agents.csv`** (pipeline and backend)
 
@@ -432,19 +432,23 @@ The model input is `FEATURE_COLUMNS`, the five features above. Id columns, `volu
 
 The table uses the 700 training agents, 91 of them fraud. Validation and test labels were not read.
 
-Each cell is a ROC AUC, with the feature value used as the score (higher = more suspicious); values below 0.5 mean the feature is lower for fraud. Columns compare the named fraud agents against all training legitimate agents.
+Each cell shows the raw ROC AUC, followed by the direction-free strength in brackets.
+- **Raw AUC:** the feature value is the score, higher = more suspicious. Values below 0.5 mean the feature is lower for fraud.
+- **Strength:** max(AUC, 1 - AUC).
+
+Columns compare the named fraud agents against all training legitimate agents.
 
 Source: run `ml/runs/20261011-023802_feature_checks/`.
 
 | Feature | All fraud | ring | weak_ring | sequential | duplicate | weak |
 |---|---|---|---|---|---|---|
-| `submission_frequency` | 0.764 | 0.811 | 0.336 | **0.951** | 0.912 | 0.743 |
-| `time_of_day_entropy` | 0.321 | **0.017** | 0.460 | 0.326 | 0.092 | 0.892 |
-| `customer_similarity` | 0.788 | 0.747 | 0.460 | **1.000** | **0.965** | 0.784 |
-| `collusion_score` | 0.724 | **1.000** | **0.971** | 0.404 | 0.473 | 0.564 |
-| `volume_vs_peers` | 0.780 | 0.831 | 0.300 | **0.964** | 0.929 | 0.794 |
+| `submission_frequency` | 0.764 (0.764) | 0.811 (0.811) | 0.336 (0.664) | 0.951 (**0.951**) | 0.912 (0.912) | 0.743 (0.743) |
+| `time_of_day_entropy` | 0.321 (0.679) | 0.017 (**0.983**) | 0.460 (0.540) | 0.326 (0.674) | 0.092 (0.908) | 0.892 (0.892) |
+| `customer_similarity` | 0.788 (0.788) | 0.747 (0.747) | 0.460 (0.540) | 1.000 (**1.000**) | 0.965 (**0.965**) | 0.784 (0.784) |
+| `collusion_score` | 0.724 (0.724) | 1.000 (**1.000**) | 0.971 (**0.971**) | 0.404 (0.596) | 0.473 (0.527) | 0.564 (0.564) |
+| `volume_vs_peers` | 0.780 (0.780) | 0.831 (0.831) | 0.300 (0.700) | 0.964 (**0.964**) | 0.929 (0.929) | 0.794 (0.794) |
 
-**Near-perfect single features (separation = max(AUC, 1 - AUC) >= 0.95), listed as shortcut-risk limitations:**
+**Near-perfect single features (strength >= 0.95), listed as shortcut-risk limitations:**
 - **ring:** `collusion_score` 1.000 and `time_of_day_entropy` 0.983 (lower for fraud).
 - **weak_ring:** `collusion_score` 0.971. Weak-ring agents score low in absolute terms, but most legitimate agents score exactly 0.
 - **sequential:** `customer_similarity` 1.000, `volume_vs_peers` 0.964 and `submission_frequency` 0.951.

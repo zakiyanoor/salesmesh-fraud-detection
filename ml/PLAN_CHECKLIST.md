@@ -3,6 +3,8 @@
 An item is ticked only when it has been done, with one line of evidence (a file, a number or a test name). At Step 13, every unticked item is listed.
 
 - [x] **Scope: U-CS 56 only; other SalesMesh modules out of scope.** Evidence: DATA_CARD.md "Scope" section; the generator has no client management, task limits, payouts or reputation.
+- [x] **Test-set guard: test labels can be loaded only by the Step 11 final evaluation script.** Evidence: `ml/labels_guard.py` (`TestLabelsLocked`); 6 tests in `ml/tests/test_labels_guard.py`, including `test_step_7_and_8_run_without_any_test_label`.
+- [x] **Single-feature tables show direction-free strength max(AUC, 1 - AUC) next to raw AUC.** Evidence: DATA_CARD.md Step 4 table; `baselines.py` output (`val_auc_raw`, `val_strength`).
 - [x] **Rule: record, activation and agent ids are never model inputs.** Evidence: `ml/tests/test_no_id_inputs.py`, 3 tests passing (`test_feature_columns_contain_no_id_column`, `test_feature_matrix_ignores_id_columns`, `test_fitted_models_see_only_feature_columns`). To be re-run against the Step 4 feature matrix.
 
 ## Step 0 and Step 1 (done)
@@ -74,13 +76,19 @@ An item is ticked only when it has been done, with one line of evidence (a file,
 - [x] Scaler saved. Evidence: `scaler.joblib` (scaler, feature list, `fitted_on="train"`, 700 agents); test `test_saved_scaler_round_trips`.
 - [x] Before-and-after scaling sample. Evidence: `scaling_sample.md`, 5 training and 5 validation agents.
 
-## Step 7: baseline
+## Step 7: baselines (on validation)
 
-- [ ] Simple rule baseline and trivial baseline, both on validation.
+- [x] Operating point fixed before results: alert budget of the top 15% of agents. Evidence: `metrics.ALERT_BUDGET = 0.15` (23 of 150 validation agents); random PR AUC baseline 0.133 reported.
+- [x] Trivial baseline: random scores, mean of 20 seeds. Evidence: run `ml/runs/20261011-024811_baselines/`; ROC AUC 0.516 and PR AUC 0.157 (std 0.063 and 0.033).
+- [x] Rule baseline: `submission_frequency` above the training 90th percentile. Evidence: cap 24; validation ROC AUC 0.795, PR AUC 0.373, P / R / F1 0.462 / 0.300 / 0.364.
+- [x] Single-feature scores, with direction chosen on training. Evidence: `single_feature_directions.csv`; validation ROC AUC 0.614–0.813; recall by pattern reported in `baseline_metrics.csv`.
 
-## Step 8: models
+## Step 8: models (fit on train, score validation, default settings)
 
-- [ ] Isolation Forest and LOF (`novelty=True`), on the same features and split.
+- [x] Isolation Forest (`n_estimators=200`, `contamination="auto"`, seed 42) and LOF (`novelty=True`, `n_neighbors=20`), each with 4 and 5 features. Evidence: run `ml/runs/20261011-024834_models_default_s42/`; `model_metrics.csv` and 4 `.joblib` files.
+- [x] Scores oriented so higher = more anomalous. Evidence: `detectors.Detector.score`; test `test_scores_are_higher_for_an_obvious_outlier`.
+- [x] Validation metrics, recall by pattern, training vs validation AUCs, fit time, scoring time per agent and model file size. Evidence: `model_metrics.csv` (for example, IF with 5 features: validation ROC AUC 0.891 against training 0.926; 0.112 ms per agent; 1,675,262 bytes).
+- [x] Best on validation stated, without a final choice. Evidence: run report; the choice is left to Step 9.
 
 ## Step 9: selection on validation only
 
