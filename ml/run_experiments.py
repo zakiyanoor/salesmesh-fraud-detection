@@ -47,11 +47,11 @@ DETECTORS = {
 
 def build_dataset(seed, data_dir):
     """Runs generation -> cleaning -> features -> split for one seed into data_dir."""
-    agents_df, activations_df = generate_dataset(seed)
-    clean_df, _ = clean_data(activations_df, agents_df)
-    agents_df.to_csv(data_dir / "agents.csv", index=False)
+    dataset = generate_dataset(seed)
+    clean_df, _ = clean_data(dataset.activations, dataset.agents)
+    dataset.labels.to_csv(data_dir / "labels.csv", index=False)
     compute_feature_vectors(clean_df).to_csv(data_dir / "feature_vectors.csv", index=False)
-    split_agents(agents_df, seed).to_csv(data_dir / SPLIT_FILE, index=False)
+    split_agents(dataset.labels, seed).to_csv(data_dir / SPLIT_FILE, index=False)
 
 
 def run_seed(seed):

@@ -11,7 +11,7 @@ is_fraud is used here only to stratify, which keeps the fraud share equal in
 both partitions; the models never see it.
 
 Usage: python split.py [--data-dir DIR] [--seed N]
-Input:  <data-dir>/agents.csv
+Input:  <data-dir>/labels.csv (evaluation-only ground truth)
 Output: <data-dir>/train_test_split.csv (agent_id, split)
 """
 
@@ -51,7 +51,7 @@ def main(argv=None):
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     args = parser.parse_args(argv)
 
-    agents_df = pd.read_csv(args.data_dir / "agents.csv")
+    agents_df = pd.read_csv(args.data_dir / "labels.csv")
     split = split_agents(agents_df, args.seed)
     split.to_csv(args.data_dir / SPLIT_FILE, index=False)
 

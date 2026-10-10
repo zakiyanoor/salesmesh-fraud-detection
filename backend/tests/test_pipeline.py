@@ -186,24 +186,24 @@ def test_client_id_and_category_are_not_correlated_with_fraud_status() -> None:
 
 
 def generate_ring_dataset(seed: int = 42):
-    """Regenerate the synthetic data in memory, returning (agents_df, ring agent ids, records)."""
+    """Regenerate the synthetic data in memory, returning (dataset, ring agent ids, records)."""
     saved = (random.getstate(), np.random.get_state())
     try:
-        agents_df, activations = data_generation.generate_dataset(seed)
+        dataset = data_generation.generate_dataset(seed)
     finally:
         random.setstate(saved[0])
         np.random.set_state(saved[1])
 
     records = [
         SimpleNamespace(agent_id=r.agent_id, customer_id=r.customer_id, timestamp=r.timestamp)
-        for r in activations.itertuples()
+        for r in dataset.activations.itertuples()
     ]
-    ring_agents = agents_df[agents_df["ring_id"] != ""]["agent_id"].tolist()
-    return agents_df, ring_agents, records
+    ring_agents = dataset.labels[dataset.labels["ring_id"] != ""]["agent_id"].tolist()
+    return dataset, ring_agents, records
 
 
 def test_collusion_ring_agents_from_synthetic_data_score_above_every_legit_agent() -> None:
-    agents_df, ring_agents, records = generate_ring_dataset()
+    dataset, ring_agents, records = generate_ring_dataset()
     by_agent: dict[str, list] = {}
     for record in records:
         by_agent.setdefault(record.agent_id, []).append(record)
@@ -211,8 +211,8 @@ def test_collusion_ring_agents_from_synthetic_data_score_above_every_legit_agent
     rows = [build_feature_row(agent_id, recs, records) for agent_id, recs in by_agent.items()]
     collusion = {row["agent_id"]: row["collusion_score"] for row in rows}
 
-    legit_agents = agents_df[~agents_df["is_fraud"]]["agent_id"]
-    assert len(ring_agents) == sum(c["size"] for c in data_generation.RING_CONFIGS)
+    legit_agents = dataset.labels[~dataset.labels["is_fraud"]]["agent_id"]
+    assert len(ring_agents) == dataset.rings["size"].sum()
     # Ring agents mix in normal activity (v2 generator), so they no longer score ~1,
     # but the shared pool still lifts every ring agent above every legit agent.
     assert all(collusion[a] > 0.3 for a in ring_agents)

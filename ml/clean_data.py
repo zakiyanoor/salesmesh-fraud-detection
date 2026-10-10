@@ -20,7 +20,7 @@ influenced by which agents are fraudulent):
    would look like.
 4. Validity: timestamps parse and fall inside the analysis window,
    activation_status is one of completed/pending/failed, customer_id matches
-   CUST + 6 digits, agent_id exists in agents.csv. Invalid rows are removed.
+   CUST + CUSTOMER_ID_DIGITS digits, agent_id exists in agents.csv. Invalid rows are removed.
 5. Statistical outliers: per-agent total submissions and per-agent-day
    submission counts, by the IQR rule (above Q3 + 1.5 * IQR) and by robust
    z-score (|x - median| / (1.4826 * MAD) > 3.5). Outliers are reported but
@@ -54,7 +54,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from data_generation import ANALYSIS_END, ANALYSIS_START, DEFAULT_OUT_DIR
+from data_generation import ANALYSIS_END, ANALYSIS_START, CUSTOMER_ID_DIGITS, DEFAULT_OUT_DIR
 
 DEFAULT_REPORT = Path(__file__).resolve().parent / "results" / "data_cleaning_report.md"
 
@@ -63,7 +63,7 @@ EXPECTED_COLUMNS = [
 ]
 REQUIRED_COLUMNS = ["agent_id", "timestamp", "customer_id"]
 VALID_STATUSES = {"completed", "pending", "failed"}
-CUSTOMER_ID_PATTERN = r"^CUST\d{6}$"
+CUSTOMER_ID_PATTERN = rf"^CUST\d{{{CUSTOMER_ID_DIGITS}}}$"
 
 IQR_MULTIPLIER = 1.5
 ROBUST_Z_THRESHOLD = 3.5
