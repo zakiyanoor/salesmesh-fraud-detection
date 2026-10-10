@@ -50,7 +50,7 @@ def load_partitions(data_dir=DEFAULT_OUT_DIR):
     """
     data_dir = Path(data_dir)
     features = pd.read_csv(data_dir / "feature_vectors.csv")
-    labels = pd.read_csv(data_dir / "agents.csv")[["agent_id", "is_fraud"]]
+    labels = pd.read_csv(data_dir / "labels.csv")[["agent_id", "is_fraud"]]
     df = features.merge(labels, on="agent_id").merge(load_split(data_dir), on="agent_id")
     train_df = df[df["split"] == "train"].reset_index(drop=True)
     test_df = df[df["split"] == "test"].reset_index(drop=True)
