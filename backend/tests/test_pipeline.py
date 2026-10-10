@@ -173,20 +173,17 @@ def test_data_generation_assigns_client_id_and_category_from_known_lists() -> No
 
 
 def test_client_id_and_category_are_not_correlated_with_fraud_status() -> None:
-    """Assigned independently of is_fraud: both groups should draw from (most
-    of) the same pool, i.e. client_id/category carry no fraud signal."""
-    agents_df = data_generation.generate_agents(30, 10)
-    activations = data_generation.generate_activation_records(agents_df)
+    """Assigned independently of is_fraud. Each agent works with 1-3 clients, so
+    independence is tested per agent (chi-square on primary client/category)."""
+    from data_checks import agent_table, chi_square_p
 
-    fraud_agent_ids = set(agents_df[agents_df["is_fraud"]]["agent_id"])
-    fraud_clients = set(activations[activations["agent_id"].isin(fraud_agent_ids)]["client_id"])
-    legit_clients = set(activations[~activations["agent_id"].isin(fraud_agent_ids)]["client_id"])
-
-    assert len(fraud_clients & legit_clients) >= len(data_generation.CLIENTS) - 1
+    agents = agent_table(data_generation.generate_dataset(42))
+    assert chi_square_p(agents, "primary_client") > 0.05
+    assert chi_square_p(agents, "primary_category") > 0.05
 
 
 def generate_ring_dataset(seed: int = 42):
-    """Regenerate the synthetic data in memory, returning (dataset, ring agent ids, records)."""
+    """Regenerate the synthetic data in memory, returning (dataset, strong-ring agent ids, records)."""
     saved = (random.getstate(), np.random.get_state())
     try:
         dataset = data_generation.generate_dataset(seed)
@@ -198,7 +195,7 @@ def generate_ring_dataset(seed: int = 42):
         SimpleNamespace(agent_id=r.agent_id, customer_id=r.customer_id, timestamp=r.timestamp)
         for r in dataset.activations.itertuples()
     ]
-    ring_agents = dataset.labels[dataset.labels["ring_id"] != ""]["agent_id"].tolist()
+    ring_agents = dataset.labels[dataset.labels["profile"] == "ring"]["agent_id"].tolist()
     return dataset, ring_agents, records
 
 
@@ -212,9 +209,10 @@ def test_collusion_ring_agents_from_synthetic_data_score_above_every_legit_agent
     collusion = {row["agent_id"]: row["collusion_score"] for row in rows}
 
     legit_agents = dataset.labels[~dataset.labels["is_fraud"]]["agent_id"]
-    assert len(ring_agents) == dataset.rings["size"].sum()
-    # Ring agents mix in normal activity (v2 generator), so they no longer score ~1,
-    # but the shared pool still lifts every ring agent above every legit agent.
+    assert len(ring_agents) == dataset.rings.loc[dataset.rings["strength"] == "strong", "size"].sum()
+    # Strong-ring agents mix in normal activity, so they no longer score ~1, but the
+    # shared pool still lifts them above every legit agent. Weak rings (v3) share
+    # few customers and deliberately overlap legit agents, so they are not asserted.
     assert all(collusion[a] > 0.3 for a in ring_agents)
     assert all(collusion[a] < 0.1 for a in legit_agents)
     assert min(collusion[a] for a in ring_agents) > max(collusion[a] for a in legit_agents)

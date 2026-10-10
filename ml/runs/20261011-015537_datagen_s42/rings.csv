@@ -1,0 +1,15 @@
+ring_id,strength,size,pool_size,hour_start,hour_width,daily_low,daily_high
+ring_01,strong,5,310,22,3,5,14
+ring_02,strong,4,212,23,3,8,19
+ring_03,strong,3,159,18,3,3,13
+ring_04,strong,6,156,4,5,5,17
+ring_05,strong,6,150,1,5,6,12
+ring_06,strong,6,198,14,2,4,16
+ring_07,strong,6,342,17,5,5,16
+ring_08,strong,3,180,13,5,5,17
+ring_09,strong,2,132,13,3,8,20
+ring_10,weak,3,24,14,5,1,6
+ring_11,weak,6,78,11,2,1,7
+ring_12,weak,3,18,3,4,3,11
+ring_13,weak,5,25,16,3,3,10
+ring_14,weak,4,36,11,4,1,8
