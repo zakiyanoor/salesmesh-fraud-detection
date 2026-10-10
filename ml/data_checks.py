@@ -9,6 +9,7 @@ import pandas as pd
 from scipy.stats import chi2_contingency
 
 from data_generation import COUNTIES, COUNTY_TO_FORMER_PROVINCE
+from feature_engineering import collusion_scores, identifier_similarity  # noqa: F401
 
 SMALL_COUNTY_AGENTS = 5
 
@@ -18,14 +19,6 @@ def primary_by_agent(activations, column):
     counts = activations.groupby(["agent_id", column]).size().rename("n").reset_index()
     counts = counts.sort_values(["agent_id", "n", column], ascending=[True, False, True])
     return counts.drop_duplicates("agent_id").set_index("agent_id")[column]
-
-
-def collusion_scores(activations):
-    """Same formula as feature_engineering.compute_collusion_score, vectorised."""
-    pairs = activations[["agent_id", "customer_id"]].drop_duplicates()
-    owners = pairs.groupby("customer_id")["agent_id"].nunique()
-    pairs = pairs.assign(shared=pairs["customer_id"].map(owners) > 1)
-    return pairs.groupby("agent_id")["shared"].mean()
 
 
 def agent_table(dataset):
@@ -109,17 +102,6 @@ AUDIT_DESCRIPTORS = {
 }
 
 
-def identifier_similarity(customer_ids):
-    """Mean over all unordered pairs of submissions of the share of matching digit positions."""
-    digits = np.array([list(str(c)[4:]) for c in customer_ids])
-    n = len(digits)
-    if n < 2:
-        return 0.0
-    matches = sum(int((counts * (counts - 1) // 2).sum())
-                  for counts in (np.unique(digits[:, pos], return_counts=True)[1] for pos in range(digits.shape[1])))
-    return matches / (digits.shape[1] * n * (n - 1) / 2)
-
-
 def raw_descriptors(dataset):
     from data_generation import ANALYSIS_START
 
@@ -168,3 +150,16 @@ def overlap_audit(dataset):
                 "zero_overlap": bool(group != "legit" and (values.min() > legit.max() or values.max() < legit.min())),
             })
     return pd.DataFrame(rows), table
+
+
+def repetition_score(customer_ids):
+    """Generator check: 1 - distinct / total customer ids."""
+    return 0.0 if len(customer_ids) == 0 else 1 - customer_ids.nunique() / len(customer_ids)
+
+
+def sequential_score(customer_ids):
+    """Generator check: share of consecutive pairs among sorted distinct numeric ids that differ by 1."""
+    numbers = sorted({int(str(c)[4:]) for c in customer_ids.unique()})
+    if len(numbers) < 2:
+        return 0.0
+    return sum(1 for a, b in zip(numbers, numbers[1:]) if b - a == 1) / (len(numbers) - 1)

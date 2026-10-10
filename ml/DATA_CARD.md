@@ -371,37 +371,89 @@ Each of these follows from what the fraud pattern is, not from a limit placed on
 | Pattern hour windows (00:00–04:59, 04:00–07:59, ring windows) | fraud patterns and `legit_night` | pattern definitions | Kept: they define the signatures. Legitimate agents now have activity at every hour |
 | Hour range 0–23 | all agents | physical bound | Kept |
 
-## Planned feature definitions (implemented in Step 4)
+## Split (Step 5)
 
-These definitions are fixed now, before any model is run.
+The split is done at agent level: 70% train, 15% validation and 15% test.
+- **Seed:** `SPLIT_SEED = 42`, a constant in `split.py`.
+- **Stratification:** by pattern (legit plus the five fraud patterns), so every split holds every pattern. Labels are used only to stratify.
+- **Safety check:** the split fails if validation or test has fewer than 15 fraud agents.
+- **Saved to:** run `ml/runs/20261011-023607_split_s42/split.csv` (`agent_id`, `split`), with a copy at `data/synthetic/split.csv`.
 
-**Analysis period**
-- Every feature function takes `period_start` and `period_end` arguments.
-- Every output row carries `analysis_period_start` and `analysis_period_end`.
-- Model comparison uses one row per agent, for the whole observation window, split at agent level.
+| | Train | Validation | Test |
+|---|---|---|---|
+| Agents | 700 | 150 | 150 |
+| Fraud agents (share) | 91 (0.130) | 20 (0.133) | 19 (0.127) |
+| ring | 29 | 6 | 6 |
+| weak_ring | 14 | 4 | 3 |
+| sequential | 15 | 3 | 3 |
+| duplicate | 15 | 3 | 3 |
+| weak | 18 | 4 | 4 |
+| legit (plain) | 475 | 107 | 97 |
+| legit_night | 50 | 7 | 13 |
+| legit_repeat | 51 | 8 | 10 |
+| legit_busy | 33 | 8 | 11 |
 
-**`submission_frequency`**
-- The agent's submission count in its busiest 24-hour sliding window inside the period: the maximum, over all start times t, of submissions in [t, t + 24 h).
-- The window length is a named constant (`SUBMISSION_WINDOW_HOURS = 24`).
+The hard legitimate groups are not strata, so they are spread less evenly than the fraud patterns.
 
-**`customer_similarity`** (similarity of identifiers; definition confirmed by the author)
-- The mean similarity of identifiers over all unordered pairs of the agent's submissions in the period.
-- The similarity of two customer identifiers is the share of matching digit positions among the 8 digits. Identical identifiers score 1, identifiers from one sequential run share their leading digits, and two random identifiers score about 0.1.
-- Implemented as `data_checks.identifier_similarity`, with hand-calculated tests.
+**Rings can span splits.** 13 of the 14 rings have members in more than one split; for example, `ring_05` has 4 members in train, 1 in validation and 1 in test.
 
-**`time_of_day_entropy`**
-- Normalised Shannon entropy of submission hours. The current column name is `time_of_day_dist`.
+This is not label leakage. No model is trained on labels, so nothing about a ring's label is learned from its training members.
 
-**`collusion_score`**
-- The fraction of the agent's distinct customers that also appear in any other agent's records in the period.
-- It uses other agents' customers and no labels.
+Two features are platform-wide: `collusion_score` and `volume_vs_peers`. `collusion_score` needs other agents' records, and it is computed from customer overlap across all agents on the platform in the period, whatever their split. `volume_vs_peers` compares the agent with all agents' volumes in the same way. **This is how the features work in deployment:** the live system sees every agent's activity for the period. As a result, a test agent's `collusion_score` reflects its ring partners in train. The features use no labels.
 
-**`volume_vs_peers`** (fifth candidate)
-- The agent's submission volume divided by the median volume of its peers.
-- Peers are agents with the same primary category in the same former region.
-- If that group has fewer than `PEER_MIN_GROUP = 15` agents, peers are the same category across all regions. If that is still fewer than 15, peers are all agents.
-- It is kept only if it passes the same checks as the other four features.
-- Models with and without it are compared on validation only, and both results are reported.
+## Feature definitions (Step 4)
+
+These are implemented in `feature_engineering.py`, without labels or splits.
+
+**Analysis period:** `compute_feature_vectors(activations, agents, period_start, period_end)` uses records with `period_start <= timestamp < period_end`. The default is [2026-08-01 00:00, 2026-08-31 00:00) Africa/Nairobi. Every output row carries `analysis_period_start` and `analysis_period_end`.
+
+The output has one row per agent. Model comparison uses this one row per agent, and the split is at agent level.
+
+Notation for agent *a* in the period:
+- *T_a* is its submission timestamps.
+- *C_a* is its set of distinct customer ids.
+- *V_a* = |*T_a*| is its volume, in submissions.
+
+| Feature | Formula | Window / parameters | Units, range |
+|---|---|---|---|
+| `submission_frequency` | max over t of \|{ s in T_a : t <= s < t + 24 h }\| | Sliding window `SUBMISSION_WINDOW_HOURS = 24`, chosen before any model run. The maximum is reached by a window starting at a submission. | submissions per 24 h; integer >= 0 |
+| `time_of_day_entropy` | -sum_h p_h log2 p_h / log2 24, where p_h is the share of T_a in hour h (0–23) | whole period | unitless, 0 (one hour) to 1 (even over 24 hours); 0 when there are no submissions |
+| `customer_similarity` (similarity of identifiers) | sum over i < j of (1/8) sum_k [digit_k(i) = digit_k(j)], divided by n(n - 1)/2, over all n submissions | whole period; the 8 digits of the customer id | unitless, 0–1; about 0.1 for random ids, 1 for identical ids; 0 when n < 2 |
+| `collusion_score` | \|{ c in C_a : c in C_b for some other agent b }\| / \|C_a\| | whole period; platform-wide | unitless, 0–1 |
+| `volume_vs_peers` | V_a / max(1, median{ V_b : b in P(a), b != a }) | whole period. P(a) is the agents with the same primary category (the most frequent category in the period, ties broken alphabetically) and the same former region. If that group, the agent included, has fewer than `PEER_MIN_GROUP = 15` agents, P(a) is the same category in all regions; if that is still fewer than 15, all agents. | ratio, unitless; 1 = the peers' median |
+
+The model input is `FEATURE_COLUMNS`, the five features above. Id columns, `volume` and `peer_group` are never inputs; `test_no_id_inputs.py` enforces this.
+
+**Peer group levels used:** 578 agents got category + former region, and 422 got category only. No agent fell back to all agents.
+
+**Hand-calculated tests:** `ml/tests/test_feature_engineering.py`.
+
+## Single-feature AUC on training agents (Step 4)
+
+The table uses the 700 training agents, 91 of them fraud. Validation and test labels were not read.
+
+Each cell is a ROC AUC, with the feature value used as the score (higher = more suspicious); values below 0.5 mean the feature is lower for fraud. Columns compare the named fraud agents against all training legitimate agents.
+
+Source: run `ml/runs/20261011-023802_feature_checks/`.
+
+| Feature | All fraud | ring | weak_ring | sequential | duplicate | weak |
+|---|---|---|---|---|---|---|
+| `submission_frequency` | 0.764 | 0.811 | 0.336 | **0.951** | 0.912 | 0.743 |
+| `time_of_day_entropy` | 0.321 | **0.017** | 0.460 | 0.326 | 0.092 | 0.892 |
+| `customer_similarity` | 0.788 | 0.747 | 0.460 | **1.000** | **0.965** | 0.784 |
+| `collusion_score` | 0.724 | **1.000** | **0.971** | 0.404 | 0.473 | 0.564 |
+| `volume_vs_peers` | 0.780 | 0.831 | 0.300 | **0.964** | 0.929 | 0.794 |
+
+**Near-perfect single features (separation = max(AUC, 1 - AUC) >= 0.95), listed as shortcut-risk limitations:**
+- **ring:** `collusion_score` 1.000 and `time_of_day_entropy` 0.983 (lower for fraud).
+- **weak_ring:** `collusion_score` 0.971. Weak-ring agents score low in absolute terms, but most legitimate agents score exactly 0.
+- **sequential:** `customer_similarity` 1.000, `volume_vs_peers` 0.964 and `submission_frequency` 0.951.
+- **duplicate:** `customer_similarity` 0.965.
+- **weak:** no feature is near-perfect. The best is `time_of_day_entropy` at 0.892.
+
+**Decision rule for `volume_vs_peers`** (written to `decision_rule.md` before the AUC table was computed): keep it only if its training AUC (all fraud) is above 0.55 and its absolute Spearman correlation with every base feature is at most 0.85.
+
+**Result: KEEP.** Its AUC is 0.780, and its highest correlation is 0.807, with `submission_frequency`. That correlation is close to the limit: the two features largely measure volume twice. Step 9 still compares models with and without it, on validation only.
 
 ## Requirements traceability
 
@@ -462,4 +514,7 @@ These changes to the generator were made after seeing labelled summaries. None i
 4. **The earlier (v2) deployment choice used test results.** v2 had no validation set, so switching the live detector to Isolation Forest v2 was decided after seeing test results.
 5. **Weak fraud and weak rings are deliberately close to legitimate agents.** Low recall on them is the expected result.
 6. **The backend database still holds v2 data.** One backend test (`test_agent_detail_context_lists_only_known_clients_and_categories`) fails until the database is reloaded at Step 13. The API tests also hard-code agent `A1104`, which does not exist in v3.
-7. **Derived files in `ml/data/synthetic/` are out of date until Steps 4–5 regenerate them.** These are `feature_vectors.csv`, `train_test_split.csv` and `fraud_flags*.csv`. `activation_records_clean.csv` was regenerated by cleaning run `20261011-022427_clean`.
+7. **Out-of-date files in `ml/data/synthetic/`:** `train_test_split.csv` and `fraud_flags*.csv` are from v2. The v3 files are `split.csv` (Step 5) and `feature_vectors.csv` (Step 4). The flag files are regenerated at Steps 8–13.
+8. **Single features are near-perfect on some patterns** (training AUC table above): strong rings, sequential and duplicate, and weak rings on `collusion_score`. Model results on those patterns mostly reflect these signatures. Weak fraud is the honest hard case.
+9. **Two platform-wide features use all agents' records, across splits:** `collusion_score` and `volume_vs_peers`. This matches deployment, and no labels are involved.
+10. **The backend still computes the v2 features.** It counts total volume rather than the 24-hour window, uses max(repetition, sequential) rather than similarity of identifiers, and stores the entropy column as `time_of_day_dist`. Backend parity is a Step 13 task.

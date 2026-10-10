@@ -47,27 +47,32 @@ An item is ticked only when it has been done, with one line of evidence (a file,
 - [x] Raw sample table. Evidence: `ml/runs/20261011-022430_eda_s0/raw_sample.md`, with 8 raw activation records, 5 agents and 5 clients (seed 0).
 - [x] Distributions by group. Evidence: same run, `fig03_distributions_by_group.png`, `descriptors_by_group.csv`, `fig02_volume_by_hour.png`, `fig01_class_balance.png`, `fig04_correlations.png` and `findings.md`, which includes a shortcut check confirming both are gone. Runs `20261011-021228_eda_s0` and `20261011-021303_eda_s0` are superseded.
 
-## Step 4: features
+## Step 4: features (done after Step 5; label checks on training agents only)
 
-- [ ] The four features: `submission_frequency`, `time_of_day_entropy`, `customer_similarity` and `collusion_score`.
-- [ ] Feature functions take `period_start` and `period_end`; output rows include `analysis_period_start` and `analysis_period_end`.
-- [ ] `submission_frequency` uses a sliding window (busiest 24 hours, `SUBMISSION_WINDOW_HOURS`).
-- [ ] `customer_similarity` is the mean pairwise similarity of customer identifiers, as defined in DATA_CARD.md and confirmed against Chapter 3.
-- [ ] Candidate feature `volume_vs_peers`: peers are the same primary category within the same former region, falling back to the same category in all regions, then to all agents, with minimum group size `PEER_MIN_GROUP = 15`.
-- [ ] Single-feature AUC table (shortcut check).
-- [ ] Decision rule for `volume_vs_peers` written before any model is run: keep it only if it passes the same checks as the other features.
+- [x] The four features: `submission_frequency`, `time_of_day_entropy`, `customer_similarity` and `collusion_score`. Evidence: `ml/feature_engineering.py`; `ml/runs/20261011-023639_features/feature_vectors.csv`, 1000 rows.
+- [x] Feature functions take `period_start` and `period_end`; output rows include `analysis_period_start` and `analysis_period_end`. Evidence: `compute_feature_vectors(..., period_start, period_end)`; test `test_period_filter_and_period_columns`.
+- [x] `submission_frequency` uses a sliding window (busiest 24 hours). Evidence: `SUBMISSION_WINDOW_HOURS = 24`; test `test_submission_frequency_by_hand`.
+- [x] `customer_similarity` is the mean similarity of identifiers over pairs. Evidence: `identifier_similarity`; test `test_identifier_similarity_by_hand`.
+- [x] Candidate `volume_vs_peers`, with the agreed peer rule and minimum group size 15. Evidence: `PEER_MIN_GROUP = 15`; 578 agents at category + region and 422 at category level; test `test_volume_vs_peers_by_hand`.
+- [x] Each feature defined exactly. Evidence: DATA_CARD.md "Feature definitions (Step 4)" gives formula, window and units.
+- [x] Single-feature AUC table, overall and per pattern, on training agents only. Evidence: `ml/runs/20261011-023802_feature_checks/single_feature_auc.csv` (700 training agents, 91 fraud); 7 feature-pattern pairs at separation 0.95 or above are listed as limitations in DATA_CARD.md.
+- [x] Decision rule for `volume_vs_peers` written before the table. Evidence: `decision_rule.md`, written by `feature_analysis.py` before any AUC; `decision.md` says KEEP (AUC 0.780 > 0.55; max correlation 0.807 <= 0.85).
+- [x] ID column test re-run against the feature matrix. Evidence: test `test_real_feature_matrix_contains_no_id_columns` passing.
+- [x] No label or agent-id information enters the features. Evidence: test `test_no_label_or_id_information_enters_the_features` (renaming every agent id changes no feature value).
 
-## Step 5: split
+## Step 5: split (done first)
 
-- [ ] 70/15/15 split, stratified at agent level.
-- [ ] Fail if validation or test has fewer than 15 fraud agents.
-- [ ] Split saved, with its seed.
-- [ ] No agent in two splits.
+- [x] 70/15/15 split, stratified at agent level by pattern (legit plus 5 fraud patterns). Evidence: `ml/runs/20261011-023607_split_s42/split.csv`; 700 / 150 / 150 agents; tests `test_split_sizes_are_70_15_15` and `test_every_pattern_is_in_every_split`.
+- [x] Fail if validation or test has fewer than 15 fraud agents. Evidence: `MIN_FRAUD_PER_EVAL_SPLIT = 15`; validation 20 and test 19; test `test_too_few_fraud_agents_fails`.
+- [x] Split saved, with its seed. Evidence: `SPLIT_SEED = 42`; `split.csv` and `run_info.json` in the run folder; test `test_split_is_deterministic`.
+- [x] No agent in two splits. Evidence: tests `test_no_agent_is_in_two_splits` and `test_duplicate_assignment_is_rejected`.
+- [x] Rings spanning splits, and platform-wide `collusion_score`, documented. Evidence: DATA_CARD.md "Split (Step 5)" (13 of 14 rings span splits; not label leakage; deployment behaviour).
 
 ## Step 6: preprocessing
 
-- [ ] Scaler fitted on train only.
-- [ ] Before-and-after scaling sample.
+- [x] Scaler fitted on train only, then applied to validation and test. Evidence: `ml/runs/20261011-023846_preprocess_s0/scaler.joblib` and `scaler_stats.csv` (scaler mean equals training mean, for example `submission_frequency` 15.7329 against 15.6850 over all agents); test `test_scaler_statistics_come_from_training_only`.
+- [x] Scaler saved. Evidence: `scaler.joblib` (scaler, feature list, `fitted_on="train"`, 700 agents); test `test_saved_scaler_round_trips`.
+- [x] Before-and-after scaling sample. Evidence: `scaling_sample.md`, 5 training and 5 validation agents.
 
 ## Step 7: baseline
 
@@ -136,6 +141,7 @@ An item is ticked only when it has been done, with one line of evidence (a file,
 - [ ] `CHANGES.md`.
 - [ ] `DATA_CARD.md`.
 - [ ] `run_info.json` with Python, OS, CPU, RAM and git commit hash (read-only `git rev-parse HEAD`). (Implemented in `ml/run_utils.py`; to be confirmed for the final runs.)
+- [ ] Backend feature parity: `backend/src/pipeline.py` computes the v3 feature definitions, including `time_of_day_entropy`, the 24-hour window, similarity of identifiers and `volume_vs_peers`.
 - [ ] Backend database reloaded with v3 data, and the backend tests that depend on it fixed. Today these are `test_agent_detail_context_lists_only_known_clients_and_categories` and the `A1104` API tests.
 - [ ] List of known limitations:
   - [ ] strong rings are easy to separate;

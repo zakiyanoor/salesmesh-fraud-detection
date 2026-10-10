@@ -6,7 +6,7 @@ import pytest
 import data_generation as dg
 from clean_data import CUSTOMER_ID_PATTERN
 from data_checks import agent_table, chi_square_p
-from feature_engineering import compute_repetition_score, compute_sequential_score
+from data_checks import repetition_score as compute_repetition_score, sequential_score as compute_sequential_score
 
 
 @pytest.fixture(scope="module")

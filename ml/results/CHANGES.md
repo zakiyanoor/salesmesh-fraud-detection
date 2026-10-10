@@ -132,6 +132,55 @@ Flags are written to the run folder, never into the cleaned data.
 - `20261011-021228_eda_s0`: its correlation figure clipped its axis labels.
 - `20261011-021303_eda_s0`: on the pre-change-#4 data; it is where the two shortcuts were found.
 
+## Step 5: split (done before Step 4)
+
+| | v2 | v3 (run `20261011-023607_split_s42`) |
+|---|---|---|
+| Partitions | train/test 80/20 | train/validation/test 70/15/15 |
+| Stratified by | `is_fraud` | pattern (legit plus 5 fraud patterns); every split has every pattern |
+| Agents (fraud) | 92 (12) / 23 (3) | 700 (91) / 150 (20) / 150 (19) |
+| Minimum fraud in an evaluation split | none | 15, enforced (fails otherwise) |
+
+The split is saved as `split.csv` (`agent_id`, `split`) in the run folder and in `data/synthetic/`. The v2 `train_test_split.csv` is no longer used.
+
+13 of 14 rings span more than one split. This is not label leakage, because no labels are used in training, and `collusion_score` uses platform-wide overlap, as in deployment (DATA_CARD.md, "Split").
+
+## Step 4: features (labels used on training agents only)
+
+| | v2 | v3 (run `20261011-023639_features`) |
+|---|---|---|
+| `submission_frequency` | total submissions in the period | busiest 24-hour sliding window |
+| Time-of-day feature | `time_of_day_dist` (entropy) | `time_of_day_entropy` (the same formula, renamed) |
+| `customer_similarity` | max(repetition, sequential score) | mean similarity of identifiers over all pairs of submissions (share of matching digit positions) |
+| `collusion_score` | share of distinct customers shared with another agent | unchanged |
+| `volume_vs_peers` | did not exist | candidate; kept (see below) |
+| Period | derived `YYYY-MM` | explicit `period_start` / `period_end` arguments, with both carried on every row |
+
+**Feature checks** (run `20261011-023802_feature_checks`, 700 training agents only):
+- The decision rule for `volume_vs_peers` was written to `decision_rule.md` before the AUC table was computed.
+- **Result: KEEP.** Training AUC 0.780 (rule: above 0.55); highest Spearman correlation 0.807, with `submission_frequency` (rule: at most 0.85).
+- **Near-perfect single features (separation at least 0.95):**
+  - ring: `collusion_score`, `time_of_day_entropy`;
+  - weak_ring: `collusion_score`;
+  - sequential: `customer_similarity`, `volume_vs_peers`, `submission_frequency`;
+  - duplicate: `customer_similarity`.
+
+  They are listed as limitations in DATA_CARD.md.
+
+The id-column test now also runs against the real feature matrix (`test_real_feature_matrix_contains_no_id_columns`).
+
+`data_checks.py` now imports `identifier_similarity` and `collusion_scores` from `feature_engineering.py`, so each has one implementation. The old v2 helpers, repetition and sequential score, moved to `data_checks.py`, because they are now generator checks only.
+
+## Step 6: preprocessing
+
+`StandardScaler` is fitted on the 700 training agents only, then applied to validation and test with transform only. It is saved as `scaler.joblib` in run `20261011-023846_preprocess_s0`, together with the feature list.
+
+`scaler_stats.csv` shows that the scaler's means and standard deviations equal the training statistics exactly, and differ from the all-agents statistics. `scaling_sample.md` shows 5 training and 5 validation agents before and after scaling.
+
+**Tests:** `test_scaler_statistics_come_from_training_only`, `test_changing_validation_or_test_does_not_change_the_scaler` and `test_validation_is_transformed_with_training_statistics`.
+
+**Stale until Steps 7–12:** the command-line entry points of `model.py`, `model_lof.py`, `baseline.py`, `evaluate.py` and `run_experiments.py` still expect the v2 two-way split. Their fitting functions still work, and the tests use them, but their `main()` functions will be rewritten in Steps 7–12.
+
 ## Model results
 
 Not yet re-run. This section will be filled in after Step 11, with old and new numbers side by side, and it will state whether the model choice changed.
