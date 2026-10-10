@@ -158,7 +158,7 @@ A24029,False,legit_repeat,
 A24168,False,legit,
 A24208,False,legit,
 A24322,False,legit,
-A24371,True,weak_ring,ring_13
+A24371,True,weak_ring,ring_12
 A24592,False,legit_night,
 A24621,False,legit,
 A24662,False,legit,
@@ -228,7 +228,7 @@ A30730,False,legit,
 A30861,False,legit,
 A30866,True,weak,
 A30926,False,legit,
-A30969,True,weak_ring,ring_11
+A30969,True,weak_ring,ring_10
 A31174,False,legit,
 A31178,False,legit,
 A31299,True,ring,ring_03
@@ -391,7 +391,7 @@ A44671,True,weak,
 A44675,False,legit_repeat,
 A44687,False,legit,
 A44718,True,weak,
-A44741,True,weak_ring,ring_11
+A44741,True,weak_ring,ring_10
 A44760,False,legit,
 A44795,False,legit,
 A44814,False,legit,
@@ -554,7 +554,7 @@ A59692,False,legit,
 A59695,False,legit_busy,
 A59735,False,legit_repeat,
 A59797,False,legit,
-A59823,True,weak_ring,ring_13
+A59823,True,weak_ring,ring_14
 A59856,False,legit_night,
 A59857,True,duplicate,
 A60019,False,legit,
@@ -617,7 +617,7 @@ A65518,False,legit,
 A65519,False,legit,
 A65723,True,weak_ring,ring_10
 A65724,True,ring,ring_03
-A65771,True,weak_ring,ring_12
+A65771,True,weak_ring,ring_11
 A65933,False,legit,
 A66057,True,sequential,
 A66148,False,legit,

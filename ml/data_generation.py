@@ -1,6 +1,6 @@
 """
 Synthetic activation data generator for the SalesMesh fraud detection system
-(U-CS 56, AI Fraud Detection). FROZEN at Step 1B: see ml/DATA_CARD.md.
+(U-CS 56, AI Fraud Detection). FROZEN after label-aware change #4 (Step 1C): see ml/DATA_CARD.md.
 
 Fraud patterns (Concept Note; Proposal Sections 2.4.1 and 2.6):
 - ring: collusion rings of varied size, hour window and shared customer pool
@@ -123,32 +123,43 @@ FRAUD_PATTERN_SHARES = {"ring": 0.32, "weak_ring": 0.16, "sequential": 0.16, "du
 # Shares of legit agents; the rest are plain "legit".
 LEGIT_PATTERN_SHARES = {"legit_night": 0.08, "legit_repeat": 0.08, "legit_busy": 0.06}
 
-LEGIT_ACTIVE_DAY_PROB = 0.85
-LEGIT_DAILY_RANGE = (1, 8)
-LEGIT_NIGHT_SHARE_RANGE = (0.10, 0.25)
-LEGIT_REPEAT_POOL_SIZE = 8
-LEGIT_REPEAT_SHARE_RANGE = (0.15, 0.50)
-LEGIT_BUSY_DAILY_RANGE = (6, 14)
+# Applied to every agent, legit or fraud (label-aware change #4: no class-specific caps or clips).
+ACTIVE_DAY_PROB_RANGE = (0.75, 0.95)
+# Daily count ~ negative binomial(mean = agent rate, dispersion); heavy right tail, no cap.
+DAILY_COUNT_DISPERSION = 3.0
+# Agent rate = group median x lognormal(0, sigma).
+AGENT_RATE_SIGMA = 0.25
+# Normal hours: Normal(mean, sd) kept inside 0-23 by resampling (no clip), plus a
+# per-agent share of submissions at a uniformly random hour.
+NORMAL_HOUR_MEAN = 13
+NORMAL_HOUR_SD = 3
+OFF_HOURS_SHARE_RANGE = (0.01, 0.06)
 
-FRAUD_ACTIVE_DAY_PROB = 0.90
-FRAUD_NORMAL_ACTIVITY_SHARE = 0.30
+LEGIT_DAILY_MEDIAN = 4.5
+LEGIT_BUSY_DAILY_MEDIAN = 10.0
+LEGIT_NIGHT_SHARE_RANGE = (0.10, 0.25)
+LEGIT_REPEAT_POOL_SIZE_RANGE = (4, 12)
+LEGIT_REPEAT_SHARE_RANGE = (0.15, 0.50)
+
+# Per agent share of pattern submissions for ring, sequential and duplicate (mean 0.70).
+FRAUD_PATTERN_SHARE_RANGE = (0.55, 0.85)
 
 RING_SIZE_RANGE = (2, 6)
 RING_POOL_PER_MEMBER_RANGE = (20, 75)
 RING_HOUR_WIDTH_RANGE = (2, 5)
-RING_DAILY_LOW_RANGE = (3, 8)
-RING_DAILY_SPAN_RANGE = (5, 12)
+RING_DAILY_MEDIAN_RANGE = (5.0, 12.0)
 WEAK_RING_POOL_PER_MEMBER_RANGE = (5, 15)
 WEAK_RING_SHARE_RANGE = (0.08, 0.20)
-WEAK_RING_DAILY_LOW_RANGE = (1, 3)
-WEAK_RING_DAILY_SPAN_RANGE = (5, 8)
+WEAK_RING_DAILY_MEDIAN_RANGE = (2.5, 5.0)
 
 SOLO_FRAUD_CONFIGS = {
-    "sequential": {"hours": "late_night", "daily_range": (6, 18), "pool_size": 0},
-    "duplicate": {"hours": "early_morning", "daily_range": (5, 15), "pool_size": 25},
-    "weak": {"hours": "early_morning", "daily_range": (2, 9), "pool_size": 10},
+    "sequential": {"hours": "late_night", "daily_median": 12.0, "pool_size_range": (0, 0)},
+    "duplicate": {"hours": "early_morning", "daily_median": 10.0, "pool_size_range": (15, 35)},
+    "weak": {"hours": "early_morning", "daily_median": None, "pool_size_range": (5, 15)},
 }
 WEAK_FRAUD_SHARE_RANGE = (0.10, 0.25)
+# Weak fraud: a random elevated rate, LEGIT_DAILY_MEDIAN x this multiplier.
+WEAK_FRAUD_RATE_MULTIPLIER_RANGE = (1.15, 1.6)
 
 fake = Faker()
 
@@ -180,17 +191,30 @@ def allocate(total, shares):
     return counts
 
 
-def sample_hour(profile):
+def sample_hour(profile, off_hours_share=0.0):
     if isinstance(profile, tuple):
         start, width = profile
         return (start + random.randint(0, width - 1)) % 24
     if profile == "normal":
-        return int(np.clip(np.random.normal(loc=13, scale=3), 7, 19))
+        if random.random() < off_hours_share:
+            return random.randint(0, 23)
+        while True:
+            hour = int(np.floor(np.random.normal(NORMAL_HOUR_MEAN, NORMAL_HOUR_SD)))
+            if 0 <= hour <= 23:
+                return hour
     if profile == "late_night":
         return random.randint(0, 4)
     if profile == "early_morning":
         return random.randint(4, 7)
     raise ValueError(f"unknown timing profile {profile!r}")
+
+
+def daily_count(rate):
+    return int(np.random.negative_binomial(DAILY_COUNT_DISPERSION, DAILY_COUNT_DISPERSION / (DAILY_COUNT_DISPERSION + rate)))
+
+
+def agent_rate(median):
+    return median * float(np.random.lognormal(0.0, AGENT_RATE_SIGMA))
 
 
 def make_timestamp(day, hour):
@@ -267,15 +291,14 @@ def make_rings(num_ring_agents, strength="strong"):
                 sizes[-1] += leftover
     rings = []
     for size in sizes:
-        low = random.randint(*(WEAK_RING_DAILY_LOW_RANGE if weak else RING_DAILY_LOW_RANGE))
-        span = random.randint(*(WEAK_RING_DAILY_SPAN_RANGE if weak else RING_DAILY_SPAN_RANGE))
+        median = random.uniform(*(WEAK_RING_DAILY_MEDIAN_RANGE if weak else RING_DAILY_MEDIAN_RANGE))
         per_member = random.randint(*(WEAK_RING_POOL_PER_MEMBER_RANGE if weak else RING_POOL_PER_MEMBER_RANGE))
         rings.append({
             "strength": strength,
             "size": size,
             "pool_size": size * per_member,
             "hours": (random.randint(0, 23), random.randint(*RING_HOUR_WIDTH_RANGE)),
-            "daily_range": (low, low + span),
+            "daily_median": median,
         })
     return rings
 
@@ -334,29 +357,35 @@ def generate_activation_records(agents_df, profiles=None, rings=None):
             return random.choices(clients, weights=client_mix)[0]
 
         popular_share = random.uniform(*POPULAR_POOL_SHARE_RANGE) if random.random() < POPULAR_POOL_USER_PROB else 0.0
+        active_prob = random.uniform(*ACTIVE_DAY_PROB_RANGE)
+        off_hours_share = random.uniform(*OFF_HOURS_SHARE_RANGE)
         if agent.is_fraud:
             config = rings[ring_index] if ring_index is not None else SOLO_FRAUD_CONFIGS[profile]
-            daily_range, active_prob = config["daily_range"], FRAUD_ACTIVE_DAY_PROB
+            if profile == "weak":
+                rate = LEGIT_DAILY_MEDIAN * random.uniform(*WEAK_FRAUD_RATE_MULTIPLIER_RANGE)
+            else:
+                rate = agent_rate(config["daily_median"])
             if profile == "weak":
                 fraud_share = random.uniform(*WEAK_FRAUD_SHARE_RANGE)
             elif profile == "weak_ring":
                 fraud_share = random.uniform(*WEAK_RING_SHARE_RANGE)
             else:
-                fraud_share = 1 - FRAUD_NORMAL_ACTIVITY_SHARE
-            own_pool = [(random_customer_id(), pick_client()) for _ in range(config.get("pool_size", 0))]
+                fraud_share = random.uniform(*FRAUD_PATTERN_SHARE_RANGE)
+            pool_size = random.randint(*config["pool_size_range"]) if ring_index is None else 0
+            own_pool = [(random_customer_id(), pick_client()) for _ in range(pool_size)]
             seq_next = random.randint(CUSTOMER_ID_MIN, CUSTOMER_ID_MAX - 2000)
         else:
-            daily_range = LEGIT_BUSY_DAILY_RANGE if profile == "legit_busy" else LEGIT_DAILY_RANGE
-            active_prob, fraud_share = LEGIT_ACTIVE_DAY_PROB, 0.0
+            rate = agent_rate(LEGIT_BUSY_DAILY_MEDIAN if profile == "legit_busy" else LEGIT_DAILY_MEDIAN)
+            fraud_share = 0.0
             night_share = random.uniform(*LEGIT_NIGHT_SHARE_RANGE)
             repeat_share = random.uniform(*LEGIT_REPEAT_SHARE_RANGE)
-            regulars = [random_customer_id() for _ in range(LEGIT_REPEAT_POOL_SIZE)]
+            regulars = [random_customer_id() for _ in range(random.randint(*LEGIT_REPEAT_POOL_SIZE_RANGE))]
 
         served = []
         for day in days:
             if random.random() > active_prob:
                 continue
-            for _ in range(random.randint(*daily_range)):
+            for _ in range(daily_count(rate)):
                 client_id = pick_client()
                 if agent.is_fraud and random.random() < fraud_share:
                     hour = sample_hour(config["hours"])
@@ -368,7 +397,7 @@ def generate_activation_records(agents_df, profiles=None, rings=None):
                     else:
                         customer_id, client_id = random.choice(own_pool)
                 else:
-                    hour = sample_hour("normal")
+                    hour = sample_hour("normal", off_hours_share)
                     customer_id = random_customer_id()
                     if random.random() < popular_share:
                         customer_id = random.choice(popular_pools[agent.region])
@@ -422,8 +451,8 @@ def generate_dataset(seed=DEFAULT_SEED, n_agents=DEFAULT_N_AGENTS, fraud_rate=DE
     rings_df = pd.DataFrame([{
         "ring_id": ring_label(i), "strength": r["strength"], "size": r["size"], "pool_size": r["pool_size"],
         "hour_start": r["hours"][0], "hour_width": r["hours"][1],
-        "daily_low": r["daily_range"][0], "daily_high": r["daily_range"][1],
-    } for i, r in enumerate(rings)], columns=["ring_id", "strength", "size", "pool_size", "hour_start", "hour_width", "daily_low", "daily_high"])
+        "daily_median": round(r["daily_median"], 2),
+    } for i, r in enumerate(rings)], columns=["ring_id", "strength", "size", "pool_size", "hour_start", "hour_width", "daily_median"])
     public_agents = agents_df[["agent_id", "registration_timestamp", "region"]]
     return SyntheticDataset(public_agents, activations_df, labels_df, rings_df, clients_frame())
 
@@ -442,18 +471,20 @@ def generator_parameters(n_agents, fraud_rate):
         "popular_pool_per_agent": POPULAR_POOL_PER_AGENT, "popular_pool_min": POPULAR_POOL_MIN,
         "popular_pool_user_prob": POPULAR_POOL_USER_PROB, "popular_pool_share_range": POPULAR_POOL_SHARE_RANGE,
         "fraud_pattern_shares": FRAUD_PATTERN_SHARES, "legit_pattern_shares": LEGIT_PATTERN_SHARES,
-        "legit_daily_range": LEGIT_DAILY_RANGE, "legit_active_day_prob": LEGIT_ACTIVE_DAY_PROB,
-        "legit_night_share_range": LEGIT_NIGHT_SHARE_RANGE, "legit_repeat_pool_size": LEGIT_REPEAT_POOL_SIZE,
-        "legit_repeat_share_range": LEGIT_REPEAT_SHARE_RANGE, "legit_busy_daily_range": LEGIT_BUSY_DAILY_RANGE,
-        "fraud_active_day_prob": FRAUD_ACTIVE_DAY_PROB, "fraud_normal_activity_share": FRAUD_NORMAL_ACTIVITY_SHARE,
+        "active_day_prob_range": ACTIVE_DAY_PROB_RANGE, "daily_count_dispersion": DAILY_COUNT_DISPERSION,
+        "agent_rate_sigma": AGENT_RATE_SIGMA, "normal_hour_mean": NORMAL_HOUR_MEAN, "normal_hour_sd": NORMAL_HOUR_SD,
+        "off_hours_share_range": OFF_HOURS_SHARE_RANGE,
+        "legit_daily_median": LEGIT_DAILY_MEDIAN, "legit_busy_daily_median": LEGIT_BUSY_DAILY_MEDIAN,
+        "legit_night_share_range": LEGIT_NIGHT_SHARE_RANGE, "legit_repeat_pool_size_range": LEGIT_REPEAT_POOL_SIZE_RANGE,
+        "legit_repeat_share_range": LEGIT_REPEAT_SHARE_RANGE,
+        "fraud_pattern_share_range": FRAUD_PATTERN_SHARE_RANGE,
         "ring_size_range": RING_SIZE_RANGE, "ring_pool_per_member_range": RING_POOL_PER_MEMBER_RANGE,
-        "ring_hour_width_range": RING_HOUR_WIDTH_RANGE, "ring_daily_low_range": RING_DAILY_LOW_RANGE,
-        "ring_daily_span_range": RING_DAILY_SPAN_RANGE,
+        "ring_hour_width_range": RING_HOUR_WIDTH_RANGE, "ring_daily_median_range": RING_DAILY_MEDIAN_RANGE,
         "weak_ring_pool_per_member_range": WEAK_RING_POOL_PER_MEMBER_RANGE,
         "weak_ring_share_range": WEAK_RING_SHARE_RANGE,
-        "weak_ring_daily_low_range": WEAK_RING_DAILY_LOW_RANGE,
-        "weak_ring_daily_span_range": WEAK_RING_DAILY_SPAN_RANGE,
+        "weak_ring_daily_median_range": WEAK_RING_DAILY_MEDIAN_RANGE,
         "solo_fraud_configs": SOLO_FRAUD_CONFIGS, "weak_fraud_share_range": WEAK_FRAUD_SHARE_RANGE,
+        "weak_fraud_rate_multiplier_range": WEAK_FRAUD_RATE_MULTIPLIER_RANGE,
     }
 
 
@@ -483,7 +514,7 @@ def save_dataset(dataset, out_dir):
 def main(argv=None):
     import json
 
-    from data_checks import run_checks
+    from data_checks import overlap_audit, run_checks
     from run_utils import start_run
 
     parser = argparse.ArgumentParser(description="Generate synthetic SalesMesh agents and activation records.")
@@ -501,6 +532,9 @@ def main(argv=None):
     dataset.rings.to_csv(run_dir / "rings.csv", index=False)
     checks = run_checks(dataset)
     (run_dir / "data_checks.json").write_text(json.dumps(checks, indent=2))
+    audit, descriptors = overlap_audit(dataset)
+    audit.to_csv(run_dir / "overlap_audit.csv", index=False)
+    descriptors.reset_index().to_csv(run_dir / "raw_descriptors_by_agent.csv", index=False)
 
     n_fraud = int(dataset.labels["is_fraud"].sum())
     print(f"Seed {args.seed}: {len(dataset.agents)} agents ({n_fraud} fraud, {n_fraud / len(dataset.agents):.3f}), "
@@ -508,6 +542,8 @@ def main(argv=None):
     print(summary.round(1).to_string(index=False))
     print(dataset.rings.to_string(index=False))
     print(json.dumps(checks, indent=1))
+    print("Overlap audit, zero-overlap rows:")
+    print(audit[audit["zero_overlap"]].to_string(index=False))
     print(f"Data saved to {args.out_dir}; run folder {run_dir}")
 
 

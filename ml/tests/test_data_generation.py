@@ -212,3 +212,46 @@ def test_timestamps_fall_in_the_observation_window(dataset):
     ts = pd.to_datetime(dataset.activations["timestamp"])
     assert ts.dt.tz is None and dg.TIMEZONE == "Africa/Nairobi"
     assert ts.min() >= dg.ANALYSIS_START and ts.max() < dg.ANALYSIS_END + pd.Timedelta(days=1)
+
+
+ACCEPTED_ZERO_OVERLAP = {("collusion_score", "ring"), ("customer_similarity", "sequential"), ("night_share", "sequential")}
+
+
+@pytest.fixture(scope="module")
+def audit(dataset):
+    from data_checks import overlap_audit
+
+    return overlap_audit(dataset)
+
+
+def test_legit_agents_also_work_off_hours(dataset):
+    acts = dataset.activations.merge(dataset.labels, on="agent_id")
+    legit_hours = pd.to_datetime(acts.loc[~acts["is_fraud"], "timestamp"]).dt.hour
+    assert set(range(24)) <= set(legit_hours)
+    plain = acts[acts["profile"] == "legit"]
+    odd = pd.to_datetime(plain["timestamp"]).dt.hour.isin([5, 6, 20, 21, 22, 23])
+    assert odd.groupby(plain["agent_id"]).any().mean() > 0.3
+
+
+def test_daily_volume_has_no_class_specific_cap(audit):
+    _, table = audit
+    plain_max = table.loc[table["group"] == "legit", "max_per_day"]
+    assert plain_max.max() > 20
+    weak_max = table.loc[table["group"] == "weak", "max_per_day"]
+    assert weak_max.nunique() > 3
+
+
+def test_only_accepted_signatures_have_zero_overlap_with_legit(audit):
+    rows, _ = audit
+    zero = {(r.descriptor, r.group) for r in rows.itertuples() if r.zero_overlap}
+    assert zero == ACCEPTED_ZERO_OVERLAP
+
+
+def test_identifier_similarity_by_hand():
+    from data_checks import identifier_similarity
+
+    assert identifier_similarity(["CUST12345678", "CUST12345678"]) == 1.0
+    assert identifier_similarity(["CUST12345678", "CUST12345679"]) == 7 / 8
+    # pairs: (a,b) 7 matches, (a,c) 0, (b,c) 0 -> 7 / (8 * 3)
+    assert identifier_similarity(["CUST12345678", "CUST12345679", "CUST87654321"]) == 7 / 24
+    assert identifier_similarity(["CUST12345678"]) == 0.0

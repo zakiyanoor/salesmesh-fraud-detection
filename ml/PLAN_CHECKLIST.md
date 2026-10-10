@@ -8,36 +8,44 @@ An item is ticked only when it has been done, with one line of evidence (a file,
 ## Step 0 and Step 1 (done)
 
 - [x] Archive v2 results and data. Evidence: `ml/results/archive_v2/` (6 files) and `ml/data/archive_v2/` (7 files), each checked byte-identical with `cmp` (CHANGES.md, header).
-- [x] Data generator rewritten. Evidence: `ml/data_generation.py` (parameters `--n-agents`, `--fraud-rate`, `--seed`); `ml/tests/test_data_generation.py`, 30 tests passing.
+- [x] Data generator rewritten. Evidence: `ml/data_generation.py` (parameters `--n-agents`, `--fraud-rate`, `--seed`); `ml/tests/test_data_generation.py`, 34 tests passing.
 - [x] Labels kept in `labels.csv` and `rings.csv`, not in `agents.csv`. Evidence: `agents.csv` columns are `agent_id`, `registration_timestamp` and `region`; test `test_agents_file_carries_no_labels`.
-- [x] Run folder with `run_info.json`. Evidence: `ml/runs/20261011-015537_datagen_s42/run_info.json`, holding the seed, parameters, data file hashes, library versions and system information.
+- [x] Run folder with `run_info.json`. Evidence: `ml/runs/20261011-022249_datagen_s42/run_info.json`, holding the seed, parameters, data file hashes, library versions and system information.
 
-## Step 1B (data changes, then FROZEN)
+## Step 1B (data changes; re-ticked on the frozen Step 1C data)
 
 - [x] 47 counties, with a floor of 2 agents per county. Evidence: `COUNTY_MIN_AGENTS = 2`; agents per county min 5, median 20, max 89, 0 counties under 5; test `test_every_county_has_at_least_the_floor`.
 - [x] 1000 agents. Evidence: `DEFAULT_N_AGENTS = 1000`, giving 1000 agents with 130 fraud (0.130); test `test_default_counts_follow_n_agents_and_fraud_rate`.
-- [x] Shared popular customers per county. Evidence: 359 of 870 legitimate agents have a non-zero `collusion_score` (max 0.074); test `test_some_legit_agents_share_customers_mostly_within_their_county`.
-- [x] Weak rings. Evidence: 5 weak rings with 21 agents, `collusion_score` 0.056 / 0.094 / 0.125 (min / median / max), 4 of 21 inside the legitimate range; test `test_weak_rings_share_less_than_strong_rings`.
-- [x] Categories and clients. Evidence: `clients.csv` holds 20 clients across 12 categories; each agent has 1–3 clients (450 / 412 / 138 agents); tests `test_clients_reference_list`, `test_record_category_comes_from_its_client` and `test_agents_work_with_one_to_three_clients_mostly_in_one_or_two_categories`.
-- [x] Fraud independent of region, category and client, with chi-square p values. Evidence: county p = 0.649, former region p = 0.403, primary category p = 0.547, primary client p = 0.702 (`data_checks.json`); test `test_fraud_is_independent_of_county_region_category_and_client`.
+- [x] Shared popular customers per county. Evidence: 353 of 870 legitimate agents have a non-zero `collusion_score` (max 0.110); test `test_some_legit_agents_share_customers_mostly_within_their_county`.
+- [x] Weak rings. Evidence: 5 weak rings with 21 agents, `collusion_score` 0.032 / 0.074 / 0.149 (min / median / max), 15 of 21 inside the legitimate range; test `test_weak_rings_share_less_than_strong_rings`.
+- [x] Categories and clients. Evidence: `clients.csv` holds 20 clients across 12 categories; each agent has 1–3 clients (450 / 413 / 137 agents); tests `test_clients_reference_list`, `test_record_category_comes_from_its_client` and `test_agents_work_with_one_to_three_clients_mostly_in_one_or_two_categories`.
+- [x] Fraud independent of region, category and client, with chi-square p values. Evidence: county p = 0.649, former region p = 0.403, primary category p = 0.946, primary client p = 0.821 (`data_checks.json`, frozen run); test `test_fraud_is_independent_of_county_region_category_and_client`.
 - [x] Requirements traceability table (SRS). Evidence: DATA_CARD.md "Requirements traceability", covering 2.2.4, 7.5, 3.6, 3.1/8.4, 4.3/8.2, 5.1, 5.3 and the section 2 constraints, plus the Chapters 1–3 behaviours.
-- [x] Reason for using 1000 agents. Evidence: DATA_CARD.md "Why 1000 agents" (about 19–20 fraud agents per split at 1000, against about 11–12 at 600).
-- [x] Every label-aware change listed in order. Evidence: DATA_CARD.md "Label-aware changes, in order" lists 3 changes, plus the non-label changes listed separately.
-- [x] Independent units are agents. Evidence: DATA_CARD.md "Independent units" (1000 agents and 130 fraud; the 138,756 records are not independent).
-- [x] Time zone, observation window and data dictionary. Evidence: DATA_CARD.md sections "Time zone and observation window" (Africa/Nairobi, 2026-08-01 to 2026-08-30) and "Files and data dictionary"; test `test_timestamps_fall_in_the_observation_window`.
-- [x] Duplicate pattern is the same customer for the same client; the same customer for different clients is rare. Evidence: tests `test_duplicate_fraud_resubmits_the_same_customer_for_the_same_client` and `test_same_customer_for_different_clients_is_rare` (2,150 pairs, under 5%).
+- [x] Reason for using 1000 agents. Evidence: DATA_CARD.md "Why 1000 agents".
+- [x] Every label-aware change listed in order. Evidence: DATA_CARD.md "Label-aware changes, in order" lists 4 changes, marked final.
+- [x] Independent units are agents. Evidence: DATA_CARD.md "Independent units" (1000 agents and 130 fraud; the 135,509 records are not independent).
+- [x] Time zone, observation window and data dictionary. Evidence: DATA_CARD.md (Africa/Nairobi, 2026-08-01 to 2026-08-30; every column of the 5 files); test `test_timestamps_fall_in_the_observation_window`.
+- [x] Duplicate pattern is the same customer for the same client; the same customer for different clients is rare. Evidence: tests `test_duplicate_fraud_resubmits_the_same_customer_for_the_same_client` and `test_same_customer_for_different_clients_is_rare` (1,848 pairs, under 5%).
 - [x] The data has customer ids only, with no addresses, stated as a limitation. Evidence: DATA_CARD.md "Limits of this data".
-- [x] Generator declared FROZEN. Evidence: DATA_CARD.md header; the `data_generation.py` docstring says it is frozen at Step 1B.
 
-## Step 2: cleaning
+## Step 1C (label-aware change #4, then FROZEN for good)
 
-- [x] Cleaning report. Evidence: `ml/results/data_cleaning_report.md` and run `ml/runs/20261011-020933_clean/`. Checks covered missing values, duplicates, formats, invalid values and impossible timestamps; 138,756 rows in and 138,756 out (0 removed). Outlier policy is flag, not delete (140 agents are IQR outliers on volume). 14 tests in `ml/tests/test_clean_data.py` inject every kind of bad row.
-- [x] Near-duplicate check. Evidence: same customer and client within 10 minutes, 65 records from 38 agents; customer id one digit away within 10 minutes, 529 records from 21 agents. All are flagged and kept, in `record_flags.csv`. Test `test_near_duplicates_by_hand`.
+- [x] Legitimate hours have an off-hours tail, with no clipping. Evidence: `OFF_HOURS_SHARE_RANGE = (0.01, 0.06)`, with resampling instead of a clip; the hour rule now flags 120 fraud agents and 846 of 870 legitimate agents (before: 80 and 0); test `test_legit_agents_also_work_off_hours`.
+- [x] Heavy-tailed daily volume with no cap; weak fraud has a random elevated rate. Evidence: negative binomial (dispersion 3) for every group; legitimate busiest day ranges 5–48; weak fraud busiest day ranges 10–25 (12 distinct values); test `test_daily_volume_has_no_class_specific_cap`.
+- [x] Overlap audit of every raw descriptor, with every zero-overlap row classified. Evidence: `ml/runs/20261011-022249_datagen_s42/overlap_audit.csv` (13 descriptors × 6 groups) and DATA_CARD.md "Overlap audit"; 3 zero-overlap rows, all accepted signatures; test `test_only_accepted_signatures_have_zero_overlap_with_legit`.
+- [x] Constants, clips, caps and exact values that apply to only one class are checked and fixed. Evidence: DATA_CARD.md "Hard limits and exact values checked in the generator" (7 fixed, 2 kept with reasons).
+- [x] Step 1 and 1B checks and tests re-run. Evidence: 52 ML tests passing; backend 66 passed and 2 known failures; checks in `data_checks.json`.
+- [x] Generator declared FROZEN for good. Evidence: DATA_CARD.md header; the `data_generation.py` docstring says it is frozen after change #4.
 
-## Step 3: exploratory analysis
+## Step 2: cleaning (re-run on the frozen data)
 
-- [x] Raw sample table. Evidence: `ml/runs/20261011-021303_eda_s0/raw_sample.md`, with 8 raw activation records, 5 agents and 5 clients (seed 0).
-- [x] Distributions by group. Evidence: same run, `fig03_distributions_by_group.png` (9 descriptors × 9 groups), `descriptors_by_group.csv` (median and IQR), `fig02_volume_by_hour.png`, `fig01_class_balance.png`, `fig04_correlations.png` and `findings.md`.
+- [x] Cleaning report. Evidence: `ml/results/data_cleaning_report.md` and run `ml/runs/20261011-022427_clean/`: 135,509 rows in and 135,509 out (0 removed); 63 agents flagged as IQR volume outliers and kept; 14 tests in `ml/tests/test_clean_data.py`. Run `20261011-020933_clean` is superseded.
+- [x] Near-duplicate check. Evidence: same customer and client within 10 minutes, 93 records from 47 agents; customer id one digit away, 541 records from 21 agents. All are flagged and kept, in `record_flags.csv`. Test `test_near_duplicates_by_hand`.
+
+## Step 3: exploratory analysis (re-run on the frozen data)
+
+- [x] Raw sample table. Evidence: `ml/runs/20261011-022430_eda_s0/raw_sample.md`, with 8 raw activation records, 5 agents and 5 clients (seed 0).
+- [x] Distributions by group. Evidence: same run, `fig03_distributions_by_group.png`, `descriptors_by_group.csv`, `fig02_volume_by_hour.png`, `fig01_class_balance.png`, `fig04_correlations.png` and `findings.md`, which includes a shortcut check confirming both are gone. Runs `20261011-021228_eda_s0` and `20261011-021303_eda_s0` are superseded.
 
 ## Step 4: features
 
