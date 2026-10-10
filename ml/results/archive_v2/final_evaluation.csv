@@ -1,0 +1,4 @@
+detector,precision,recall,f1,roc_auc,tp,fp,fn,tn
+Isolation Forest,1.0,0.6666666666666666,0.8,1.0,2,0,1,20
+LOF,1.0,1.0,1.0,1.0,3,0,0,20
+Frequency rule (baseline),1.0,0.6666666666666666,0.8,0.9666666666666666,2,0,1,20
