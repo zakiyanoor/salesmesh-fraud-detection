@@ -4,12 +4,17 @@ Synthetic activation data generator for the SalesMesh fraud detection system.
 Fraud patterns (Concept Note; Proposal Sections 2.4.1 and 2.6):
 - ring: collusion rings of varied size, hour window and shared customer pool
   (Chang et al., 2024)
+- weak_ring: rings with legit-like volume that share only a few customers
 - sequential: fabricated customers with incrementing ids (Tabassum et al., 2021)
 - duplicate: the same few customers resubmitted
 - weak: mostly normal agents with a small share of duplicate resubmissions
 
 Hard legitimate groups: legit_night (some night work), legit_repeat (regular
-repeat customers), legit_busy (high volume).
+repeat customers), legit_busy (high volume). Any agent may also serve its
+county's popular customers, so honest agents can share customers.
+
+region is one of Kenya's 47 counties, weighted by population and drawn
+independently of the label.
 
 Agent ids are random and carry no label. agents.csv holds only what the
 platform knows; ground truth goes to labels.csv and rings.csv, which are for
@@ -46,7 +51,41 @@ CUSTOMER_ID_MIN = 10 ** (CUSTOMER_ID_DIGITS - 1)
 CUSTOMER_ID_MAX = 10 ** CUSTOMER_ID_DIGITS - 1
 RECORD_ID_START = 5000
 
-REGIONS = ["Nairobi", "Mombasa", "Kisumu", "Nakuru", "Eldoret"]
+# region = county; agents are spread by rough 2019 census population (thousands).
+# County is drawn independently of the label, so fraud rate does not depend on it.
+COUNTY_POPULATION_THOUSANDS = {
+    "Mombasa": 1209, "Kwale": 867, "Kilifi": 1453, "Tana River": 316, "Lamu": 143, "Taita-Taveta": 341,
+    "Garissa": 841, "Wajir": 781, "Mandera": 867,
+    "Marsabit": 459, "Isiolo": 268, "Meru": 1545, "Tharaka-Nithi": 393, "Embu": 608, "Kitui": 1136,
+    "Machakos": 1422, "Makueni": 987,
+    "Nyandarua": 638, "Nyeri": 759, "Kirinyaga": 610, "Murang'a": 1056, "Kiambu": 2417,
+    "Turkana": 926, "West Pokot": 621, "Samburu": 310, "Trans Nzoia": 991, "Uasin Gishu": 1163,
+    "Elgeyo-Marakwet": 454, "Nandi": 886, "Baringo": 667, "Laikipia": 518, "Nakuru": 2162, "Narok": 1158,
+    "Kajiado": 1118, "Kericho": 902, "Bomet": 876,
+    "Kakamega": 1868, "Vihiga": 591, "Bungoma": 1671, "Busia": 894,
+    "Siaya": 993, "Kisumu": 1156, "Homa Bay": 1132, "Migori": 1116, "Kisii": 1266, "Nyamira": 605,
+    "Nairobi": 4397,
+}
+FORMER_PROVINCE_COUNTIES = {
+    "Coast": ["Mombasa", "Kwale", "Kilifi", "Tana River", "Lamu", "Taita-Taveta"],
+    "North Eastern": ["Garissa", "Wajir", "Mandera"],
+    "Eastern": ["Marsabit", "Isiolo", "Meru", "Tharaka-Nithi", "Embu", "Kitui", "Machakos", "Makueni"],
+    "Central": ["Nyandarua", "Nyeri", "Kirinyaga", "Murang'a", "Kiambu"],
+    "Rift Valley": ["Turkana", "West Pokot", "Samburu", "Trans Nzoia", "Uasin Gishu", "Elgeyo-Marakwet", "Nandi",
+                    "Baringo", "Laikipia", "Nakuru", "Narok", "Kajiado", "Kericho", "Bomet"],
+    "Western": ["Kakamega", "Vihiga", "Bungoma", "Busia"],
+    "Nyanza": ["Siaya", "Kisumu", "Homa Bay", "Migori", "Kisii", "Nyamira"],
+    "Nairobi": ["Nairobi"],
+}
+COUNTY_TO_FORMER_PROVINCE = {c: p for p, counties in FORMER_PROVINCE_COUNTIES.items() for c in counties}
+
+# Popular customers per county (e.g. shops, families served by several agents).
+# Any agent, legit or fraud, may use its county's pool in normal-looking submissions.
+POPULAR_POOL_PER_AGENT = 10
+POPULAR_POOL_MIN = 20
+POPULAR_POOL_USER_PROB = 0.35
+POPULAR_POOL_SHARE_RANGE = (0.03, 0.15)
+
 # Context from other SalesMesh modules, drawn independently of fraud status.
 CLIENTS = [
     "PesaLink Kenya", "FashionHub EA", "TechCorp Nairobi", "FinServe Africa",
@@ -55,8 +94,8 @@ CLIENTS = [
 CATEGORIES = ["fintech", "fashion", "technology", "healthcare", "agriculture", "logistics", "e-commerce"]
 STATUS_WEIGHTS = {"completed": 0.85, "pending": 0.10, "failed": 0.05}
 
-# Shares of fraud agents; ring:sequential:duplicate keeps the v2 ratio 3:1:1.
-FRAUD_PATTERN_SHARES = {"ring": 0.48, "sequential": 0.16, "duplicate": 0.16, "weak": 0.20}
+# Shares of fraud agents; all rings : sequential : duplicate keeps the v2 ratio 3:1:1.
+FRAUD_PATTERN_SHARES = {"ring": 0.32, "weak_ring": 0.16, "sequential": 0.16, "duplicate": 0.16, "weak": 0.20}
 # Shares of legit agents; the rest are plain "legit".
 LEGIT_PATTERN_SHARES = {"legit_night": 0.08, "legit_repeat": 0.08, "legit_busy": 0.06}
 
@@ -75,6 +114,11 @@ RING_POOL_PER_MEMBER_RANGE = (20, 75)
 RING_HOUR_WIDTH_RANGE = (2, 5)
 RING_DAILY_LOW_RANGE = (3, 8)
 RING_DAILY_SPAN_RANGE = (5, 12)
+# Weak rings: legit-like volume and only a small share of submissions from a small shared pool.
+WEAK_RING_POOL_PER_MEMBER_RANGE = (5, 15)
+WEAK_RING_SHARE_RANGE = (0.08, 0.20)
+WEAK_RING_DAILY_LOW_RANGE = (1, 3)
+WEAK_RING_DAILY_SPAN_RANGE = (5, 8)
 
 SOLO_FRAUD_CONFIGS = {
     "sequential": {"hours": "late_night", "daily_range": (6, 18), "pool_size": 0},
@@ -141,6 +185,10 @@ def non_consecutive_customer_ids(n):
             return [f"CUST{x}" for x in numbers]
 
 
+COUNTIES = list(COUNTY_POPULATION_THOUSANDS)
+COUNTY_WEIGHTS = list(COUNTY_POPULATION_THOUSANDS.values())
+
+
 def generate_agents(num_legit, num_fraud):
     """Agents with random ids and one registration-date distribution for both classes."""
     numbers = random.sample(range(AGENT_ID_RANGE[0], AGENT_ID_RANGE[1] + 1), num_legit + num_fraud)
@@ -152,13 +200,14 @@ def generate_agents(num_legit, num_fraud):
             start_date=ANALYSIS_START - timedelta(days=REGISTRATION_DAYS_BEFORE[1]),
             end_date=ANALYSIS_START - timedelta(days=REGISTRATION_DAYS_BEFORE[0]),
         ),
-        "region": random.choice(REGIONS),
+        "region": random.choices(COUNTIES, weights=COUNTY_WEIGHTS)[0],
         "is_fraud": fraud,
     } for n, fraud in zip(numbers, is_fraud)]
     return pd.DataFrame(agents).sort_values("agent_id").reset_index(drop=True)
 
 
-def make_rings(num_ring_agents):
+def make_rings(num_ring_agents, strength="strong"):
+    weak = strength == "weak"
     sizes = []
     while sum(sizes) < num_ring_agents:
         sizes.append(random.randint(*RING_SIZE_RANGE))
@@ -170,12 +219,15 @@ def make_rings(num_ring_agents):
                 sizes[-1] += leftover
     rings = []
     for size in sizes:
-        low = random.randint(*RING_DAILY_LOW_RANGE)
+        low = random.randint(*(WEAK_RING_DAILY_LOW_RANGE if weak else RING_DAILY_LOW_RANGE))
+        span = random.randint(*(WEAK_RING_DAILY_SPAN_RANGE if weak else RING_DAILY_SPAN_RANGE))
+        per_member = random.randint(*(WEAK_RING_POOL_PER_MEMBER_RANGE if weak else RING_POOL_PER_MEMBER_RANGE))
         rings.append({
+            "strength": strength,
             "size": size,
-            "pool_size": size * random.randint(*RING_POOL_PER_MEMBER_RANGE),
+            "pool_size": size * per_member,
             "hours": (random.randint(0, 23), random.randint(*RING_HOUR_WIDTH_RANGE)),
-            "daily_range": (low, low + random.randint(*RING_DAILY_SPAN_RANGE)),
+            "daily_range": (low, low + span),
         })
     return rings
 
@@ -197,12 +249,12 @@ def assign_profiles(agents_df):
         profiles[agent_id] = ("legit", None)
 
     fraud_counts = allocate(len(fraud_ids), FRAUD_PATTERN_SHARES)
-    rings = make_rings(fraud_counts["ring"])
-    fraud_counts["sequential"] += fraud_counts["ring"] - sum(r["size"] for r in rings)
+    rings = make_rings(fraud_counts["ring"], "strong") + make_rings(fraud_counts["weak_ring"], "weak")
+    fraud_counts["sequential"] += fraud_counts["ring"] + fraud_counts["weak_ring"] - sum(r["size"] for r in rings)
     position = 0
     for ring_index, ring in enumerate(rings):
         for agent_id in fraud_ids[position:position + ring["size"]]:
-            profiles[agent_id] = ("ring", ring_index)
+            profiles[agent_id] = ("ring" if ring["strength"] == "strong" else "weak_ring", ring_index)
         position += ring["size"]
     for profile in SOLO_FRAUD_CONFIGS:
         for agent_id in fraud_ids[position:position + fraud_counts[profile]]:
@@ -218,14 +270,23 @@ def generate_activation_records(agents_df, profiles=None, rings=None):
 
     days = pd.date_range(ANALYSIS_START, ANALYSIS_END, freq="D")
     ring_pools = [non_consecutive_customer_ids(ring["pool_size"]) for ring in rings]
+    county_counts = agents_df["region"].value_counts()
+    popular_pools = {county: [random_customer_id() for _ in range(max(POPULAR_POOL_MIN, POPULAR_POOL_PER_AGENT * n))]
+                     for county, n in sorted(county_counts.items())}
 
     records = []
     for agent in agents_df.itertuples():
         profile, ring_index = profiles[agent.agent_id]
+        popular_share = random.uniform(*POPULAR_POOL_SHARE_RANGE) if random.random() < POPULAR_POOL_USER_PROB else 0.0
         if agent.is_fraud:
-            config = rings[ring_index] if profile == "ring" else SOLO_FRAUD_CONFIGS[profile]
+            config = rings[ring_index] if ring_index is not None else SOLO_FRAUD_CONFIGS[profile]
             daily_range, active_prob = config["daily_range"], FRAUD_ACTIVE_DAY_PROB
-            fraud_share = random.uniform(*WEAK_FRAUD_SHARE_RANGE) if profile == "weak" else 1 - FRAUD_NORMAL_ACTIVITY_SHARE
+            if profile == "weak":
+                fraud_share = random.uniform(*WEAK_FRAUD_SHARE_RANGE)
+            elif profile == "weak_ring":
+                fraud_share = random.uniform(*WEAK_RING_SHARE_RANGE)
+            else:
+                fraud_share = 1 - FRAUD_NORMAL_ACTIVITY_SHARE
             own_pool = [random_customer_id() for _ in range(config.get("pool_size", 0))]
             seq_next = random.randint(CUSTOMER_ID_MIN, CUSTOMER_ID_MAX - 2000)
         else:
@@ -241,7 +302,7 @@ def generate_activation_records(agents_df, profiles=None, rings=None):
             for _ in range(random.randint(*daily_range)):
                 if agent.is_fraud and random.random() < fraud_share:
                     hour = sample_hour(config["hours"])
-                    if profile == "ring":
+                    if ring_index is not None:
                         customer_id = random.choice(ring_pools[ring_index])
                     elif profile == "sequential":
                         customer_id = f"CUST{seq_next}"
@@ -251,6 +312,8 @@ def generate_activation_records(agents_df, profiles=None, rings=None):
                 else:
                     hour = sample_hour("normal")
                     customer_id = random_customer_id()
+                    if random.random() < popular_share:
+                        customer_id = random.choice(popular_pools[agent.region])
                     if profile == "legit_night" and random.random() < night_share:
                         hour = sample_hour("late_night")
                     if profile == "legit_repeat" and random.random() < repeat_share:
@@ -289,10 +352,10 @@ def generate_dataset(seed=DEFAULT_SEED, n_agents=DEFAULT_N_AGENTS, fraud_rate=DE
         "ring_id": agents_df["agent_id"].map(lambda a: "" if profiles[a][1] is None else ring_label(profiles[a][1])),
     })
     rings_df = pd.DataFrame([{
-        "ring_id": ring_label(i), "size": r["size"], "pool_size": r["pool_size"],
+        "ring_id": ring_label(i), "strength": r["strength"], "size": r["size"], "pool_size": r["pool_size"],
         "hour_start": r["hours"][0], "hour_width": r["hours"][1],
         "daily_low": r["daily_range"][0], "daily_high": r["daily_range"][1],
-    } for i, r in enumerate(rings)], columns=["ring_id", "size", "pool_size", "hour_start", "hour_width", "daily_low", "daily_high"])
+    } for i, r in enumerate(rings)], columns=["ring_id", "strength", "size", "pool_size", "hour_start", "hour_width", "daily_low", "daily_high"])
     public_agents = agents_df[["agent_id", "registration_timestamp", "region"]]
     return SyntheticDataset(public_agents, activations_df, labels_df, rings_df)
 
@@ -311,6 +374,13 @@ def generator_parameters(n_agents, fraud_rate):
         "ring_hour_width_range": RING_HOUR_WIDTH_RANGE, "ring_daily_low_range": RING_DAILY_LOW_RANGE,
         "ring_daily_span_range": RING_DAILY_SPAN_RANGE, "solo_fraud_configs": SOLO_FRAUD_CONFIGS,
         "weak_fraud_share_range": WEAK_FRAUD_SHARE_RANGE,
+        "weak_ring_pool_per_member_range": WEAK_RING_POOL_PER_MEMBER_RANGE,
+        "weak_ring_share_range": WEAK_RING_SHARE_RANGE,
+        "weak_ring_daily_low_range": WEAK_RING_DAILY_LOW_RANGE,
+        "weak_ring_daily_span_range": WEAK_RING_DAILY_SPAN_RANGE,
+        "county_population_thousands": COUNTY_POPULATION_THOUSANDS,
+        "popular_pool_per_agent": POPULAR_POOL_PER_AGENT, "popular_pool_min": POPULAR_POOL_MIN,
+        "popular_pool_user_prob": POPULAR_POOL_USER_PROB, "popular_pool_share_range": POPULAR_POOL_SHARE_RANGE,
     }
 
 
