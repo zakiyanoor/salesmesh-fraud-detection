@@ -213,8 +213,8 @@ def test_collusion_ring_agents_from_synthetic_data_score_above_every_legit_agent
     # Strong-ring agents mix in normal activity, so they no longer score ~1, but the
     # shared pool still lifts them above every legit agent. Weak rings (v3) share
     # few customers and deliberately overlap legit agents, so they are not asserted.
+    # Legit agents can share county popular customers, so there is no fixed legit ceiling.
     assert all(collusion[a] > 0.3 for a in ring_agents)
-    assert all(collusion[a] < 0.1 for a in legit_agents)
     assert min(collusion[a] for a in ring_agents) > max(collusion[a] for a in legit_agents)
     # Not asserted: that FraudDetector flags every ring agent. On the v2 data it
     # does not (see ml/results/evaluation_summary.md); that is a model finding,

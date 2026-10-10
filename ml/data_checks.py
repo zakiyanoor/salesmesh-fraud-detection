@@ -88,3 +88,83 @@ def run_checks(dataset):
             for g in ["legitimate", "strong_ring", "weak_ring", "other_fraud"]},
         "same_customer_different_clients_pairs": int((customer_clients > 1).sum()),
     }
+
+
+AUDIT_GROUPS = ["legit", "ring", "weak_ring", "sequential", "duplicate", "weak"]
+AUDIT_DESCRIPTORS = {
+    "volume": "Submissions in window",
+    "max_per_day": "Max submissions in one day",
+    "mean_per_active_day": "Mean submissions per active day",
+    "hours_used": "Distinct hours used",
+    "night_share": "Share of submissions 00:00-04:59",
+    "hour_entropy": "Hour-of-day entropy (0-1)",
+    "weekend_share": "Share of submissions on Sat/Sun",
+    "customers_per_client": "Distinct customers per client",
+    "repeat_share": "Share repeating an earlier customer+client",
+    "clients_per_agent": "Clients per agent",
+    "registration_age_days": "Registration age (days)",
+    "completed_share": "Share of completed activations",
+    "collusion_score": "Collusion score",
+    "customer_similarity": "Customer similarity (identifiers)",
+}
+
+
+def identifier_similarity(customer_ids):
+    """Mean over all unordered pairs of submissions of the share of matching digit positions."""
+    digits = np.array([list(str(c)[4:]) for c in customer_ids])
+    n = len(digits)
+    if n < 2:
+        return 0.0
+    matches = sum(int((counts * (counts - 1) // 2).sum())
+                  for counts in (np.unique(digits[:, pos], return_counts=True)[1] for pos in range(digits.shape[1])))
+    return matches / (digits.shape[1] * n * (n - 1) / 2)
+
+
+def raw_descriptors(dataset):
+    from data_generation import ANALYSIS_START
+
+    acts = dataset.activations.assign(timestamp=pd.to_datetime(dataset.activations["timestamp"]))
+    hours = acts["timestamp"].dt.hour
+    by_agent = acts.groupby("agent_id")
+    per_day = acts.groupby(["agent_id", acts["timestamp"].dt.date]).size()
+    entropy = hours.groupby(acts["agent_id"]).apply(
+        lambda h: float(-(h.value_counts(normalize=True) * np.log2(h.value_counts(normalize=True))).sum() / np.log2(24)))
+    registration = pd.to_datetime(dataset.agents.set_index("agent_id")["registration_timestamp"])
+    table = pd.DataFrame({
+        "volume": by_agent.size(),
+        "max_per_day": per_day.groupby(level=0).max(),
+        "mean_per_active_day": per_day.groupby(level=0).mean(),
+        "hours_used": hours.groupby(acts["agent_id"]).nunique(),
+        "night_share": hours.lt(5).groupby(acts["agent_id"]).mean(),
+        "hour_entropy": entropy,
+        "weekend_share": acts["timestamp"].dt.dayofweek.ge(5).groupby(acts["agent_id"]).mean(),
+        "customers_per_client": by_agent["customer_id"].nunique() / by_agent["client_id"].nunique(),
+        "repeat_share": acts.duplicated(["agent_id", "customer_id", "client_id"]).groupby(acts["agent_id"]).mean(),
+        "clients_per_agent": by_agent["client_id"].nunique(),
+        "registration_age_days": (ANALYSIS_START - registration).dt.days,
+        "completed_share": acts["activation_status"].eq("completed").groupby(acts["agent_id"]).mean(),
+        "collusion_score": collusion_scores(acts),
+        "customer_similarity": by_agent["customer_id"].apply(identifier_similarity),
+    })
+    labels = dataset.labels.set_index("agent_id")
+    table["group"] = np.where(labels["is_fraud"].reindex(table.index), labels["profile"].reindex(table.index), "legit")
+    return table
+
+
+def overlap_audit(dataset):
+    """min/median/max per group; a fraud group has zero overlap when its range is disjoint from legit's."""
+    table = raw_descriptors(dataset)
+    rows = []
+    for column in AUDIT_DESCRIPTORS:
+        legit = table.loc[table["group"] == "legit", column]
+        for group in AUDIT_GROUPS:
+            values = table.loc[table["group"] == group, column]
+            outside = ((values < legit.min()) | (values > legit.max())).mean() if group != "legit" else 0.0
+            rows.append({
+                "descriptor": column, "group": group, "agents": int(values.size),
+                "min": round(float(values.min()), 4), "median": round(float(values.median()), 4),
+                "max": round(float(values.max()), 4),
+                "share_outside_legit_range": round(float(outside), 3),
+                "zero_overlap": bool(group != "legit" and (values.min() > legit.max() or values.max() < legit.min())),
+            })
+    return pd.DataFrame(rows), table
