@@ -181,6 +181,54 @@ The id-column test now also runs against the real feature matrix (`test_real_fea
 
 **Stale until Steps 7–12:** the command-line entry points of `model.py`, `model_lof.py`, `baseline.py`, `evaluate.py` and `run_experiments.py` still expect the v2 two-way split. Their fitting functions still work, and the tests use them, but their `main()` functions will be rewritten in Steps 7–12.
 
+## Test-set guard (added at Step 7)
+
+`ml/labels_guard.py` is the only way to load labels after the split.
+- `load_labelled(data_dir, splits)` drops test rows as soon as `labels.csv` is read.
+- It raises `TestLabelsLocked` if `"test"` is requested before `unlock_test_labels()`.
+- Only the Step 11 script (`final_evaluation.py`) may call `unlock_test_labels()`.
+
+`preprocessing.load_partitions` and `feature_analysis.py` now go through the guard.
+
+The tests in `ml/tests/test_labels_guard.py` cover four things:
+- the default lock;
+- that only `final_evaluation.py` calls `unlock_test_labels`;
+- a scan of the Step 7–10 modules for direct label reads or test requests;
+- a runtime test that runs the Step 7 and 8 code with every test label deleted and records that `"test"` was never requested.
+
+**v2 scripts moved, not deleted:** `model.py`, `model_lof.py`, `baseline.py`, `evaluate.py`, `run_experiments.py` and the old `metrics.py` are now in `ml/legacy_v2/`, with a README. They read the test split directly and expect the v2 two-way split. The deployed v2 artifact `ml/models/isolation_forest_v2.joblib` stays where the backend loads it.
+
+## Step 7: baselines (fitted on train, evaluated on validation; run `20261011-024811_baselines`)
+
+**Operating point for the Step 7 and 8 tables, fixed before any result was seen:** flag the top 15% of agents by score (`ALERT_BUDGET = 0.15`; k = ceil(0.15 × 150) = 23). This is not the final threshold. ROC AUC and PR AUC are the main comparison. Validation has 150 agents, 20 of them fraud, so the random PR AUC is 0.133.
+
+| Baseline (validation) | ROC AUC | PR AUC | Precision | Recall | F1 |
+|---|---|---|---|---|---|
+| Random scores (mean of 20 seeds) | 0.516 | 0.157 | 0.133 | 0.152 | 0.142 |
+| Rule: `submission_frequency` > training P90 (24), own cap, 13 flagged | 0.795 | 0.373 | 0.462 | 0.300 | 0.364 |
+| `submission_frequency` (+) | 0.795 | 0.373 | 0.391 | 0.450 | 0.419 |
+| `time_of_day_entropy` (−) | 0.614 | 0.482 | 0.391 | 0.450 | 0.419 |
+| `customer_similarity` (+) | 0.813 | 0.512 | 0.391 | 0.450 | 0.419 |
+| `collusion_score` (+) | 0.725 | 0.541 | 0.435 | 0.500 | 0.465 |
+| `volume_vs_peers` (+) | 0.801 | 0.396 | 0.435 | 0.500 | 0.465 |
+
+The direction of each single feature (+ or −) was chosen on training AUC. v2 had a 90th-percentile rule too, but on a different split and different data, so its numbers are not comparable.
+
+## Step 8: default models (fitted on train, evaluated on validation; run `20261011-024834_models_default_s42`)
+
+Isolation Forest: `n_estimators=200`, `contamination="auto"`, seed 42. LOF: `novelty=True`, `n_neighbors=20`. Each was run with 4 and with 5 features. There was no tuning.
+
+| Model, features | Validation ROC AUC | Validation PR AUC | P / R / F1 at 15% | Training ROC AUC / PR AUC |
+|---|---|---|---|---|
+| Isolation Forest, 4 | 0.900 | 0.723 | 0.522 / 0.60 / 0.558 | 0.937 / 0.798 |
+| Isolation Forest, 5 | 0.891 | 0.717 | 0.565 / 0.65 / 0.605 | 0.926 / 0.783 |
+| LOF, 4 | 0.640 | 0.418 | 0.348 / 0.40 / 0.372 | 0.757 / 0.479 |
+| LOF, 5 | 0.702 | 0.474 | 0.348 / 0.40 / 0.372 | 0.746 / 0.502 |
+
+There is no final model choice yet; Step 9 makes it on validation, with a rule written in advance.
+
+**v2 comparison:** v2 used test-set numbers on 23 agents with 3 fraud. These are validation numbers on 150 agents with 20 fraud, on different data, so they are not comparable.
+
 ## Model results
 
 Not yet re-run. This section will be filled in after Step 11, with old and new numbers side by side, and it will state whether the model choice changed.

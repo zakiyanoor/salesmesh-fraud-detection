@@ -19,21 +19,15 @@ from sklearn.preprocessing import StandardScaler
 
 from data_generation import DEFAULT_OUT_DIR
 from feature_engineering import FEATURE_COLUMNS
-from split import SPLITS, load_split
+from labels_guard import load_labelled, load_unlabelled
 
-# Assumed flag share for the v2 model scripts; Step 9 replaces it with a validated choice.
-CONTAMINATION = 0.10
 SAMPLE_SEED = 0
 SAMPLE_PER_SPLIT = 5
 
 
-def load_partitions(data_dir=DEFAULT_OUT_DIR):
-    """Returns {split: frame} with feature vectors joined to is_fraud, profile and split."""
-    data_dir = Path(data_dir)
-    features = pd.read_csv(data_dir / "feature_vectors.csv")
-    labels = pd.read_csv(data_dir / "labels.csv", keep_default_na=False)[["agent_id", "is_fraud", "profile"]]
-    df = features.merge(labels, on="agent_id").merge(load_split(data_dir), on="agent_id")
-    return {name: df[df["split"] == name].reset_index(drop=True) for name in SPLITS}
+def load_partitions(data_dir=DEFAULT_OUT_DIR, splits=("train", "validation")):
+    """{split: labelled frame}, through the test-set guard (test only after Step 11 unlocks it)."""
+    return load_labelled(data_dir, splits)
 
 
 def fit_scaler(train_df, columns=None):
@@ -71,34 +65,6 @@ def md_table(df):
                      + ["| " + " | ".join(str(v) for v in row) + " |" for row in df.values])
 
 
-# --- Model outputs (used by the v2 model scripts until Steps 7-8 replace them) ---
-
-def to_suspicion_score(raw_scores, train_raw_scores):
-    """Maps raw anomaly scores to 0-1 using the TRAINING score range, clipped."""
-    low, high = train_raw_scores.min(), train_raw_scores.max()
-    if high == low:
-        return raw_scores * 0.0
-    return ((raw_scores - low) / (high - low)).clip(0.0, 1.0)
-
-
-def flags_frame(df, raw_scores, flagged, train_raw_scores, model_version):
-    return pd.DataFrame({
-        "vector_id": df["vector_id"].values,
-        "agent_id": df["agent_id"].values,
-        "suspicion_score": to_suspicion_score(raw_scores, train_raw_scores),
-        "flag_status": ["flagged" if f else "clear" for f in flagged],
-        "model_version": model_version,
-        "split": df["split"].values,
-    })
-
-
-def write_flags(path, *frames):
-    frame = pd.concat(frames).sort_values("agent_id").reset_index(drop=True)
-    frame.insert(0, "flag_id", [f"FL{i + 1}" for i in range(len(frame))])
-    frame.to_csv(path, index=False)
-    return frame
-
-
 def main(argv=None):
     from run_utils import start_run
 
@@ -107,8 +73,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     columns = list(FEATURE_COLUMNS)
-    inputs = [args.data_dir / f for f in ["feature_vectors.csv", "split.csv", "labels.csv"]]
+    inputs = [args.data_dir / f for f in ["feature_vectors.csv", "split.csv"]]
     parts = load_partitions(args.data_dir)
+    parts["test"] = load_unlabelled(args.data_dir, "test")
     scaler = fit_scaler(parts["train"], columns)
     run_dir = start_run("preprocess", SAMPLE_SEED, {"scaler": "StandardScaler", "fitted_on": "train",
                                                     "feature_columns": columns}, inputs)

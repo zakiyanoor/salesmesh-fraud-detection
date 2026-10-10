@@ -3,9 +3,8 @@
 import numpy as np
 import pandas as pd
 
+import detectors
 import feature_engineering
-import model
-import model_lof
 import preprocessing
 
 ID_COLUMNS = {"record_id", "activation_id", "agent_id", "vector_id", "flag_id", "customer_id", "client_id", "ring_id"}
@@ -43,9 +42,10 @@ def test_feature_matrix_ignores_id_columns():
 
 def test_fitted_models_see_only_feature_columns():
     df = feature_frame()
-    for fit in (model.fit_detector, model_lof.fit_detector):
-        detector = fit(df)
+    for fit in detectors.FITTERS.values():
+        detector = fit(df, feature_engineering.FEATURE_COLUMNS)
         assert detector.model.n_features_in_ == len(feature_engineering.FEATURE_COLUMNS)
+        assert not any(is_id_column(c) for c in detector.columns)
         assert not hasattr(detector.model, "feature_names_in_") or not any(
             is_id_column(c) for c in detector.model.feature_names_in_)
 
