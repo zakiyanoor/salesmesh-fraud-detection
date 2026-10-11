@@ -29,7 +29,7 @@ from sklearn.metrics import average_precision_score
 
 from data_generation import DEFAULT_OUT_DIR
 from detectors import FITTERS
-from explain import EXPLANATION_METHOD, reference_medians, top_feature_table
+from explain import EXPLANATION_METHOD, reference_stats, top_feature_table
 from feature_engineering import ALL_FEATURES, CANDIDATE_FEATURE
 from labels_guard import load_labelled, load_unlabelled
 from learning_curve import latest_selection_run
@@ -108,9 +108,10 @@ def main(argv=None):
                                           "explanation_method": EXPLANATION_METHOD,
                                           "expected_top_feature": EXPECTED_TOP_FEATURE}, inputs)
 
-    bundle = {**chosen, "reference_medians": reference_medians(train, chosen["feature_columns"]),
+    bundle = {**chosen, "reference_stats": reference_stats(train, chosen["feature_columns"]),
               "explanation_method": EXPLANATION_METHOD}
     joblib.dump(bundle, run_dir / "scoring_bundle.joblib")
+    joblib.dump(chosen["scaler"], run_dir / "scaler.joblib")
     from scoring import detector_from
 
     detector = detector_from(bundle)
@@ -123,13 +124,13 @@ def main(argv=None):
     val_features = load_unlabelled(args.data_dir, "validation")
     output = score_agents(bundle, val_features)
     output.to_csv(run_dir / "validation_scores.csv", index=False)
-    timing = {"score_only_ms_per_agent": 1000 * median_seconds(lambda: score_agents(bundle, val_features, explain=False)) / len(val_features),
-              "score_and_explain_flagged_ms_per_agent": 1000 * median_seconds(lambda: score_agents(bundle, val_features)) / len(val_features),
+    timing = {"score_only_ms_per_agent": 1000 * median_seconds(lambda: detector.score(val_features)) / len(val_features),
+              "score_and_explain_all_rows_ms_per_agent": 1000 * median_seconds(lambda: score_agents(bundle, val_features)) / len(val_features),
               "agents": len(val_features), "flagged": int(output["flag"].sum())}
     (run_dir / "timing.json").write_text(json.dumps(timing, indent=2), encoding="utf-8")
 
     fraud = val[val["is_fraud"]]
-    sanity = top_feature_table(detector.scaler, detector.columns, fraud).merge(
+    sanity = top_feature_table(bundle["reference_stats"], detector.columns, fraud).merge(
         fraud[["agent_id", "profile"]], on="agent_id").merge(output[["agent_id", "flag", "score"]], on="agent_id")
     sanity["expected"] = sanity["profile"].map(EXPECTED_TOP_FEATURE).fillna("(no expectation)")
     sanity["match"] = np.where(sanity["profile"].isin(EXPECTED_TOP_FEATURE), sanity["top_feature"] == sanity["expected"], np.nan)
@@ -150,6 +151,7 @@ def main(argv=None):
     print(ablation_table.round(3).to_string(index=False))
     print(f"\n(c, d) Flagged validation agents: {timing['flagged']} of {timing['agents']}:")
     print(output[output["flag"]][["agent_id", "score", "top_features", "reason"]].round(3).to_string(index=False))
+    print("\nReference statistics (training median, IQR):", json.dumps(bundle["reference_stats"]))
     print("\n(e) Top feature of validation fraud agents vs the expected feature for their pattern:")
     print(summary.to_string())
     print("\nMismatches and patterns without an expectation:")

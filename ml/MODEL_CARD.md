@@ -12,8 +12,12 @@
 
 ## Explanations
 
-- **Method:** each flagged agent gets its top 3 features by |z| (distance from the training mean in training standard deviations). Features after the first are listed only if |z| ≥ 1. Values are shown against the training median. SHAP was not used, because it is not installed.
-- **Limitation:** it explains how unusual an agent is, not the forest's internal attribution. For duplicate agents it often names volume or timing rather than `customer_similarity` (0 of 3 matched on validation).
+- **Method:** robust deviation, (value − training median) / max(training IQR, 0.001), on training agents only, with no labels.
+- **What is shown:** `top_features` (the top 3 by |deviation|) for every agent. Flagged agents also get a plain-language reason listing the first feature and any other at least 1 IQR from the median, each against the typical (median) value. SHAP was not used, because it is not installed.
+- **Limitations:**
+  - It explains how unusual an agent is, not the forest's internal attribution.
+  - The `customer_similarity` IQR is tiny (0.0024), so differences of about 0.002 can appear as reasons.
+- **Validation sanity check:** each fraud agent's top feature matched its pattern for ring 6/6, sequential 3/3, duplicate 3/3 and weak_ring 4/4.
 
 ## Validation results (not final)
 
