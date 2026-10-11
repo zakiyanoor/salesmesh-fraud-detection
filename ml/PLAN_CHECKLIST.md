@@ -95,11 +95,13 @@ An item is ticked only when it has been done, with one line of evidence (a file,
 - [x] Selection rule written before running. Evidence: `ml/results/selection_rule.md` (written 02:55; the grid run started 02:56, `20261011-025652_selection_s42`).
 - [x] Hyperparameter grid. Evidence: `grid.csv` (64 candidates) and `grid_per_seed.csv` (5 seeds each), all candidates kept.
 - [x] Contamination not equal to the true fraud rate. Evidence: `contamination="auto"` everywhere; the run report explains that it does not change scores or rankings.
-- [x] Threshold chosen on validation, saved as a value with the model version. Evidence: `operating_point.json`, cutoff 1.695 (minimum expected cost at 5:1), `model_version` `lof_v3_4f`; `operating_points.csv` with max F1, 15% budget, 2:1 and 10:1.
-- [x] Train vs validation gap check. Evidence: ROC AUC 0.906 against 0.877 (gap 0.029); PR AUC 0.711 against 0.682.
+- [x] Threshold chosen on validation, saved as a value with the model version. Evidence: first under the original rule (cutoff 1.695, `lof_v3_4f`, run `…025652`), then re-done for the amended pick (cutoff 0.536, `if_v3_4f`, run `…031206`).
+- [x] Train vs validation gap check. Evidence: `if_v3_4f` ROC AUC 0.933 against 0.904 (gap 0.029), PR AUC 0.805 against 0.751. The original pick had a gap of 0.029 too.
 - [x] Models compared with and without `volume_vs_peers`, on validation only, with both reported. Evidence: best 4-feature 0.754 against best 5-feature 0.739, CIs overlapping about 97% (within noise).
 - [x] Bootstrap 95% CI of validation PR AUC per candidate. Evidence: `pr_auc_ci_low` and `pr_auc_ci_high` in `grid.csv` (1000 resamples); test `test_weighted_average_precision_matches_sklearn`.
-- [ ] **Selection outcome confirmed by the author.** The rule as written chose LOF k=35 (0.682), because its heavy-overlap tie condition made 60 of 64 candidates ties. A margin-only rule would choose IF with 100 trees, `max_samples` 64 and 4 features (0.742). The author's decision is pending.
+- [x] **Selection outcome confirmed by the author (option B: post hoc margin-only tie rule, on validation only).** Evidence: `selection_rule.md` amendment (03:11) and CHANGES.md; the original pick (LOF k=35, 0.682) is kept in run `20261011-025652_selection_s42`; the amended pick is `if_v3_4f` (IF, 100 trees, `max_samples` 64, `max_features` 1.0, 4 features; 0.742) in run `20261011-031206_selection_s42`; tests `test_amended_rule_simplicity_order` and `test_amended_rule_ignores_ci_overlap`.
+- [x] Operating point recomputed for the amended pick and saved with `model_version` `if_v3_4f`. Evidence: `operating_point.json`, cutoff 0.536 (5:1); `operating_points.csv` with 2:1, 10:1, max F1 and 15% budget.
+- [x] Acceptance checks Q1–Q6 re-evaluated on validation. Evidence: `acceptance_validation.csv`, all PASS (Q5 recall exactly 0.60).
 - [ ] `ml/results/acceptance_criteria.md`, agreed with the supervisor first. (The draft is written, with a disclosure at the top; agreement is pending.) It must include these SRS-based criteria, each measured at Step 11:
   - [x] scoring time per agent and for the whole table. Evidence: criterion S1 in the draft.
   - [x] the model can be replaced without changing the pipeline, and the threshold is a config value. Evidence: criterion S2 in the draft.
@@ -110,11 +112,14 @@ An item is ticked only when it has been done, with one line of evidence (a file,
 
 - [x] Learning curve at 10%, 25%, 50%, 75% and 100% of the training data, stratified, 5 repeats each. Evidence: run `20261011-030156_learning_curve` (the rule's choice) and `20261011-030202_learning_curve` (the margin-only alternative), each with `learning_curve.png`; both are flat from about 25–50%.
 
-## Step 10: explainability
+## Step 10: explainability (validation only)
 
-- [ ] Permutation importance or SHAP.
-- [ ] Feature ablation: drop one feature at a time, on validation only, to answer the research question on which features are most effective.
-- [ ] Top contributing features for each flagged agent, for admin review.
+- [x] Permutation importance (20 repeats, as PR AUC drop). Evidence: run `20261011-031637_explain/permutation_importance.csv`; `collusion_score` 0.227, `customer_similarity` 0.198, entropy 0.052, frequency 0.037.
+- [x] Feature ablation (drop one at a time, `volume_vs_peers` in or out, seeds 1–5, bootstrap CI). Evidence: `ablation.csv`; without similarity −0.118, without collusion −0.106, without frequency +0.026 (within noise), with `volume_vs_peers` −0.002.
+- [x] Top contributing features per flagged agent, for admin review, with the method stated. Evidence: largest scaled deviation (SHAP not installed); `validation_scores.csv` `top_features`; computed for flagged agents only (test `test_explanations_only_for_flagged_agents`).
+- [x] Plain-language reason per flagged agent. Evidence: `validation_scores.csv` `reason`; test `test_top_contribution_and_reason_by_hand`.
+- [x] Sanity check of the top feature by pattern. Evidence: `pattern_sanity.csv`; ring 4/6, sequential 3/3, duplicate 0/3, weak_ring 0/4, with mismatches listed and explained.
+- [x] Validation scoring output with the agreed schema. Evidence: `validation_scores.csv` (`agent_id`, `analysis_period_start`, `analysis_period_end`, `score`, `flag`, `threshold`, `model_version`, `top_features`, `reason`); tests `test_output_schema_and_unflagged_rows` and `test_threshold_comes_from_the_bundle_not_the_code`.
 
 ## Step 11: final test (test set read once)
 

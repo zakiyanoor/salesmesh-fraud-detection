@@ -1,8 +1,10 @@
 """
 Model selection and operating point (Step 9), on VALIDATION only.
 
-Implements ml/results/selection_rule.md and the operating-point rule in
-ml/results/acceptance_criteria.md, both written before this grid was run.
+Implements ml/results/selection_rule.md (with its post hoc amendment of the
+tie rule, made on validation only before any test result; the original rule is
+kept as choose_original) and the operating-point rule in
+ml/results/acceptance_criteria.md.
 Test labels are never loaded.
 
 contamination stays "auto": it only sets the cutoff behind predict(); the
@@ -131,8 +133,8 @@ def ci_overlap_share(a_low, a_high, b_low, b_high):
     return overlap / shorter if shorter > 0 else 0.0
 
 
-def choose(grid):
-    """Selection rule from selection_rule.md. Returns (chosen row, tie-set frame, top row)."""
+def choose_original(grid):
+    """ORIGINAL rule (superseded, kept for the record): margin OR heavy CI overlap, then size."""
     top = grid.sort_values("pr_auc_mean", ascending=False).iloc[0]
     overlap = grid.apply(lambda r: ci_overlap_share(top["pr_auc_ci_low"], top["pr_auc_ci_high"],
                                                     r["pr_auc_ci_low"], r["pr_auc_ci_high"]), axis=1)
@@ -141,6 +143,50 @@ def choose(grid):
     ties = ties[within | (overlap >= HEAVY_OVERLAP)]
     chosen = ties.sort_values(["n_features", "model_bytes", "pr_auc_mean"], ascending=[True, True, False]).iloc[0]
     return chosen, ties, top
+
+
+def choose(grid):
+    """
+    AMENDED rule (post hoc, on validation only, before any test result): tied =
+    within TIE_MARGIN of the top mean PR AUC; simplest first = fewer features,
+    fewer trees, smaller max_samples, then faster scoring.
+    Returns (chosen row, tie-set frame, top row).
+    """
+    top = grid.sort_values("pr_auc_mean", ascending=False).iloc[0]
+    ties = grid[(top["pr_auc_mean"] - grid["pr_auc_mean"]) < TIE_MARGIN].copy()
+    ties["_trees"] = pd.to_numeric(ties["n_estimators"], errors="coerce").fillna(0)
+    ties["_samples"] = pd.to_numeric(ties["max_samples"], errors="coerce").fillna(0)
+    chosen = ties.sort_values(["n_features", "_trees", "_samples", "score_ms_per_agent"]).iloc[0]
+    return chosen, ties.drop(columns=["_trees", "_samples"]), top
+
+
+ACCEPTANCE_BEST_SINGLE_FEATURE_PR_AUC = 0.541
+ACCEPTANCE_MAX_GAP = 0.10
+ACCEPTANCE_MIN_RECALL = 0.60
+ACCEPTANCE_MAX_ALERT_RATE = 0.25
+ACCEPTANCE_RANDOM_MULTIPLE = 3
+
+
+def acceptance_on_validation(chosen, y, scores, train_roc_auc, cutoff):
+    """Q1-Q6 of the draft acceptance criteria, measured on validation (the final check is Step 11 on test)."""
+    y = np.asarray(y, dtype=bool)
+    pr = average_precision_score(y, scores)
+    ci = np.percentile(weighted_average_precision(y, scores, bootstrap_weights(y)), [2.5, 97.5])
+    flags = scores >= cutoff
+    recall = flags[y].mean()
+    gap = train_roc_auc - roc_auc_score(y, scores)
+    rows = [
+        ("Q1", "mean validation PR AUC over seeds 1-5 > best single feature (0.541)", chosen["pr_auc_mean"],
+         chosen["pr_auc_mean"] > ACCEPTANCE_BEST_SINGLE_FEATURE_PR_AUC),
+        ("Q2", "PR AUC (seed 42 model) > best single feature (0.541)", pr, pr > ACCEPTANCE_BEST_SINGLE_FEATURE_PR_AUC),
+        ("Q3", f"PR AUC >= {ACCEPTANCE_RANDOM_MULTIPLE} x fraud rate ({y.mean():.3f}) and CI low > fraud rate",
+         f"{pr:.3f} (CI {ci[0]:.3f}-{ci[1]:.3f})", pr >= ACCEPTANCE_RANDOM_MULTIPLE * y.mean() and ci[0] > y.mean()),
+        ("Q4", "train ROC AUC - validation ROC AUC <= 0.10", gap, gap <= ACCEPTANCE_MAX_GAP),
+        ("Q5", "recall at the cutoff >= 0.60", recall, recall >= ACCEPTANCE_MIN_RECALL),
+        ("Q6", "alert rate at the cutoff <= 25%", flags.mean(), flags.mean() <= ACCEPTANCE_MAX_ALERT_RATE),
+    ]
+    return pd.DataFrame([{"criterion": c, "condition": cond, "value": v, "result": "PASS" if ok else "FAIL",
+                          "measured_on": "validation (final check: Step 11, test)"} for c, cond, v, ok in rows])
 
 
 def cutoff_metrics(y, scores, profiles, cutoff):
@@ -217,6 +263,8 @@ def main(argv=None):
 
     chosen, ties, top = choose(grid)
     ties.to_csv(run_dir / "tie_set.csv", index=False)
+    original_pick, original_ties, _ = choose_original(grid)
+    original_ties.to_csv(run_dir / "tie_set_original_rule.csv", index=False)
     params = {k: chosen[k] for k in (IF_GRID if chosen["model"] == "isolation_forest" else LOF_GRID)}
     params = {k: (int(v) if float(v).is_integer() and k != "max_features" else float(v)) for k, v in params.items()}
     columns = FEATURE_SETS[chosen["features"]]
@@ -227,7 +275,7 @@ def main(argv=None):
     points.to_csv(run_dir / "operating_points.csv", index=False)
     operating = points.iloc[0]
 
-    model_version = f"{chosen['model']}_v3_{int(chosen['n_features'])}f"
+    model_version = f"{'if' if chosen['model'] == 'isolation_forest' else 'lof'}_v3_{int(chosen['n_features'])}f"
     config = {"model_version": model_version, "model": chosen["model"], "params": params,
               "feature_columns": columns, "model_seed": FINAL_MODEL_SEED, "contamination": "auto",
               "threshold": float(operating["cutoff"]), "threshold_rule": operating["rule"],
@@ -243,6 +291,9 @@ def main(argv=None):
         ["roc_auc", "pr_auc", "pr_auc_random", "precision", "recall", "f1", "flagged"]]
     pattern = points.set_index("rule")[[f"recall_{p}" for p in FRAUD_PATTERNS]]
     pattern.to_csv(run_dir / "pattern_recall.csv")
+    acceptance = acceptance_on_validation(chosen, val["is_fraud"].values, val_scores, train_eval["roc_auc"],
+                                          float(operating["cutoff"]))
+    acceptance.to_csv(run_dir / "acceptance_validation.csv", index=False)
 
     best_other = grid[grid["features"] != chosen["features"]].iloc[0]
     same_family_other = grid[(grid["model"] == chosen["model"]) & (grid["features"] != chosen["features"])].iloc[0]
@@ -252,6 +303,7 @@ def main(argv=None):
             "pr_auc_std", "pr_auc_ci_low", "pr_auc_ci_high", "roc_auc_mean", "train_roc_auc_mean", "model_bytes"]
     report = {
         "top": top[cols].to_dict(), "chosen": chosen[cols].to_dict(), "tie_set_size": len(ties),
+        "original_rule_pick": original_pick[cols].to_dict(), "original_rule_tie_set_size": len(original_ties),
         "best_other_feature_set": best_other[cols].to_dict(), "four_vs_five_ci_overlap": overlap,
     }
     (run_dir / "report.json").write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
@@ -263,8 +315,10 @@ def main(argv=None):
     print(grid[cols].head(12).round(3).to_string(index=False))
     print("\nBest per model and feature set:")
     print(grid.groupby(["model", "features"]).head(1)[cols].round(3).to_string(index=False))
-    print(f"\nTie set: {len(ties)} candidates (within {TIE_MARGIN} of top or CI overlap >= {HEAVY_OVERLAP:.0%}).")
-    print(ties[cols + ["ci_overlap_with_top", "within_margin"]].round(3).to_string(index=False))
+    print(f"\nOriginal rule (superseded): tie set {len(original_ties)}, pick {original_pick['model']} "
+          f"{original_pick['features']} n_neighbors={original_pick['n_neighbors']} PR AUC {original_pick['pr_auc_mean']:.3f}")
+    print(f"\nAmended rule: tie set = within {TIE_MARGIN} of top: {len(ties)} candidates.")
+    print(ties[cols + ["score_ms_per_agent"]].round(4).to_string(index=False))
     print(f"\nCHOSEN: {model_version} {params}")
     print(f"Same-family best with the other feature set: {same_family_other['features']} "
           f"PR AUC {same_family_other['pr_auc_mean']:.3f} [{same_family_other['pr_auc_ci_low']:.3f}, "
@@ -276,6 +330,8 @@ def main(argv=None):
     print(pattern.round(2).to_string())
     print("\nTrain vs validation (chosen model, at the 5:1 cutoff):")
     print(gap.round(3).to_string())
+    print("\nAcceptance criteria Q1-Q6 on validation:")
+    print(acceptance.to_string(index=False))
     print(f"\nRun folder {run_dir}")
 
 
