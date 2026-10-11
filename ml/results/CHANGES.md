@@ -229,6 +229,57 @@ There is no final model choice yet; Step 9 makes it on validation, with a rule w
 
 **v2 comparison:** v2 used test-set numbers on 23 agents with 3 fraud. These are validation numbers on 150 agents with 20 fraud, on different data, so they are not comparable.
 
+## Step 9: selection on validation (run `20261011-025652_selection_s42`)
+
+**Written before the grid ran (02:55):**
+- `ml/results/acceptance_criteria.md` (DRAFT, to be agreed with the supervisor before Step 11). It says it was drafted after seeing default validation results and before any test result.
+- `ml/results/selection_rule.md`.
+
+**Grid:** 64 candidates (Isolation Forest 27 × 2 feature sets, LOF 5 × 2), each with 5 model seeds. `contamination` was left at `"auto"` and never set to the fraud rate. It does not change scores or rankings, so the cutoff is taken from validation scores. Every candidate is kept in `grid.csv` and `grid_per_seed.csv`.
+
+| Candidate | Mean validation PR AUC (95% CI) |
+|---|---|
+| Top: IF, 4 features, 500 trees, `max_samples` 64, `max_features` 0.8 | 0.754 (0.580–0.910) |
+| Best 5-feature: IF, 100 trees, `max_samples` 64, `max_features` 1.0 | 0.739 (0.572–0.891) |
+| Best LOF: 5 features, `n_neighbors` 50 | 0.717 (0.539–0.875) |
+| **Chosen by the rule as written: LOF, 4 features, `n_neighbors` 35** | **0.682 (0.495–0.854)** |
+
+**The rule chose a weak candidate.** Validation has only 20 fraud agents, so every CI is about 0.33 wide, and 60 of 64 candidates count as ties through "heavy CI overlap". The size tie-break then picked the smallest 4-feature model. A margin-only tie set (within 0.02) would choose IF, 4 features, 100 trees, `max_samples` 64, `max_features` 1.0 (0.742). **The rule has not been changed.** The decision is the author's.
+
+**4 vs 5 features:** the rule picks 4. The difference is within noise: 0.754 against 0.739, with CIs overlapping about 97%.
+
+**Operating point** (chosen configuration, seed 42, validation): the minimum-cost cutoff at 5:1 is 1.695. It flags 17 agents (11.3%), with precision 0.765, recall 0.65 and F1 0.703. The 2:1 and max-F1 rules give the same cutoff. The 10:1 rule flags 73 agents (48.7%) with recall 0.95. The 15% budget gives recall 0.65 with precision 0.565.
+
+The cutoff is saved in `operating_point.json` with `model_version` `lof_v3_4f`. This reconciles with the "no config files" rule as follows: settings stay as constants in the scripts, and the threshold is a model artifact value that the scoring code reads.
+
+**Train vs validation (chosen):** ROC AUC 0.906 against 0.877, a gap of 0.029. PR AUC 0.711 against 0.682.
+
+**Recall by pattern at the 5:1 cutoff (validation):**
+
+| Pattern | Recall |
+|---|---|
+| ring | 1.00 |
+| weak_ring | 0.50 |
+| sequential | 1.00 |
+| duplicate | 0.67 |
+| weak | 0.00 |
+
+## Step 9B: learning curve (validation)
+
+Each curve uses 10, 25, 50, 75 and 100% of the training agents, stratified by pattern, with 5 repeats each.
+
+| Training share | LOF k=35, 4 features (rule's choice), PR AUC / ROC AUC | IF 100 trees, `max_samples` 64, 4 features (margin-only alternative), PR AUC / ROC AUC |
+|---|---|---|
+| 10% (70 agents) | 0.685 / 0.851 | 0.721 / 0.888 |
+| 25% | 0.700 / 0.873 | 0.741 / 0.904 |
+| 50% | 0.720 / 0.883 | 0.742 / 0.903 |
+| 75% | 0.720 / 0.880 | 0.737 / 0.905 |
+| 100% (700 agents) | 0.682 / 0.877 | 0.742 / 0.904 |
+
+The runs are `20261011-030156_learning_curve` (rule's choice) and `20261011-030202_learning_curve` (alternative), each with `learning_curve.png`.
+
+**Both curves are flat from about 25–50% of the training agents onwards, so more training data of this kind would not help.** The limit is in the features and the patterns, not the sample size. LOF gets worse with all 700 agents, plausibly because more fraud neighbours make ring clusters look denser (masking).
+
 ## Model results
 
 Not yet re-run. This section will be filled in after Step 11, with old and new numbers side by side, and it will state whether the model choice changed.

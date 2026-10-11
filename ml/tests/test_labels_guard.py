@@ -11,7 +11,7 @@ import labels_guard
 
 ML_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = ML_DIR / "data" / "synthetic"
-STEP_7_TO_10_MODULES = ["baselines.py", "detectors.py", "train_models.py", "metrics.py"]
+STEP_7_TO_10_MODULES = ["baselines.py", "detectors.py", "train_models.py", "metrics.py", "selection.py", "learning_curve.py"]
 have_pipeline_data = pytest.mark.skipif(not (DATA_DIR / "split.csv").exists(), reason="pipeline outputs not generated")
 
 
