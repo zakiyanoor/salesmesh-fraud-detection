@@ -29,17 +29,17 @@ def grid_row(name, n_features, mean, low, high, size):
             "pr_auc_ci_low": low, "pr_auc_ci_high": high, "model_bytes": size}
 
 
-def test_rule_prefers_four_features_within_margin():
+def test_original_rule_prefers_four_features_within_margin():
     grid = pd.DataFrame([grid_row("a", 5, 0.80, 0.70, 0.90, 100), grid_row("b", 4, 0.79, 0.69, 0.89, 500),
                          grid_row("c", 4, 0.60, 0.59, 0.61, 50)])
-    chosen, ties, top = selection.choose(grid)
+    chosen, ties, top = selection.choose_original(grid)
     assert top["model"] == "a" and chosen["model"] == "b"
     assert "c" not in set(ties["model"])
 
 
-def test_rule_uses_heavy_ci_overlap_and_then_model_size():
+def test_original_rule_uses_heavy_ci_overlap_and_then_model_size():
     grid = pd.DataFrame([grid_row("a", 4, 0.80, 0.60, 1.00, 900), grid_row("b", 4, 0.70, 0.55, 0.95, 100)])
-    chosen, ties, _ = selection.choose(grid)
+    chosen, ties, _ = selection.choose_original(grid)
     assert len(ties) == 2 and chosen["model"] == "b"
 
 
@@ -84,3 +84,37 @@ def test_step_9_code_never_asks_for_test_labels(module):
     source = (Path(selection.__file__).parent / module).read_text(encoding="utf-8")
     assert "unlock_test_labels" not in source
     assert '"test"' not in source and "'test'" not in source
+
+
+def amended_row(name, n_features, mean, trees, samples, ms, low=0.5, high=0.95):
+    return {**grid_row(name, n_features, mean, low, high, 1), "n_estimators": trees, "max_samples": samples,
+            "score_ms_per_agent": ms}
+
+
+def test_amended_rule_ignores_ci_overlap():
+    grid = pd.DataFrame([amended_row("a", 4, 0.80, 500, 64, 0.2), amended_row("b", 4, 0.70, 100, 64, 0.1)])
+    chosen, ties, _ = selection.choose(grid)
+    assert list(ties["model"]) == ["a"] and chosen["model"] == "a"
+
+
+def test_amended_rule_simplicity_order():
+    grid = pd.DataFrame([
+        amended_row("five", 5, 0.800, 100, 64, 0.01),
+        amended_row("many_trees", 4, 0.799, 500, 64, 0.01),
+        amended_row("big_sample", 4, 0.795, 100, 256, 0.01),
+        amended_row("slow", 4, 0.790, 100, 64, 0.09),
+        amended_row("fast", 4, 0.785, 100, 64, 0.05),
+        amended_row("outside", 4, 0.700, 50, 32, 0.01),
+    ])
+    chosen, ties, _ = selection.choose(grid)
+    assert "outside" not in set(ties["model"])
+    assert chosen["model"] == "fast"
+
+
+def test_acceptance_checks_on_validation_report_q1_to_q6():
+    rng = np.random.default_rng(0)
+    y = rng.random(150) < 0.13
+    scores = rng.random(150) + 2 * y
+    table = selection.acceptance_on_validation({"pr_auc_mean": 0.9}, y, scores, 0.95, cutoff=1.5)
+    assert list(table["criterion"]) == ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6"]
+    assert set(table["result"]) <= {"PASS", "FAIL"}

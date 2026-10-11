@@ -280,6 +280,101 @@ The runs are `20261011-030156_learning_curve` (rule's choice) and `20261011-0302
 
 **Both curves are flat from about 25–50% of the training agents onwards, so more training data of this kind would not help.** The limit is in the features and the patterns, not the sample size. LOF gets worse with all 700 agents, plausibly because more fraud neighbours make ring clusters look denser (masking).
 
+## Step 9 amendment: post hoc change to the tie rule (2026-10-11 03:11, on validation only, before any test result)
+
+**This is a post hoc change.** The original tie rule in `selection_rule.md` treated candidates as tied if they were within 0.02 PR AUC of the top **or** if their bootstrap CI overlapped heavily (75% or more) with the top's. It chose **LOF, 4 features, `n_neighbors` 35** (mean validation PR AUC **0.682**, CI 0.495–0.854, 61st of 64). That result is kept in run `20261011-025652_selection_s42`.
+
+**Why it failed:** validation has 20 fraud agents, so every bootstrap 95% CI of PR AUC is about 0.33 wide. Nearly every candidate overlapped the top CI by at least 75% (a tie set of 60 of 64), so the overlap condition could not discriminate, and the size tie-break decided.
+
+**Amended rule (decided by the author):**
+- tied = within 0.02 of the top mean validation PR AUC;
+- simplest first = 4 features before 5, then fewer trees, then smaller `max_samples`, then faster scoring.
+
+The CI-overlap condition was dropped. Nothing else changed: the grid, seeds, metric, cost rule and acceptance criteria are the same. The re-run (`20261011-031206_selection_s42`) reproduces the original grid exactly (largest PR AUC difference over all 320 seed rows: 0.0). The original rule is kept in code as `selection.choose_original`, and it is still tested.
+
+**Amended pick: `if_v3_4f`**, an Isolation Forest with 4 features, 100 trees, `max_samples` 64 and `max_features` 1.0.
+- Mean validation PR AUC 0.742 (CI 0.567–0.898), against the top candidate's 0.754.
+- Three candidates tied up to `max_samples` (`max_features` 0.6, 0.8 and 1.0). Scoring speed decided between them: 0.065 ms per agent against 0.077 and 0.086. That last tie-break rests on timing differences of a few hundredths of a millisecond.
+
+**Operating point** (seed 42, validation; cutoff 0.536, saved in `operating_point.json`):
+
+| Rule | Flagged (alert rate) | Precision | Recall | F1 |
+|---|---|---|---|---|
+| Min cost 5:1 (chosen) | 13 (8.7%) | 0.923 | 0.60 | 0.727 |
+| Min cost 2:1 | 13 (8.7%) | 0.923 | 0.60 | 0.727 |
+| Max F1 | 13 (8.7%) | 0.923 | 0.60 | 0.727 |
+| Min cost 10:1 | 66 (44.0%) | 0.288 | 0.95 | 0.442 |
+| 15% alert budget | 23 (15.3%) | 0.565 | 0.65 | 0.605 |
+
+**Recall by pattern at 5:1 (validation):**
+
+| Pattern | Recall |
+|---|---|
+| ring | 1.00 |
+| weak_ring | 0.25 |
+| sequential | 1.00 |
+| duplicate | 0.67 |
+| weak | 0.00 |
+
+**Train vs validation:** ROC AUC 0.933 against 0.904 (gap 0.029); PR AUC 0.805 against 0.751.
+
+**Acceptance checks Q1–Q6 on validation** (the final check is Step 11, on test): **all PASS**.
+
+| Check | Value | Result |
+|---|---|---|
+| Q1: mean PR AUC above the best single feature (0.541) | 0.742 | PASS |
+| Q2: seed-42 PR AUC above 0.541 | 0.751 | PASS |
+| Q3: PR AUC at least 3 × the fraud rate, CI low above the fraud rate | 0.751 (CI 0.579–0.907) | PASS |
+| Q4: train–validation ROC AUC gap at most 0.10 | 0.029 | PASS |
+| Q5: recall at least 0.60 | 0.60 | PASS, **exactly at the limit** (12 of 20) |
+| Q6: alert rate at most 25% | 8.7% | PASS |
+
+Q5 could fail on test.
+
+## Step 10: explainability (validation only; run `20261011-031637_explain`)
+
+**(a) Permutation importance**, as the PR AUC drop over 20 repeats:
+
+| Feature | Mean drop (std) |
+|---|---|
+| `collusion_score` | 0.227 (0.048) |
+| `customer_similarity` | 0.198 (0.033) |
+| `time_of_day_entropy` | 0.052 (0.022) |
+| `submission_frequency` | 0.037 (0.030) |
+
+**(b) Ablation:** refit on training with seeds 1–5; mean validation PR AUC, with the bootstrap 95% CI.
+
+| Feature set | PR AUC (CI) | Change vs chosen |
+|---|---|---|
+| Chosen (4 features) | 0.742 (0.567–0.898) | 0.000 |
+| Without `customer_similarity` | 0.623 (0.424–0.808) | −0.118 |
+| Without `collusion_score` | 0.636 (0.461–0.811) | −0.106 |
+| Without `time_of_day_entropy` | 0.733 (0.554–0.891) | −0.009 |
+| Without `submission_frequency` | 0.767 (0.590–0.913) | **+0.026** |
+| With `volume_vs_peers` (5 features) | 0.739 (0.572–0.891) | −0.002 |
+
+The answer to "which features are most effective" is `customer_similarity` and `collusion_score`. Dropping `submission_frequency` raises PR AUC by 0.026, but that is within noise, and nothing was changed because of it.
+
+**(c) Explanation method:** the largest scaled deviations, |z| from the training mean using the model's own scaler, with values shown against the training median. SHAP TreeExplainer was the first choice, but `shap` is not installed in this environment (Python 3.14), and no new package was installed without asking. The method shows how unusual an agent is on each feature, not the forest's internal attribution.
+- Explanations are computed for flagged agents only. Scoring takes 0.076 ms per agent; scoring with explanations takes 0.098 ms per agent.
+- A feature after the first is listed only if |z| ≥ 1. Run `20261011-031554_explain` is kept as superseded: its reasons padded the top 3 with features at about 0 SD.
+
+**(d) Plain-language reasons**, for example: "66% of customers also used by other agents vs typical 0%; submission times concentrated in few hours: entropy 0.58 vs typical 0.79; busiest 24 hours: 25 submissions vs typical 14".
+
+**(e) Sanity check:** the top feature of each validation fraud agent, against the feature expected for its pattern.
+
+| Pattern | Agents | Top feature matches | Note |
+|---|---|---|---|
+| ring | 6 | 4 | The other 2 have entropy first and collusion second. |
+| sequential | 3 | 3 | – |
+| duplicate | 3 | **0** | Their top feature is `submission_frequency` or entropy. |
+| weak_ring | 4 | **0** | – |
+| weak | 4 | – | No expectation set. |
+
+The duplicate result comes from the method. Sequential agents' very high similarity inflates the training standard deviation of `customer_similarity` (0.045), so a duplicate agent's 0.12 is under 1 SD from the mean.
+
+**Validation scoring output:** `validation_scores.csv` has the agreed schema (`agent_id`, `analysis_period_start`, `analysis_period_end`, `score`, `flag`, `threshold`, `model_version`, `top_features`, `reason`). 13 of 150 agents are flagged, one of them a false positive (A12671, legitimate: low volume and spread-out hours). Unflagged rows have an empty `top_features` and the reason "not flagged".
+
 ## Model results
 
 Not yet re-run. This section will be filled in after Step 11, with old and new numbers side by side, and it will state whether the model choice changed.

@@ -1,0 +1,23 @@
+{
+  "model_version": "if_v3_4f",
+  "model": "isolation_forest",
+  "params": {
+    "n_estimators": 100,
+    "max_samples": 64,
+    "max_features": 1.0
+  },
+  "feature_columns": [
+    "submission_frequency",
+    "time_of_day_entropy",
+    "customer_similarity",
+    "collusion_score"
+  ],
+  "model_seed": 42,
+  "contamination": "auto",
+  "threshold": 0.5363938419616214,
+  "threshold_rule": "min expected cost 5:1",
+  "score_direction": "higher = more anomalous",
+  "flag_if": "score >= threshold",
+  "chosen_on": "validation",
+  "selection_run": "20261011-031206_selection_s42"
+}
