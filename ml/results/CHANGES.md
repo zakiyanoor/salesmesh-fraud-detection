@@ -375,6 +375,54 @@ The duplicate result comes from the method. Sequential agents' very high similar
 
 **Validation scoring output:** `validation_scores.csv` has the agreed schema (`agent_id`, `analysis_period_start`, `analysis_period_end`, `score`, `flag`, `threshold`, `model_version`, `top_features`, `reason`). 13 of 150 agents are flagged, one of them a false positive (A12671, legitimate: low volume and spread-out hours). Unflagged rows have an empty `top_features` and the reason "not flagged".
 
+## Step 10 follow-up: explanation method changed (on validation; explanations only)
+
+**Decided by the author, made on validation, before any test result:**
+- `top_features` (the top 3 by deviation) is now filled for **every** row, so criterion S3 stays as written. The criteria were not changed.
+- The plain-language `reason` stays for flagged agents only; unflagged rows read "not flagged".
+
+**Method change, made on principle:** the method moved from mean and standard deviation (z-scores, using the model scaler) to a **robust deviation**: (value − training median) / max(training IQR, 0.001), computed on training agents only, with no labels.
+- **Why:** outliers inflate the standard deviation. The few sequential agents (similarity 0.3–0.5) pushed the training SD of `customer_similarity` to 0.045, which hid duplicate agents' 0.12–0.13.
+- **Scope:** this changes explanations only. Scores, flags and the cutoff are identical: the largest score difference across the 150 validation agents is 0.0, and every flag is the same.
+
+**Runs**
+- Current: `20261011-032400_explain`.
+- Superseded and kept: `20261011-031554_explain` (mean and SD, padded reasons), `20261011-031637_explain` (mean and SD), `20261011-032329_explain` (robust, before a wording fix).
+- The wording fix: similarity is shown with 3 decimals, and values below typical read "less alike than usual".
+
+**Sanity check, old vs new** (validation fraud agents whose top feature is the expected one):
+
+| Pattern | Expected top feature | Mean and SD (old) | Median and IQR (new) |
+|---|---|---|---|
+| ring | `collusion_score` | 4 / 6 | 6 / 6 |
+| sequential | `customer_similarity` | 3 / 3 | 3 / 3 |
+| duplicate | `customer_similarity` | 0 / 3 | 3 / 3 |
+| weak_ring | `collusion_score` | 0 / 4 | 4 / 4 |
+
+**New weakness:** the training IQR of `customer_similarity` is very small (0.0024). Differences of about 0.002 therefore count as unusual and can appear in a reason, for example "similarity 0.104 vs typical 0.102" for the legitimate false positive A12671.
+
+**Scoring time** for the 150 validation agents: 0.114 ms per agent for scores only, and 0.175 ms per agent with `top_features` for every row and reasons for flagged rows.
+
+## SRS system checks S1–S4, re-checked before Step 11 (features only, no labels; run `20261011-032454_system_checks_s101`)
+
+| Check | Result | Measured |
+|---|---|---|
+| S1: scoring time | PASS | 1000-agent table in 0.048 s, 0.048 ms per agent (targets ≤ 5 s and ≤ 10 ms). Feature computation for 1000 agents takes 5.6 s, reported separately. |
+| S2: model replaceable, threshold as config | PASS | A LOF bundle fitted on training features scored through the same `score_agents` call; the threshold came from the bundle. |
+| S3: output fields | PASS | All 1000 rows have all 9 fields non-empty. |
+| S4: scaling (timing only) | PASS | Scoring takes 0.04 s, 0.05 s, 0.13 s and 0.24 s at 500, 1000, 5000 and 10000 agents. End-to-end at 10000 agents (1.38 million records) takes 56 s (targets ≤ 60 s for scoring and ≤ 600 s end-to-end). |
+
+These checks are formally repeated at Step 11.
+
+## Freeze before Step 11
+
+`ml/results/FREEZE.md` was written by `ml/freeze.py`. It records sha256 hashes, computed in Python without git, of:
+- the data files, the features and the split;
+- the model scaler, the chosen model, `operating_point.json` and the scoring bundle;
+- `acceptance_criteria.md` and `selection_rule.md`.
+
+It states that no test label has been loaded. `ml/tests/test_freeze.py` fails if any of these files changes.
+
 ## Model results
 
 Not yet re-run. This section will be filled in after Step 11, with old and new numbers side by side, and it will state whether the model choice changed.

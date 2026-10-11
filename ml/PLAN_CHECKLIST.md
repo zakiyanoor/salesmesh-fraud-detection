@@ -116,10 +116,13 @@ An item is ticked only when it has been done, with one line of evidence (a file,
 
 - [x] Permutation importance (20 repeats, as PR AUC drop). Evidence: run `20261011-031637_explain/permutation_importance.csv`; `collusion_score` 0.227, `customer_similarity` 0.198, entropy 0.052, frequency 0.037.
 - [x] Feature ablation (drop one at a time, `volume_vs_peers` in or out, seeds 1–5, bootstrap CI). Evidence: `ablation.csv`; without similarity −0.118, without collusion −0.106, without frequency +0.026 (within noise), with `volume_vs_peers` −0.002.
-- [x] Top contributing features per flagged agent, for admin review, with the method stated. Evidence: largest scaled deviation (SHAP not installed); `validation_scores.csv` `top_features`; computed for flagged agents only (test `test_explanations_only_for_flagged_agents`).
-- [x] Plain-language reason per flagged agent. Evidence: `validation_scores.csv` `reason`; test `test_top_contribution_and_reason_by_hand`.
-- [x] Sanity check of the top feature by pattern. Evidence: `pattern_sanity.csv`; ring 4/6, sequential 3/3, duplicate 0/3, weak_ring 0/4, with mismatches listed and explained.
-- [x] Validation scoring output with the agreed schema. Evidence: `validation_scores.csv` (`agent_id`, `analysis_period_start`, `analysis_period_end`, `score`, `flag`, `threshold`, `model_version`, `top_features`, `reason`); tests `test_output_schema_and_unflagged_rows` and `test_threshold_comes_from_the_bundle_not_the_code`.
+- [x] Top contributing features for every agent (the author's decision, so S3 stays as written), with the method stated. Evidence: robust deviation, (value − training median) / training IQR (SHAP not installed); `runs/20261011-032400_explain/validation_scores.csv`, `top_features` on all 150 rows; test `test_output_schema_top_features_on_every_row_reason_only_when_flagged`.
+- [x] Explanation method changed from mean and SD to median and IQR, recorded as a principled change made on validation. Evidence: CHANGES.md; sanity check old → new: ring 4/6 → 6/6, sequential 3/3 → 3/3, duplicate 0/3 → 3/3, weak_ring 0/4 → 4/4; scores and flags unchanged (largest difference 0.0); test `test_explanations_do_not_change_scores_or_flags`.
+- [x] Plain-language reason per flagged agent only. Evidence: `validation_scores.csv` `reason` (13 flagged; others read "not flagged"); test `test_top_contribution_and_reason_by_hand`.
+- [x] Sanity check of the top feature by pattern. Evidence: `runs/20261011-032400_explain/pattern_sanity.csv`; ring 6/6, sequential 3/3, duplicate 3/3, weak_ring 4/4 (the earlier mean-and-SD run 4/6, 3/3, 0/3, 0/4 is kept).
+- [x] Validation scoring output with the agreed schema. Evidence: `runs/20261011-032400_explain/validation_scores.csv` (`agent_id`, `analysis_period_start`, `analysis_period_end`, `score`, `flag`, `threshold`, `model_version`, `top_features`, `reason`), with no empty field; test `test_threshold_comes_from_the_bundle_not_the_code`.
+- [x] S1–S4 re-checked before Step 11 (features only, no labels). Evidence: run `20261011-032454_system_checks_s101/system_checks.json`, all PASS; S1 0.048 ms per agent; S4 10000 agents scored in 0.24 s, 56 s end-to-end.
+- [x] Freeze record with sha256 hashes and a matching test. Evidence: `ml/results/FREEZE.md` (12 files, plus the `labels.csv` hash quoted from generation); `ml/tests/test_freeze.py` (12 hash checks passing).
 
 ## Step 11: final test (test set read once)
 
