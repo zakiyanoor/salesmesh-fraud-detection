@@ -47,8 +47,9 @@ from src.db import (
     DetectionRun, DuplicateEvidence, FLAG_SOURCES,
 )
 from src.auth import (
-    verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER,
+    verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER, ROLE_ADMIN, DEACTIVATED,
 )
+from src import accounts
 from src import audit
 from src.pipeline import compute_client_category_breakdown
 
@@ -83,8 +84,9 @@ def audit_denied_requests(response):
     if response.status_code in (401, 403) and not g.get("audit_recorded"):
         body = response.get_json(silent=True) or {}
         audit.record_now(
-            session.get("admin_id", audit.ANONYMOUS), "access_denied", "authorization",
-            details={"route": request.path, "method": request.method, "role": session.get("role"),
+            g.get("denied_admin_id") or session.get("admin_id", audit.ANONYMOUS), "access_denied", "authorization",
+            details={"route": request.path, "method": request.method,
+                     "role": g.get("denied_role") or session.get("role"),
                      "status": response.status_code, "reason": body.get("error")},
             request_ip=request.remote_addr,
         )
@@ -204,13 +206,15 @@ def login():
         return jsonify({"error": "Username and password are required"}), 400
 
     admin = verify_login(data["username"], data["password"])
-    if not admin:
+    if not admin or not admin["is_active"]:
         # The actor is unknown until a login succeeds, so failures are "anonymous".
+        reason = "invalid credentials" if not admin else "account deactivated"
         audit.record_now(audit.ANONYMOUS, "login_failure", "authentication",
-                         details={"username": str(data["username"])[:100], "reason": "invalid credentials"},
+                         details={"username": str(data["username"])[:100], "reason": reason},
                          request_ip=request.remote_addr)
         g.audit_recorded = True
-        return jsonify({"error": "Invalid username or password"}), 401
+        message = "Invalid username or password" if not admin else DEACTIVATED
+        return jsonify({"error": message}), 401
 
     session["admin_id"] = admin["admin_id"]
     session["username"] = admin["username"]
@@ -531,7 +535,7 @@ def list_review_decisions():
 
 
 @app.route("/api/audit-log", methods=["GET"])
-@login_required
+@role_required(ROLE_ADMIN, ROLE_COMPLIANCE_OFFICER)
 def get_audit_log():
     """Newest first. Filters: category, actor, agent_id, date_from, date_to; paging: limit (max 1000), offset."""
     try:
@@ -687,6 +691,72 @@ def list_clients():
         } for c in clients]})
     finally:
         db_session.close()
+
+
+@app.route("/api/admin/accounts", methods=["GET"])
+@role_required(ROLE_ADMIN)
+def list_admin_accounts():
+    db_session = get_session()
+    try:
+        found = accounts.list_accounts(db_session)
+        return jsonify({"count": len(found), "accounts": found})
+    finally:
+        db_session.close()
+
+
+def _account_change(apply, action, details):
+    """Runs one account change; audits it (category admin) only when something changed."""
+    db_session = get_session()
+    try:
+        try:
+            account, changed_details = apply(db_session)
+        except accounts.AccountError as e:
+            db_session.rollback()
+            return jsonify({"error": str(e)}), e.status
+        if changed_details is None:
+            db_session.rollback()
+            return jsonify({"message": "No change", "changed": False, "account": accounts.account_payload(account)})
+        log_admin_action(db_session, session["admin_id"], action, category="admin",
+                         details={"target_admin_id": account.admin_id, "target_username": account.username,
+                                  **details, **changed_details})
+        db_session.commit()
+        return jsonify({"message": "Account updated", "changed": True, "account": accounts.account_payload(account)})
+    finally:
+        db_session.close()
+
+
+@app.route("/api/admin/accounts/<admin_id>/role", methods=["PATCH"])
+@role_required(ROLE_ADMIN)
+def change_account_role(admin_id):
+    data = request.get_json(silent=True) or {}
+    if "role" not in data:
+        return jsonify({"error": "Missing field: role"}), 400
+
+    def apply(db_session):
+        account, old_role = accounts.change_role(db_session, session["admin_id"], admin_id, data["role"])
+        return account, (None if old_role == account.role else {"old_role": old_role, "new_role": account.role})
+
+    return _account_change(apply, "role_change", {})
+
+
+@app.route("/api/admin/accounts/<admin_id>/deactivate", methods=["POST"])
+@role_required(ROLE_ADMIN)
+def deactivate_account(admin_id):
+    def apply(db_session):
+        account, was_active = accounts.set_active(db_session, session["admin_id"], admin_id, False)
+        return account, ({"role": account.role} if was_active else None)
+
+    return _account_change(apply, "account_deactivated", {})
+
+
+@app.route("/api/admin/accounts/<admin_id>/reactivate", methods=["POST"])
+@role_required(ROLE_ADMIN)
+def reactivate_account(admin_id):
+    def apply(db_session):
+        account, was_active = accounts.set_active(db_session, session["admin_id"], admin_id, True)
+        return account, (None if was_active else {"role": account.role})
+
+    return _account_change(apply, "account_reactivated", {})
 
 
 @app.route("/api/health", methods=["GET"])
