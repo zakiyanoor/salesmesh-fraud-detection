@@ -102,35 +102,35 @@ def test_analytics_counts_each_agent_once(client) -> None:
     assert sum(b["count"] for b in body["score_distribution"]) == len(scored)
 
 
-def test_agent_detail_returns_features_for_known_agent(client) -> None:
+def test_agent_detail_returns_features_for_known_agent(client, known_agent_id) -> None:
     login(client, ANALYST)
-    response = client.get("/api/agents/A1104")
+    response = client.get(f"/api/agents/{known_agent_id}")
     assert response.status_code == 200
     body = response.get_json()
-    assert body["agent_id"] == "A1104"
+    assert body["agent_id"] == known_agent_id
     assert "features" in body
 
 
-def test_agent_detail_includes_collusion_score(client) -> None:
+def test_agent_detail_includes_collusion_score(client, known_agent_id) -> None:
     login(client, ANALYST)
-    features = client.get("/api/agents/A1104").get_json()["features"]
+    features = client.get(f"/api/agents/{known_agent_id}").get_json()["features"]
     assert "collusion_score" in features
     assert 0.0 <= features["collusion_score"] <= 1.0
 
 
-def test_agent_detail_uses_the_same_latest_vector_as_all_agents(client) -> None:
+def test_agent_detail_uses_the_same_latest_vector_as_all_agents(client, known_agent_id) -> None:
     login(client, ANALYST)
-    detail = client.get("/api/agents/A1104").get_json()
-    listed = next(a for a in client.get("/api/all-agents").get_json()["agents"] if a["agent_id"] == "A1104")
+    detail = client.get(f"/api/agents/{known_agent_id}").get_json()
+    listed = next(a for a in client.get("/api/all-agents").get_json()["agents"] if a["agent_id"] == known_agent_id)
 
     for key in ("submission_frequency", "time_of_day_dist", "customer_similarity", "collusion_score"):
         assert detail["features"][key] == listed[key]
     assert detail["flag"]["suspicion_score"] == listed["suspicion_score"]
 
 
-def test_agent_detail_includes_context_separate_from_features(client) -> None:
+def test_agent_detail_includes_context_separate_from_features(client, known_agent_id) -> None:
     login(client, ANALYST)
-    body = client.get("/api/agents/A1104").get_json()
+    body = client.get(f"/api/agents/{known_agent_id}").get_json()
 
     assert "context" in body
     assert "client_id" not in body["features"]
@@ -143,11 +143,11 @@ def test_agent_detail_includes_context_separate_from_features(client) -> None:
     assert len(context["categories"]) > 0
 
 
-def test_agent_detail_context_lists_only_known_clients_and_categories(client) -> None:
+def test_agent_detail_context_lists_only_known_clients_and_categories(client, known_agent_id) -> None:
     from data_generation import CLIENTS, CATEGORIES
 
     login(client, ANALYST)
-    context = client.get("/api/agents/A1104").get_json()["context"]
+    context = client.get(f"/api/agents/{known_agent_id}").get_json()["context"]
 
     assert set(context["client_ids"]) <= set(CLIENTS)
     assert set(context["categories"]) <= set(CATEGORIES)
