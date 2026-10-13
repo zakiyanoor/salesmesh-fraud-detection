@@ -14,7 +14,7 @@ from src.auth import (
     ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER,
 )
 from src.db import get_session, FeatureVector, FraudFlag, ReviewDecision
-from tests.helpers import ANALYST, COMPLIANCE, login
+from tests.helpers import ADMIN, ANALYST, COMPLIANCE, login
 
 
 def _any_flag():
@@ -47,13 +47,16 @@ def _propose(client, flag_id):
 # --- role_required ---
 
 @pytest.fixture
-def role_app():
+def role_app(database):
+    # role_required re-reads the account from the database on every request,
+    # so the session must name a real, active account with that role.
+    account_for_role = {ROLE_FRAUD_ANALYST: ANALYST["admin_id"], ROLE_COMPLIANCE_OFFICER: COMPLIANCE["admin_id"]}
     app = Flask(__name__)
     app.secret_key = "test"
 
     @app.route("/set-session/<role>")
     def set_session(role):
-        session["admin_id"] = "X1"
+        session["admin_id"] = account_for_role[role]
         session["role"] = role
         return "ok"
 
@@ -181,12 +184,17 @@ def test_audit_log_rejects_unauthenticated(client) -> None:
     assert client.get("/api/audit-log").status_code == 401
 
 
-@pytest.mark.parametrize("account", [ANALYST, COMPLIANCE], ids=["analyst", "compliance"])
-def test_audit_log_accessible_to_both_roles(client, account) -> None:
+@pytest.mark.parametrize("account", [ADMIN, COMPLIANCE], ids=["admin", "compliance"])
+def test_audit_log_readable_by_admin_and_compliance(client, account) -> None:
     login(client, account)
     response = client.get("/api/audit-log")
     assert response.status_code == 200
     assert isinstance(response.get_json()["count"], int)
+
+
+def test_audit_log_not_readable_by_fraud_analyst(client) -> None:
+    login(client, ANALYST)
+    assert client.get("/api/audit-log").status_code == 403
 
 
 def test_audit_log_records_login_and_logout(client) -> None:

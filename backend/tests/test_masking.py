@@ -6,7 +6,7 @@ import pytest
 
 from src.api import app, mask_tail
 from src.db import AgentIdentity, get_session
-from tests.helpers import ANALYST, COMPLIANCE, login
+from tests.helpers import ALL_ACCOUNTS, ANALYST, login
 
 PLACEHOLDERS = {"decision_id": "NONEXISTENT"}
 FULL_PHONE = re.compile(r"\+2547\d{8}")
@@ -52,7 +52,7 @@ def test_mask_keeps_only_the_last_three_digits() -> None:
 
 def test_no_endpoint_returns_an_unmasked_phone_or_id(client, identities, known_agent_id) -> None:
     agent_ids = [known_agent_id] + [a for a, _, _ in identities[:40]]
-    for account in (ANALYST, COMPLIANCE):
+    for account in ALL_ACCOUNTS:
         response = client.post("/api/login", json={"username": account["username"], "password": account["password"]})
         assert_no_full_value(response.get_data(as_text=True), identities, "POST /api/login")
         for url in get_urls(agent_ids):

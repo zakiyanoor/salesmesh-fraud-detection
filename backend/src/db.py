@@ -310,6 +310,9 @@ def migrate_schema():
         # Issue #18: audit log columns, a backfill for older rows, and the
         # append-only guard. The guard lets only a transaction that sets
         # salesmesh.audit_maintenance (this migration) change existing rows.
+        conn.execute(text(
+            "ALTER TABLE IF EXISTS administrators ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE"
+        ))
         for column, kind in AUDIT_COLUMNS.items():
             conn.execute(text(f"ALTER TABLE admin_action_log ADD COLUMN IF NOT EXISTS {column} {kind}"))
         conn.execute(text("SET LOCAL salesmesh.audit_maintenance = 'on'"))
