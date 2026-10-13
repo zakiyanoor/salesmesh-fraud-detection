@@ -455,4 +455,5 @@ All commands run from `backend/`.
 | `python -m src.pipeline` | One detection run with the frozen model |
 | `python -m src.scheduler` | Runs detection now and then every `DETECTION_INTERVAL_MINUTES` (default 1440); set `DETECTION_RUN_ON_START=false` to wait one interval first |
 | `python -m src.auth` | Creates the demo accounts analyst_01, compliance_01 and admin_01 (demo and test only) |
+| `python -m src.manage_accounts deactivate <admin_id> --as <admin>` | Account changes from the command line (`deactivate`, `reactivate`, `role <admin_id> <role>`), as an active admin who gives a password; same rules and audit as the API |
 | `pytest` | Runs the tests on `salesmesh_fraud_detection_test`, never on the development database |
