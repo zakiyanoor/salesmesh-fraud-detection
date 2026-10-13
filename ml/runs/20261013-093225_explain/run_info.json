@@ -1,0 +1,49 @@
+{
+  "run_id": "20261013-093225_explain",
+  "kind": "explain",
+  "timestamp": "2026-10-13T09:32:25",
+  "seed": null,
+  "parameters": {
+    "selection_run": "20261013-093050_selection_s42",
+    "model_version": "lof_v3_4f",
+    "permutation_repeats": 20,
+    "ablation_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "explanation_method": "robust deviation: (value - training median) / max(training IQR, 1e-3); SHAP not installed",
+    "expected_top_feature": {
+      "ring": "collusion_score",
+      "sequential": "customer_similarity",
+      "duplicate": "customer_similarity",
+      "weak_ring": "collusion_score"
+    }
+  },
+  "data_files": {
+    "feature_vectors.csv": "7d7afa399d0f56c2d0961ed731bb39c8426a958914c92df3e8565263ef40714d",
+    "split.csv": "d58aef9124317b8228c8db816bc694729132333fbb7a6df73efa5684c17ffc10",
+    "labels.csv": "102db7224eaecf0cad54aaf721e7e94a18ba580ea383ec0db1b52e33b491b34c",
+    "chosen_model.joblib": "1e97fffafba4b7905e916c376216195740b9795d0b08968a7b3334c80d4a4a2e"
+  },
+  "system": {
+    "python": "3.14.0",
+    "os": "Windows-11-10.0.26200-SP0",
+    "cpu": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+    "cpu_count": 12,
+    "ram_gb": 15.7,
+    "git_commit": "bdcaca253fa115c7b9e417f75610a5fd80d71bc0"
+  },
+  "library_versions": {
+    "python": "3.14.0",
+    "numpy": "2.5.2",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.0",
+    "faker": "40.37.0",
+    "matplotlib": "3.11.1",
+    "joblib": "1.6.0",
+    "shap": null
+  }
+}

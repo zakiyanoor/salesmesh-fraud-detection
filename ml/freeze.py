@@ -17,17 +17,21 @@ from pathlib import Path
 from run_utils import file_sha256
 
 ML = Path(__file__).resolve().parent
-DATA_RUN = "20261011-022249_datagen_s42"
-SPLIT_RUN = "20261011-023607_split_s42"
-SELECTION_RUN = "20261011-031206_selection_s42"
-EXPLAIN_RUN = "20261011-032400_explain"
-SYSTEM_CHECKS_RUN = "20261011-032454_system_checks_s101"
+# Rerun on the change #5 data (the v3a freeze is archived as results/archive_v3a/FREEZE_v3a.md).
+DATA_RUN = "20261013-091128_datagen_s42"
+SPLIT_RUN = "20261013-092952_split_s42"
+SELECTION_RUN = "20261013-093050_selection_s42"
+EXPLAIN_RUN = "20261013-093225_explain"
+SYSTEM_CHECKS_RUN = "20261013-093332_system_checks_s101"
 FREEZE_PATH = ML / "results" / "FREEZE.md"
 
 FILES = [
     ("Data", "data/synthetic/activation_records.csv"),
     ("Data", "data/synthetic/agents.csv"),
     ("Data", "data/synthetic/clients.csv"),
+    ("Data", "data/synthetic/agent_identity.csv"),
+    ("Data", "data/synthetic/agent_categories.csv"),
+    ("Generator", "data_generation.py"),
     ("Features", "data/synthetic/feature_vectors.csv"),
     ("Split", "data/synthetic/split.csv"),
     ("Split", f"runs/{SPLIT_RUN}/split.csv"),
@@ -83,7 +87,7 @@ def main():
     config = json.loads((ML / "runs" / SELECTION_RUN / "operating_point.json").read_text())
     rows = [(what, path, file_sha256(ML / path)) for what, path in FILES]
     generated = data_info["data_files"]
-    for name in ["activation_records.csv", "agents.csv", "clients.csv"]:
+    for name in DATA_FILES:
         current = file_sha256(ML / "data" / "synthetic" / name)
         if current != generated[name]:
             raise SystemExit(f"{name} no longer matches the frozen generation run")
@@ -98,13 +102,13 @@ Written {datetime.now():%Y-%m-%d %H:%M:%S} by `ml/freeze.py`. The sha256 hashes 
 
 | What | Run |
 |---|---|
-| Data (generator frozen after label-aware change #4) | `{DATA_RUN}` |
+| Data (final after change #5) | `{DATA_RUN}` |
 | Split (70/15/15, seed 42) | `{SPLIT_RUN}` |
 | Selection (amended rule) | `{SELECTION_RUN}` |
 | Explanations and scoring bundle | `{EXPLAIN_RUN}` |
 | System checks S1–S4 | `{SYSTEM_CHECKS_RUN}` |
 
-The data files `activation_records.csv`, `agents.csv` and `clients.csv` match the hashes recorded by the generation run.
+The data files {", ".join(f"`{n}`" for n in DATA_FILES)} match the hashes recorded by the generation run. The datagen freeze note written before this rerun is kept as `results/FREEZE_data_change5.md`; the v3a model freeze is archived as `results/archive_v3a/FREEZE_v3a.md`.
 
 ## Chosen model
 

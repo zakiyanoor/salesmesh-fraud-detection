@@ -260,9 +260,9 @@ The unit of analysis is the **agent**. Features, labels, the split and every met
 
 **135,494 rows are not 135,494 independent examples.** Records are nested inside agents, and ring members depend on each other through shared pools. The independent units are at most the **1000 agents**, and for collusion the **14 rings** are the units: 62 ring agents form 14 groups, so ring evidence is 14 rings, not 62 agents. Fraud comes from five fixed templates, which narrows the evidence further.
 
-## Split (Step 5; not re-run)
+## Split (Step 5)
 
-The split was not re-run for change #5. `labels.csv` is byte-identical to v3a and the split is a function of the labels and `SPLIT_SEED = 42` only, so the archived assignment (`results/archive_v3a/runs/20261011-023607_split_s42/split.csv`: 700 / 150 / 150 agents, 91 / 20 / 19 fraud) is the assignment the current design produces.
+The split was re-run on 2026-10-13 (run `20261013-092952_split_s42`) with the same design: 70/15/15 at agent level, stratified by pattern, `SPLIT_SEED = 42`, at least 15 fraud agents in validation and test. `labels.csv` is byte-identical to v3a, so `split.csv` is byte-identical too: 700 / 150 / 150 agents, 91 / 20 / 19 fraud.
 
 **13 of the 14 rings have members in more than one split.** This is acceptable here: the detector is unsupervised, so no ring label is learned from training members, and `collusion_score` is computed from unlabelled records of all agents in the period, which is exactly what the live system has at detection time. The cost is that train, validation and test are not independent at the feature level, which is stated as a limitation below.
 
@@ -278,9 +278,23 @@ The split was not re-run for change #5. `labels.csv` is byte-identical to v3a an
 | `collusion_score` | share of the agent's distinct customers also used by another agent in the period (platform-wide) | 0 to 1 |
 | `volume_vs_peers` (candidate) | volume / median volume of peers (same primary category and former region, widened below 15 agents) | ratio |
 
-**Model input list:** `MODEL_FEATURES` = `submission_frequency`, `time_of_day_entropy`, `customer_similarity`, `collusion_score` (the chosen model `if_v3_4f`). `test_model_input_list_is_exactly_the_four_features` checks it, and that no context or identity column is in it.
+**Model input list:** `MODEL_FEATURES` = `submission_frequency`, `time_of_day_entropy`, `customer_similarity`, `collusion_score` (the chosen model `lof_v3_4f`, run `20261013-093050_selection_s42`; v3a chose `if_v3_4f` with the same inputs). `test_model_input_list_is_exactly_the_four_features` checks it, and that no context or identity column is in it.
 
-The v3a single-feature AUC table (training agents only) is archived in `results/archive_v3a/DATA_CARD_v3a.md` and run `results/archive_v3a/runs/20261011-023802_feature_checks/`. It describes the v3a data and is to be recomputed when the features are re-run.
+**Peer group levels used:** 533 agents at category + former region, 467 at category only.
+
+## Single-feature AUC on training agents (Step 4, run `20261013-093024_feature_checks`)
+
+700 training agents (91 fraud); validation and test labels were not read. Cells are raw ROC AUC (strength max(AUC, 1 - AUC)); columns compare the named fraud agents with all 609 training legitimate agents.
+
+| Feature | All fraud | ring | weak_ring | sequential | duplicate | weak |
+|---|---|---|---|---|---|---|
+| `submission_frequency` | 0.740 (0.740) | 0.746 (0.746) | 0.315 (0.685) | 0.955 (**0.955**) | 0.906 (0.906) | 0.742 (0.742) |
+| `time_of_day_entropy` | 0.346 (0.654) | 0.044 (**0.956**) | 0.512 (0.512) | 0.420 (0.580) | 0.023 (**0.977**) | 0.912 (0.912) |
+| `customer_similarity` | 0.809 (0.809) | 0.708 (0.708) | 0.658 (0.658) | 1.000 (**1.000**) | 0.997 (**0.997**) | 0.773 (0.773) |
+| `collusion_score` | 0.712 (0.712) | 1.000 (**1.000**) | 0.981 (**0.981**) | 0.436 (0.564) | 0.452 (0.548) | 0.485 (0.515) |
+| `volume_vs_peers` | 0.760 (0.760) | 0.780 (0.780) | 0.346 (0.654) | 0.974 (**0.974**) | 0.956 (**0.956**) | 0.705 (0.705) |
+
+Bold marks strength 0.95 or above (shortcut risk, listed as limitations). Compared with v3a, `customer_similarity` on duplicate rose from 0.965 to 0.997 and `time_of_day_entropy` on duplicate from 0.908 to 0.977: honest agents no longer repeat pairs, so duplicate agents stand out more. **`volume_vs_peers` decision: KEEP** (AUC 0.760 > 0.55; max Spearman 0.803 with `submission_frequency`, at most 0.85). The v3a table is in `results/archive_v3a/DATA_CARD_v3a.md`.
 
 ## Requirements traceability
 
@@ -334,7 +348,8 @@ The v3a single-feature AUC table (training agents only) is archived in `results/
 
 ## Known issues
 
-1. The split, features, models, selection and explanations have **not** been re-run on this data. Their v3a results are archived and describe the earlier data.
-2. Three ML tests skip until the pipeline outputs exist again (`split.csv`, `feature_vectors.csv`): `test_step_7_and_8_run_without_any_test_label`, `test_unlabelled_test_features_carry_no_labels`, `test_real_scaler_matches_training_agents`.
-3. Backend test `test_pipeline.py::test_collusion_ring_agents_from_synthetic_data_score_above_every_legit_agent` asserts a fixed floor of 0.3 for strong-ring `collusion_score`; the lowest is now 0.288. Separation still holds (0.288 against an honest maximum of 0.100). The backend was not touched.
-4. `ml/data/synthetic/train_test_split.csv` and `fraud_flags*.csv` are v2 leftovers, not used by v3.
+1. Steps 2 to 10 were re-run on this data on 2026-10-13 with every setting unchanged (CHANGES.md, "Pipeline rerun"). The chosen model is now `lof_v3_4f`. The v3a results are archived and describe the earlier data.
+2. The fictional name lists give at most 70 x 70 = 4,900 unique full names, so `generate_dataset` refuses more than 4,900 agents. The S4 scaling check therefore generates behaviour only (agents and activations).
+3. `duplicate_activation_rule` (a reported Step 7 baseline) has precision 1.000 on training and validation, because R1 and R2 forbid honest shared or post-completion repeated pairs by construction. It shows how strong the integrity rules are in this data, not what a rule would achieve on real records.
+4. Backend test `test_pipeline.py::test_collusion_ring_agents_from_synthetic_data_score_above_every_legit_agent` asserts a fixed floor of 0.3 for strong-ring `collusion_score`; the lowest is now 0.288. Separation still holds (0.288 against an honest maximum of 0.100). The backend was not touched.
+5. `ml/data/synthetic/train_test_split.csv` and `fraud_flags*.csv` are v2 leftovers, not used by v3.

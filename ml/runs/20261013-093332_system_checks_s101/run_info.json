@@ -1,0 +1,38 @@
+{
+  "run_id": "20261013-093332_system_checks_s101",
+  "kind": "system_checks",
+  "timestamp": "2026-10-13T09:33:32",
+  "seed": 101,
+  "parameters": {
+    "bundle": "C:\\Users\\User\\salesmesh-fraud-detection\\ml\\runs\\20261013-093225_explain\\scoring_bundle.joblib",
+    "s4_sizes": [
+      500,
+      1000,
+      5000,
+      10000
+    ],
+    "timing_repeats": 5
+  },
+  "data_files": {
+    "feature_vectors.csv": "7d7afa399d0f56c2d0961ed731bb39c8426a958914c92df3e8565263ef40714d",
+    "scoring_bundle.joblib": "53f485ad6c1c0d304798c428a1b08d442c9f37e37530a219e8f182638faedc48"
+  },
+  "system": {
+    "python": "3.14.0",
+    "os": "Windows-11-10.0.26200-SP0",
+    "cpu": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+    "cpu_count": 12,
+    "ram_gb": 15.7,
+    "git_commit": "bdcaca253fa115c7b9e417f75610a5fd80d71bc0"
+  },
+  "library_versions": {
+    "python": "3.14.0",
+    "numpy": "2.5.2",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.0",
+    "faker": "40.37.0",
+    "matplotlib": "3.11.1",
+    "joblib": "1.6.0",
+    "shap": null
+  }
+}

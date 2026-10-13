@@ -28,10 +28,10 @@ PEER_MIN_GROUP = 15
 BASE_FEATURES = ["submission_frequency", "time_of_day_entropy", "customer_similarity", "collusion_score"]
 CANDIDATE_FEATURE = "volume_vs_peers"
 ALL_FEATURES = BASE_FEATURES + [CANDIDATE_FEATURE]
-# Features the models use. Step 4 decision (run 20261011-023802_feature_checks): KEEP volume_vs_peers
-# (training AUC 0.780 > 0.55; max |Spearman| 0.807 <= 0.85).
+# Features the models use. Step 4 decision (run 20261013-093024_feature_checks): KEEP volume_vs_peers
+# (training AUC 0.760 > 0.55; max |Spearman| 0.803 <= 0.85).
 FEATURE_COLUMNS = ALL_FEATURES
-# Inputs of the chosen model if_v3_4f (Step 9, amended rule).
+# Inputs of the chosen model lof_v3_4f (Step 9, amended rule; run 20261013-093050_selection_s42).
 MODEL_FEATURES = list(BASE_FEATURES)
 DEFAULT_PERIOD = (ANALYSIS_START, ANALYSIS_END + pd.Timedelta(days=1))
 

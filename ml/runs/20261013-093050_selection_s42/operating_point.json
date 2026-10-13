@@ -1,0 +1,21 @@
+{
+  "model_version": "lof_v3_4f",
+  "model": "lof",
+  "params": {
+    "n_neighbors": 50
+  },
+  "feature_columns": [
+    "submission_frequency",
+    "time_of_day_entropy",
+    "customer_similarity",
+    "collusion_score"
+  ],
+  "model_seed": 42,
+  "contamination": "auto",
+  "threshold": 1.4447993633890617,
+  "threshold_rule": "min expected cost 5:1",
+  "score_direction": "higher = more anomalous",
+  "flag_if": "score >= threshold",
+  "chosen_on": "validation",
+  "selection_run": "20261013-093050_selection_s42"
+}

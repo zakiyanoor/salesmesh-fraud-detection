@@ -487,6 +487,85 @@ Plain legit agents now repeat a customer in 5.2% of records (v3a: 1.2%), because
 
 **Process note.** During this change one read-only `git diff --stat` was run by mistake (no output, nothing changed). `run_info.json` records the commit through the read-only `git rev-parse HEAD`, as in every earlier run.
 
+## Pipeline rerun on the change 5 data (2026-10-13, validation only)
+
+**Decisions recorded before the rerun (author):** commission total AUC 0.679 accepted as volume driven (both commission total and commission per record are reported); the extra cross-sell client for single-client `legit_repeat` agents and R6 (pending probability 0.30 in the last 72 hours) confirmed; the backend test with the 0.3 floor left for the backend sprint; `git rev-parse HEAD` kept in `run_info.json`.
+
+**Every setting was applied unchanged:** the selection rule with its amendment, the grid (64 candidates), seeds 1 to 5 and 42, bootstrap (1000, seed 0), tie margin 0.02, alert budget 15%, cost ratio 5:1 (sensitivity 2:1 and 10:1), the `volume_vs_peers` decision rule, the 4 model features, and the acceptance criteria. `selection_rule.md` and `acceptance_criteria.md` were not edited; their hashes in the new `FREEZE.md` equal the v3a hashes. The test labels stayed locked; Step 11 was not run.
+
+**Runs (all kept in `ml/runs/`)**
+
+| Step | Run |
+|---|---|
+| 2 cleaning | `20261013-092936_clean` |
+| 5 split | `20261013-092952_split_s42` |
+| 3 EDA (train and validation agents only) | `20261013-092959_eda_s0` |
+| 4 features | `20261013-093008_features` |
+| 4 feature checks | `20261013-093024_feature_checks` |
+| 6 preprocessing | `20261013-093031_preprocess_s0` |
+| 7 baselines | `20261013-093033_baselines` |
+| 8 default models | `20261013-093036_models_default_s42` |
+| 9 selection | `20261013-093050_selection_s42` |
+| 9B learning curve | `20261013-093222_learning_curve` |
+| 10 explanations and scoring bundle | `20261013-093225_explain` |
+| 10 system checks S1 to S4 | `20261013-093332_system_checks_s101` (the first attempt, `20261013-093236_system_checks_s101`, stopped in S4 and holds only `run_info.json`; kept) |
+
+**Steps that behaved differently from before**
+1. **EDA ran after the split, without test agents.** The v3a EDA read every label before the split existed. To keep the test labels unread, `eda.py --without-test` loads labels through the new `labels_guard.load_labels` (test rows dropped on read) and describes 850 agents; descriptors still use every agent's unlabelled records. The split itself still reads every agent's pattern to stratify, as designed.
+2. **`feature_analysis.py` had a syntax error** (a line break inside a string, from an edit on 2026-10-11 after its last run). The `\n` was restored; no logic changed.
+3. **Q1 and Q2 reference value.** The criterion is "above the best single-feature validation PR AUC from Step 7". `selection.py` had the v3a value 0.541 written in; it now reads the value from the Step 7 run (`collusion_score`, 0.574) before the grid runs. Q1 and Q2 against 0.541 are also saved (`acceptance_validation_v3a_reference.csv`); both pass either way.
+4. **S4 generated behaviour only.** The change 5 name lists hold 70 x 70 = 4,900 unique full names, so `generate_dataset` refuses 5,000 and 10,000 agents. S4 times features and scoring, which need only agents and activations, so `system_checks.behaviour_dataset` draws those exactly as `generate_dataset` does, without the context fields. The generator was not changed.
+5. **A different model was chosen** (below).
+
+**Split** (identical to v3a; `split.csv` byte-identical): train 700 (91 fraud), validation 150 (20), test 150 (19).
+
+**Feature checks** (700 training agents): `volume_vs_peers` KEEP (AUC 0.760 > 0.55; max Spearman 0.803 <= 0.85). Shortcut-risk features (strength >= 0.95): ring on `collusion_score` 1.000 and `time_of_day_entropy` 0.956; weak_ring on `collusion_score` 0.981; sequential on `customer_similarity` 1.000, `volume_vs_peers` 0.974 and `submission_frequency` 0.955; duplicate on `customer_similarity` 0.997, `time_of_day_entropy` 0.977 and `volume_vs_peers` 0.956.
+
+**Baselines on validation (150 agents, 20 fraud)**
+
+| Baseline | PR AUC | ROC AUC | Precision | Recall | F1 |
+|---|---|---|---|---|---|
+| Random (mean of 20 seeds) | 0.157 | 0.516 | 0.133 | 0.152 | 0.142 |
+| Volume rule (`submission_frequency` > training P90, 24.1) | 0.434 | 0.758 | 0.583 | 0.350 | 0.438 |
+| Best single feature (`collusion_score`) | 0.574 | 0.757 | 0.478 | 0.550 | 0.512 |
+| `duplicate_activation_rule` (pairs > 0) | 0.870 | 0.925 | 1.000 | 0.850 | 0.919 |
+
+**`duplicate_activation_rule`** is new: from the unlabelled activation records only, the count of an agent's (customer, client) pairs that another agent also used, or that the agent repeated after a completed activation; flagged when above 0. On training it scores PR AUC 0.790, ROC AUC 0.879, precision 1.000, recall 0.758. It is a reported baseline, not a selection candidate, and did not change the selection. It catches ring, weak_ring, duplicate and weak agents and no sequential agent. Its precision of 1.000 follows from R1 and R2: the generator never lets an honest agent share a pair or repeat one after completion, so the rule restates the integrity rules rather than learning anything. On real data, honest data-entry errors would break that.
+
+**Default models (validation, 15% budget):** Isolation Forest 4 features PR AUC 0.784, ROC AUC 0.911; 5 features 0.744, 0.897; LOF 4 features 0.489, 0.657; 5 features 0.415, 0.696.
+
+**Selection (amended rule, unchanged).** 64 candidates; the median CI width is 0.306. Best by family: LOF 4 features (`n_neighbors` 50) 0.813; Isolation Forest 4 features (500 trees, `max_samples` 64, `max_features` 1.0) 0.807; LOF 5 features 0.782; Isolation Forest 5 features 0.777. The tie set (within 0.02 of 0.813) holds 11 candidates: the top LOF and 10 Isolation Forests. The original (superseded) rule would pick LOF 4 features `n_neighbors` 35 (0.775), with a tie set of 60.
+
+**Chosen: `lof_v3_4f`, LOF, 4 features, `n_neighbors` 50. This is not the v3a choice (`if_v3_4f`).** It is the top candidate by mean validation PR AUC, and the simplicity order put it first among the ties: `selection.choose` counts a LOF as 0 trees and 0 `max_samples`, so it sorts before every Isolation Forest with the same feature count. That treatment has been in the code since the amendment; no test covers LOF against Isolation Forest in a tie. Had a LOF sorted after the forests, the pick would be Isolation Forest, 100 trees, `max_samples` 64, `max_features` 0.8 (0.804).
+
+**Chosen model on validation** (seed 42; LOF is deterministic, so the seed mean equals it):
+
+| PR AUC (95% CI) | ROC AUC | Cutoff (5:1) | Flagged | Precision | Recall | F1 | Train ROC AUC | Gap |
+|---|---|---|---|---|---|---|---|---|
+| 0.813 (0.660 to 0.942) | 0.924 | 1.445 | 20 (13.3%) | 0.750 | 0.750 | 0.750 | 0.940 | 0.016 |
+
+Recall by pattern at 5:1: ring 1.00, weak_ring 0.75, sequential 1.00, duplicate 1.00, weak 0.00. Other operating points: 2:1 and max F1 cutoff 1.766 (14 flagged, precision 0.929, recall 0.65); 10:1 cutoff 1.164 (51 flagged, recall 0.90); 15% budget (23 flagged, precision 0.652, recall 0.75). 4 against 5 features: 0.813 against 0.782, CIs overlapping 94% (within noise).
+
+**Acceptance on validation:** Q1 0.813 > 0.574 PASS; Q2 0.813 > 0.574 PASS; Q3 0.813 >= 0.400 and CI low 0.660 > 0.133 PASS; Q4 gap 0.016 PASS; Q5 recall 0.75 PASS; Q6 alert rate 13.3% PASS.
+
+**Learning curve** (validation PR AUC / ROC AUC, 5 stratified repeats): 10% 0.737 / 0.860; 25% 0.773 / 0.914; 50% 0.796 / 0.924; 75% 0.813 / 0.932; 100% 0.813 / 0.924. It rises to about 75% and is flat after.
+
+**Permutation importance** (PR AUC drop, 20 repeats): `collusion_score` 0.324, `customer_similarity` 0.279, `time_of_day_entropy` 0.273, `submission_frequency` 0.040.
+
+**Ablation** (mean validation PR AUC, change against 0.813): without `submission_frequency` 0.754 (-0.059); without `time_of_day_entropy` 0.735 (-0.078); without `customer_similarity` 0.736 (-0.077); without `collusion_score` 0.751 (-0.062); with `volume_vs_peers` 0.782 (-0.031). Every drop is inside the CI width.
+
+**Explanations:** the top feature matches the pattern's expected feature for ring 6 of 6, weak_ring 4 of 4, sequential 3 of 3, duplicate 3 of 3. 20 of 150 validation agents are flagged, 5 of them honest; several honest flags have low volume (busiest 24 hours 7 against a typical 14).
+
+**System checks S1 to S4: all PASS.** S1 0.017 ms per agent (1000 agents in 0.017 s; features 1.4 s). S2 a LOF swap scored through the same entry point with the threshold from the bundle. S3 all 1000 rows have the 9 fields. S4 scoring 0.011 / 0.020 / 0.113 / 0.148 s and end to end 0.7 / 1.8 / 8.8 / 17.4 s at 500 / 1000 / 5000 / 10000 agents.
+
+**Compared with v3a (validation, not the same data):** v3a chose `if_v3_4f` with PR AUC 0.742 (CI 0.567 to 0.898), recall 0.60 at 13 flags; now `lof_v3_4f` with 0.813 (0.660 to 0.942), recall 0.75 at 20 flags. Weak fraud recall is 0 in both.
+
+**Code changed for this rerun:** `baselines.py` (duplicate rule, training and validation table); `labels_guard.load_labels`; `eda.py --without-test`; `selection.py` (Q1/Q2 reference from Step 7); `system_checks.py` (behaviour-only S4); `feature_analysis.py` (syntax fix); `freeze.py` (new run ids, all 5 data files and the generator hashed); `feature_engineering.py` (comments only).
+
+**Tests:** 156 passed, 0 skipped, 0 failed. The 3 tests that skipped now run. Changed: `test_step_7_and_8_run_without_any_test_label` copies `activation_records_clean.csv` too, because the baselines now read it. New: `tests/test_duplicate_rule.py` (by hand, no labels, not a selection candidate, Q1 reference) and `test_load_labels_refuses_test_and_drops_test_rows`. `test_freeze.py` now checks 15 hashes.
+
+**Freeze:** `ml/results/FREEZE.md` is the new model freeze; the datagen note it replaces is kept as `results/FREEZE_data_change5.md`.
+
 ## Model results
 
-Not yet re-run. This section will be filled in after Step 11, with old and new numbers side by side, and it will state whether the model choice changed.
+Step 11 (test) has not been run. This section will be filled in after Step 11, with old and new numbers side by side, and it will state whether the model choice changed.
