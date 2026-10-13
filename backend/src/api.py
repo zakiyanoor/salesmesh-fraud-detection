@@ -18,7 +18,13 @@ Endpoints:
   GET  /api/review-decisions      -> list past review decisions (protected)
   GET  /api/audit-log             -> admin action audit trail (protected)
   GET  /api/analytics             -> aggregate platform statistics (protected)
+  GET  /api/agent-scores          -> latest run's scores, ML and rule flags, flag_source (protected)
+  GET  /api/clients               -> client reference list with commission rates (protected)
   GET  /api/health                -> unprotected health check
+
+Phone and national ID numbers are masked in every response (last 3 digits
+visible); identity is fictional and never a model input. Full documentation:
+docs/API.md.
 
 Review decisions use dual control: a fraud_analyst proposes a decision
 (status "pending_confirmation") and a different admin with the
@@ -36,7 +42,8 @@ from flask_limiter.util import get_remote_address
 from sqlalchemy import and_, func
 from src.db import (
     get_session, Agent, ActivationRecord, FeatureVector, FraudFlag, ReviewDecision,
-    AdminActionLog, DECISION_PENDING, DECISION_CONFIRMED,
+    AdminActionLog, DECISION_PENDING, DECISION_CONFIRMED, AgentCategory, AgentIdentity, AgentScore, Client,
+    DetectionRun, DuplicateEvidence, FLAG_SOURCES,
 )
 from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER,
@@ -112,6 +119,65 @@ def round_or_none(value, digits: int = 3):
     return None if value is None else round(value, digits)
 
 
+MASK_VISIBLE = 3
+SCORE_EDGES = (1.1, 1.3, 2.0)
+MAX_PAGE = 1000
+
+
+def mask_tail(value, visible: int = MASK_VISIBLE):
+    """Data minimisation: every character but the last `visible` becomes '*'."""
+    if value is None:
+        return None
+    text_value = str(value)
+    return "*" * max(len(text_value) - visible, 0) + text_value[-visible:]
+
+
+def identity_payload(identity):
+    """Fictional identity for display. Phone and national ID are always masked; the full values never leave the database."""
+    if identity is None:
+        return None
+    return {
+        "full_name": identity.full_name,
+        "phone_number": mask_tail(identity.phone_number),
+        "national_id_number": mask_tail(identity.national_id_number),
+    }
+
+
+def latest_run(db_session):
+    """The newest successful detection run, or None."""
+    return (
+        db_session.query(DetectionRun)
+        .filter(DetectionRun.status == "succeeded")
+        .order_by(DetectionRun.finished_at.desc())
+        .first()
+    )
+
+
+def latest_scores_by_agent(db_session, run=None):
+    run = run or latest_run(db_session)
+    if run is None:
+        return {}
+    return {s.agent_id: s for s in db_session.query(AgentScore).filter(AgentScore.run_id == run.run_id)}
+
+
+def score_payload(score):
+    if score is None:
+        return None
+    return {
+        "run_id": score.run_id,
+        "model_version": score.model_version,
+        "anomaly_score": round(score.anomaly_score, 6),
+        "threshold": round(score.threshold, 6),
+        "flagged": score.flagged,
+        "rule_flagged": score.rule_flagged,
+        "duplicate_pairs": score.duplicate_pairs,
+        "flag_source": score.flag_source,
+        "top_features": score.top_features.split(";") if score.top_features else [],
+        "reasons": score.reasons,
+        "scored_at": score.created_at.isoformat(),
+    }
+
+
 @app.route("/api/login", methods=["POST"])
 @limiter.limit("5 per minute")
 def login():
@@ -166,8 +232,10 @@ def get_flagged_agents():
             .all()
         )
 
+        scores = latest_scores_by_agent(db_session)
         flagged_agents = []
         for flag, vector, agent in results:
+            score = scores.get(agent.agent_id)
             flagged_agents.append({
                 "flag_id": flag.flag_id,
                 "agent_id": agent.agent_id,
@@ -176,6 +244,8 @@ def get_flagged_agents():
                 "suspicion_score": round_or_none(flag.suspicion_score),
                 "flag_status": flag.flag_status,
                 "model_version": flag.model_version,
+                "flag_source": score.flag_source if score else None,
+                "threshold": round_or_none(score.threshold, 6) if score else None,
             })
 
         return jsonify({"count": len(flagged_agents), "flagged_agents": flagged_agents})
@@ -203,13 +273,17 @@ def get_all_agents():
             .all()
         )
 
+        scores = latest_scores_by_agent(db_session)
         results = []
         for agent, vector, flag in rows:
+            score = scores.get(agent.agent_id)
             results.append({
                 "agent_id": agent.agent_id,
                 "region": agent.region,
+                "account_status": agent.account_status,
                 "status": "flagged" if flag and flag.flag_status == "flagged" else "clear",
                 "suspicion_score": round_or_none(flag.suspicion_score) if flag else None,
+                "flag_source": score.flag_source if score else None,
                 "submission_frequency": vector.submission_frequency if vector else None,
                 "time_of_day_dist": round_or_none(vector.time_of_day_dist) if vector else None,
                 "customer_similarity": round_or_none(vector.customer_similarity) if vector else None,
@@ -250,9 +324,45 @@ def get_agent_detail(agent_id):
             .all()
         )
 
+        run = latest_run(db_session)
+        score = (
+            db_session.query(AgentScore)
+            .filter(AgentScore.run_id == run.run_id, AgentScore.agent_id == agent_id)
+            .first()
+        ) if run else None
+        evidence = (
+            db_session.query(DuplicateEvidence)
+            .filter(DuplicateEvidence.run_id == run.run_id, DuplicateEvidence.agent_id == agent_id)
+            .order_by(DuplicateEvidence.reason, DuplicateEvidence.customer_id, DuplicateEvidence.client_id,
+                      DuplicateEvidence.other_agent_id)
+            .all()
+        ) if run else []
+        identity = db_session.get(AgentIdentity, agent_id)
+        certifications = (
+            db_session.query(AgentCategory).filter(AgentCategory.agent_id == agent_id)
+            .order_by(AgentCategory.category).all()
+        )
+
         response = {
             "agent_id": agent.agent_id,
             "region": agent.region,
+            "account_status": agent.account_status,
+            # Fictional identity; phone and national ID masked (last 3 digits only).
+            "identity": identity_payload(identity),
+            "certifications": [{
+                "category": c.category,
+                "certification_status": c.certification_status,
+                "certified_at": c.certified_at.isoformat(),
+            } for c in certifications],
+            # Model result (primary flag) with the duplicate rule beside it.
+            "score": score_payload(score),
+            "duplicate_evidence": [{
+                "customer_id": e.customer_id,
+                "client_id": e.client_id,
+                "other_agent_id": e.other_agent_id,
+                "reason": e.reason,
+                "record_ids": e.record_ids.split(","),
+            } for e in evidence],
             "registration_timestamp": agent.registration_timestamp.isoformat() if agent.registration_timestamp else None,
             "features": {
                 "submission_frequency": vector.submission_frequency,
@@ -427,7 +537,16 @@ def get_analytics():
         agents = {a.agent_id: a for a in db_session.query(Agent).all()}
         flags = {f.vector_id: f for f in db_session.query(FraudFlag).all()}
 
-        score_buckets = {"0.0-0.2": 0, "0.2-0.4": 0, "0.4-0.6": 0, "0.6-0.8": 0, "0.8-1.0": 0}
+        # Scores are LOF anomaly scores (about 1 for typical agents, unbounded
+        # above), not 0-1 probabilities; buckets are placed around the cutoff.
+        run = latest_run(db_session)
+        cutoff = run.threshold if run and run.threshold else 1.445
+        edges = [(f"< {SCORE_EDGES[0]:.1f}", 0, SCORE_EDGES[0]),
+                 (f"{SCORE_EDGES[0]:.1f}-{SCORE_EDGES[1]:.1f}", SCORE_EDGES[0], SCORE_EDGES[1]),
+                 (f"{SCORE_EDGES[1]:.1f}-cutoff", SCORE_EDGES[1], cutoff),
+                 (f"cutoff ({cutoff:.3f})-{SCORE_EDGES[2]:.1f}", cutoff, SCORE_EDGES[2]),
+                 (f">= {SCORE_EDGES[2]:.1f}", SCORE_EDGES[2], float("inf"))]
+        score_buckets = {label: 0 for label, _, _ in edges}
         region_counts: dict = {}
         freq_sum = dist_sum = sim_sum = 0.0
 
@@ -440,8 +559,7 @@ def get_analytics():
             dist_sum += v.time_of_day_dist
             sim_sum += v.customer_similarity
 
-            bucket_index = min(int(flag.suspicion_score * 5), 4)
-            bucket_label = list(score_buckets.keys())[bucket_index]
+            bucket_label = next(label for label, low, high in edges if low <= flag.suspicion_score < high)
             score_buckets[bucket_label] += 1
 
             region_counts.setdefault(agent.region, {"flagged": 0, "total": 0})
@@ -450,7 +568,12 @@ def get_analytics():
                 region_counts[agent.region]["flagged"] += 1
 
         count = len(vectors) or 1
+        sources = {s: 0 for s in FLAG_SOURCES}
+        for score in latest_scores_by_agent(db_session, run).values():
+            sources[score.flag_source] += 1
         return jsonify({
+            "cutoff": round(cutoff, 6),
+            "flag_sources": [{"flag_source": s, "count": n} for s, n in sources.items()],
             "score_distribution": [{"bucket": k, "count": v} for k, v in score_buckets.items()],
             "region_breakdown": [{"region": r, **c} for r, c in region_counts.items()],
             "platform_averages": {
@@ -459,6 +582,51 @@ def get_analytics():
                 "customer_similarity": round(sim_sum / count, 3),
             },
         })
+    finally:
+        db_session.close()
+
+
+@app.route("/api/agent-scores", methods=["GET"])
+@login_required
+def list_agent_scores():
+    """Latest detection run's scores, highest first; optional flag_source filter and paging."""
+    flag_source = request.args.get("flag_source")
+    if flag_source is not None and flag_source not in FLAG_SOURCES:
+        return jsonify({"error": f"flag_source must be one of {list(FLAG_SOURCES)}"}), 400
+    try:
+        limit = min(int(request.args.get("limit", 100)), MAX_PAGE)
+        offset = max(int(request.args.get("offset", 0)), 0)
+    except ValueError:
+        return jsonify({"error": "limit and offset must be integers"}), 400
+    db_session = get_session()
+    try:
+        run = latest_run(db_session)
+        if run is None:
+            return jsonify({"run_id": None, "total": 0, "count": 0, "scores": []})
+        query = db_session.query(AgentScore).filter(AgentScore.run_id == run.run_id)
+        if flag_source:
+            query = query.filter(AgentScore.flag_source == flag_source)
+        total = query.count()
+        rows = query.order_by(AgentScore.anomaly_score.desc(), AgentScore.agent_id).offset(offset).limit(limit).all()
+        return jsonify({
+            "run_id": run.run_id, "model_version": run.model_version, "threshold": round_or_none(run.threshold, 6),
+            "total": total, "count": len(rows), "offset": offset,
+            "scores": [{"agent_id": s.agent_id, **score_payload(s)} for s in rows],
+        })
+    finally:
+        db_session.close()
+
+
+@app.route("/api/clients", methods=["GET"])
+@login_required
+def list_clients():
+    db_session = get_session()
+    try:
+        clients = db_session.query(Client).order_by(Client.client_id).all()
+        return jsonify({"count": len(clients), "clients": [{
+            "client_id": c.client_id, "name": c.name, "category": c.category,
+            "commission_per_activation_kes": c.commission_per_activation_kes,
+        } for c in clients]})
     finally:
         db_session.close()
 

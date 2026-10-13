@@ -165,3 +165,49 @@ def test_logout_revokes_session(client) -> None:
 
     response = client.get("/api/flagged-agents")
     assert response.status_code == 401
+
+def test_agent_detail_includes_model_and_rule_result(client, known_agent_id) -> None:
+    login(client, ANALYST)
+    body = client.get(f"/api/agents/{known_agent_id}").get_json()
+    score = body["score"]
+    assert score["model_version"] == "lof_v3_4f" and score["flagged"] is True
+    assert score["flag_source"] in ("ML", "Both")
+    assert score["anomaly_score"] >= score["threshold"]
+    assert score["rule_flagged"] == (score["duplicate_pairs"] > 0)
+    assert len(body["duplicate_evidence"]) >= score["duplicate_pairs"]
+    assert body["account_status"] in ("active", "suspended")
+    assert body["certifications"] and all(c["certification_status"] in ("certified", "expired") for c in body["certifications"])
+
+
+def test_agent_scores_lists_the_latest_run_and_filters_by_flag_source(client) -> None:
+    login(client, ANALYST)
+    everything = client.get("/api/agent-scores?limit=1000").get_json()
+    assert everything["total"] == 1000 and everything["model_version"] == "lof_v3_4f"
+    by_source = {}
+    for source in ("ML", "Rule", "Both", "None"):
+        body = client.get(f"/api/agent-scores?flag_source={source}&limit=1000").get_json()
+        assert all(s["flag_source"] == source for s in body["scores"])
+        by_source[source] = body["total"]
+    assert sum(by_source.values()) == 1000
+    assert client.get("/api/agent-scores?flag_source=bad").status_code == 400
+
+
+def test_rule_only_agents_are_not_in_the_model_flag_list(client) -> None:
+    login(client, ANALYST)
+    flagged = {a["agent_id"] for a in client.get("/api/flagged-agents").get_json()["flagged_agents"]}
+    rule_only = {s["agent_id"] for s in client.get("/api/agent-scores?flag_source=Rule&limit=1000").get_json()["scores"]}
+    assert rule_only and not rule_only & flagged
+
+
+def test_clients_lists_twenty_clients_with_commission(client) -> None:
+    login(client, ANALYST)
+    body = client.get("/api/clients").get_json()
+    assert body["count"] == 20
+    assert all(40 <= c["commission_per_activation_kes"] <= 400 for c in body["clients"])
+
+
+def test_analytics_reports_flag_sources_and_cutoff(client) -> None:
+    login(client, ANALYST)
+    body = client.get("/api/analytics").get_json()
+    assert abs(body["cutoff"] - 1.444799) < 1e-6
+    assert sum(s["count"] for s in body["flag_sources"]) == 1000
