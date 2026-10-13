@@ -98,10 +98,24 @@ Step 11 (`final_evaluation.py`) has already been run and refuses to run again. D
 - **Backend:** Flask REST API with session-based auth, roles and an audit log; SQLAlchemy ORM.
   - **Detection uses the frozen v3 model `lof_v3_4f`:** the scoring bundle from `ml/runs/20261013-100433_explain`, checked against `ml/results/FREEZE.md`, at the validation cutoff of 1.445.
   - The feature code is imported from `ml/`, not copied, and backend scores match the ML pipeline within 1e-9.
-  - The duplicate activation rule runs beside the model; each agent gets a `flag_source` of ML, Rule, Both or None.
+  - The duplicate activation rule runs beside the model; each agent gets a `flag_source` of ML, Rule, Both or None, and a `risk_band` of high, review or low.
   - The APScheduler job runs on a configurable interval and reports its status.
+  - **Append-only audit log** (a database trigger refuses changes). It records logins, failures, every 401 and 403, account changes, review actions, report downloads and every AI decision (`system:lof_v3_4f`).
+  - Read-only threat intelligence views; admin-only CSV and PDF reports with masked identities and protection against formula injection.
   - Endpoints: `docs/API.md`; changes: `backend/CHANGES.md`.
-- **Frontend:** React and MUI dashboard. Its risk tiers still assume 0 to 1 scores; see `backend/CHANGES.md`.
+- **Frontend:** React and MUI dashboard. Its risk tiers still assume 0 to 1 scores and should switch to `risk_band`; see `backend/CHANGES.md`.
+
+### Roles and permissions
+
+| Capability | fraud_analyst | compliance_officer | admin |
+|---|---|---|---|
+| Read agents, scores, analytics, threat intelligence, run status | yes | yes | yes |
+| Propose a review decision | yes | no | no |
+| Confirm a review decision (someone else's) | no | yes | no |
+| Read the audit log | no | yes | yes |
+| Download reports; manage accounts and roles | no | no | yes |
+
+An admin cannot change or deactivate their own account, and the last active admin cannot be removed. Details: `docs/API.md`.
 
 ## Repository layout
 
@@ -126,7 +140,7 @@ Create `backend/.env` with `DB_PASSWORD` and `FLASK_SECRET_KEY`. Optional: `DB_N
 ```bash
 python -m src.migrate      # create the database, tables and columns if missing (safe to repeat)
 python -m src.load_data    # reload the five v3 files from ml/data/synthetic (hash and count checked; never labels.csv)
-python -m src.auth         # demo accounts (demo and test only)
+python -m src.auth         # demo accounts analyst_01, compliance_01 and admin_01 (demo and test only)
 python -m src.pipeline     # one detection run with the frozen lof_v3_4f model
 python -m src.scheduler    # detection now and then every DETECTION_INTERVAL_MINUTES
 python -m src.api          # the API on port 5000
