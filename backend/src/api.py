@@ -49,7 +49,7 @@ from src.db import (
 from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER, ROLE_ADMIN, DEACTIVATED,
 )
-from src import accounts
+from src import accounts, threat_intel
 from src import audit
 from src.pipeline import compute_client_category_breakdown
 
@@ -135,24 +135,7 @@ def round_or_none(value, digits: int = 3):
 MASK_VISIBLE = 3
 SCORE_EDGES = (1.1, 1.3, 2.0)
 MAX_PAGE = 1000
-REVIEW_SCORE = 1.3
-RISK_BANDS = ("high", "review", "low")
-
-
-def risk_band(flag_source, anomaly_score, threshold):
-    """
-    high: the model flagged the agent (flag_source ML or Both).
-    review: the rule alone flagged it (Rule), or its score is at or above
-            REVIEW_SCORE but below the cutoff.
-    low: everything else. None when the agent has not been scored.
-    """
-    if flag_source is None:
-        return None
-    if flag_source in ("ML", "Both"):
-        return "high"
-    if flag_source == "Rule" or REVIEW_SCORE <= anomaly_score < threshold:
-        return "review"
-    return "low"
+from src.risk import REVIEW_SCORE, RISK_BANDS, risk_band  # noqa: E402,F401
 
 
 def mask_tail(value, visible: int = MASK_VISIBLE):
@@ -713,6 +696,26 @@ def list_clients():
         } for c in clients]})
     finally:
         db_session.close()
+
+
+def _threat_view(name, compute):
+    def view():
+        db_session = get_session()
+        try:
+            run = threat_intel.latest_run(db_session)
+            if run is None:
+                return jsonify({"error": "No successful detection run yet"}), 404
+            return jsonify(compute(db_session, run))
+        finally:
+            db_session.close()
+
+    view.__name__ = f"threat_intelligence_{name.replace('-', '_')}"
+    return login_required(view)
+
+
+# Read only, any authenticated role (issue #18).
+for _name, _compute in threat_intel.VIEWS.items():
+    app.add_url_rule(f"/api/threat-intelligence/{_name}", view_func=_threat_view(_name, _compute), methods=["GET"])
 
 
 @app.route("/api/admin/accounts", methods=["GET"])
