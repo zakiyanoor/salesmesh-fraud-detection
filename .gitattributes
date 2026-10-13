@@ -1,0 +1,28 @@
+# Frozen ML files (issue #4). Each hashed text file is pinned to the line
+# endings its sha256 in ml/results/FREEZE.md was computed on, so a checkout
+# reproduces the frozen bytes whatever core.autocrlf is set to. The content
+# stored in the repository is unchanged (LF).
+
+# Frozen with LF line endings.
+ml/results/FREEZE.md text eol=lf
+ml/results/acceptance_criteria.md text eol=lf
+ml/results/selection_rule.md text eol=lf
+ml/results/selection_notes.md text eol=lf
+
+# Frozen with CRLF line endings (written by pandas and Python on Windows).
+ml/data_generation.py text eol=crlf
+ml/data/synthetic/activation_records.csv text eol=crlf
+ml/data/synthetic/agents.csv text eol=crlf
+ml/data/synthetic/agent_identity.csv text eol=crlf
+ml/data/synthetic/agent_categories.csv text eol=crlf
+ml/data/synthetic/clients.csv text eol=crlf
+ml/data/synthetic/feature_vectors.csv text eol=crlf
+ml/data/synthetic/split.csv text eol=crlf
+ml/data/synthetic/labels.csv text eol=crlf
+ml/data/synthetic/rings.csv text eol=crlf
+ml/runs/20261013-092952_split_s42/split.csv text eol=crlf
+ml/runs/20261013-093050_selection_s42/operating_point.json text eol=crlf
+
+# Binary: never converted.
+*.joblib binary
+*.png binary

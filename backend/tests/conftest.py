@@ -1,24 +1,61 @@
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 
-# The synthetic data generator lives in ml/ (repo root); some tests use it to
-# build fixtures and known client/category lists. App code never imports ml/.
+# Tests run against their own database, never the development one. Set before
+# any src module creates its engine.
+os.environ.setdefault("DB_NAME", "salesmesh_fraud_detection_test")
+if not os.environ["DB_NAME"].endswith("_test"):
+    raise pytest.UsageError(f"tests must use a *_test database, not {os.environ['DB_NAME']!r}")
+
+# The synthetic data generator and feature code live in ml/ (repo root). The app
+# imports them through src.ml_bridge; some tests also use them directly.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "ml"))
 
-from tests.helpers import TEST_ADMIN_IDS
+from tests.helpers import ANALYST, COMPLIANCE, TEST_ADMIN_IDS  # noqa: E402
+
+
+@pytest.fixture(scope="session")
+def database():
+    """
+    The test database, migrated, loaded with the five v3 files (a no-op when the
+    same files are already loaded), with the test accounts, scored once per session.
+    Returns the detection run summary.
+    """
+    from src.auth import ROLE_COMPLIANCE_OFFICER, ROLE_FRAUD_ANALYST, create_admin_user
+    from src.load_data import load_all
+    from src.migrate import migrate
+    from src.scoring_service import run_detection_cycle
+
+    migrate()
+    load_all()
+    create_admin_user(ANALYST["admin_id"], ANALYST["username"], ANALYST["password"], ROLE_FRAUD_ANALYST)
+    create_admin_user(COMPLIANCE["admin_id"], COMPLIANCE["username"], COMPLIANCE["password"], ROLE_COMPLIANCE_OFFICER)
+    return run_detection_cycle(trigger="test-session")
+
+
+@pytest.fixture(scope="session")
+def known_agent_id(database):
+    """An agent flagged by the model in the session's detection run (has records, features and a flag)."""
+    from src.db import AgentScore, get_session
+
+    db_session = get_session()
+    try:
+        row = (db_session.query(AgentScore.agent_id)
+               .filter(AgentScore.run_id == database["run_id"], AgentScore.flagged.is_(True))
+               .order_by(AgentScore.anomaly_score.desc()).first())
+        assert row is not None, "the session run flagged no agent"
+        return row[0]
+    finally:
+        db_session.close()
 
 
 def _delete_rows_created_since(started) -> None:
-    """
-    Removes audit entries and review decisions the test accounts created.
-
-    The integration tests run against the real database, so without this every
-    run would leave login/logout audit rows and proposed decisions behind.
-    """
-    from src.db import get_session, AdminActionLog, ReviewDecision
+    """Removes audit entries and review decisions the test accounts created during a test."""
+    from src.db import AdminActionLog, ReviewDecision, get_session
 
     db_session = get_session()
     try:
@@ -36,15 +73,14 @@ def _delete_rows_created_since(started) -> None:
 
 
 @pytest.fixture
-def client():
+def client(database):
     """
-    Flask test client for the API integration tests.
+    Flask test client for the API integration tests, on the test database.
 
     Login rate limiting is off (tests log in far more than 5 times a minute;
     test_login_is_rate_limited turns it back on), and rows the test accounts
     write are deleted afterwards.
     """
-    # Imported here so the unit tests don't need FLASK_SECRET_KEY or a database.
     from src.api import app, limiter
 
     started = datetime.utcnow()
