@@ -20,6 +20,7 @@ Endpoints:
   GET  /api/analytics             -> aggregate platform statistics (protected)
   GET  /api/agent-scores          -> latest run's scores, ML and rule flags, flag_source (protected)
   GET  /api/clients               -> client reference list with commission rates (protected)
+  GET  /api/detection-runs/latest -> last detection run status: started, finished, counts, error (protected)
   GET  /api/health                -> unprotected health check
 
 Phone and national ID numbers are masked in every response (last 3 digits
@@ -613,6 +614,33 @@ def list_agent_scores():
             "total": total, "count": len(rows), "offset": offset,
             "scores": [{"agent_id": s.agent_id, **score_payload(s)} for s in rows],
         })
+    finally:
+        db_session.close()
+
+
+@app.route("/api/detection-runs/latest", methods=["GET"])
+@login_required
+def latest_detection_run():
+    """Status of the most recent detection run (any outcome), for the scheduler (issue #12)."""
+    db_session = get_session()
+    try:
+        run = db_session.query(DetectionRun).order_by(DetectionRun.started_at.desc()).first()
+        if run is None:
+            return jsonify({"run": None})
+        return jsonify({"run": {
+            "run_id": run.run_id,
+            "trigger": run.trigger,
+            "status": run.status,
+            "started_at": run.started_at.isoformat(),
+            "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+            "model_version": run.model_version,
+            "threshold": round_or_none(run.threshold, 6),
+            "agents_scored": run.agents_scored,
+            "flagged_count": run.flagged_count,
+            "rule_flagged_count": run.rule_flagged_count,
+            "both_count": run.both_count,
+            "error": run.error,
+        }})
     finally:
         db_session.close()
 
