@@ -54,10 +54,10 @@ def test_no_endpoint_returns_an_unmasked_phone_or_id(client, identities, known_a
     agent_ids = [known_agent_id] + [a for a, _, _ in identities[:40]]
     for account in ALL_ACCOUNTS:
         response = client.post("/api/login", json={"username": account["username"], "password": account["password"]})
-        assert_no_full_value(response.get_data(as_text=True), identities, "POST /api/login")
+        assert_no_full_value(response.get_data().decode("utf-8", errors="replace"), identities, "POST /api/login")
         for url in get_urls(agent_ids):
             response = client.get(url)
-            assert_no_full_value(response.get_data(as_text=True), identities, f"GET {url}")
+            assert_no_full_value(response.get_data().decode("utf-8", errors="replace"), identities, f"GET {url}")
         client.post("/api/logout")
     get_rules = [r for r in app.url_map.iter_rules() if "GET" in r.methods and r.endpoint != "static"]
     assert len(get_urls(["X"])) == len(get_rules) >= 9
