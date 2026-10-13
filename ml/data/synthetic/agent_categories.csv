@@ -1,0 +1,1442 @@
+agent_id,category,certification_status,certified_at
+A10053,insurance,certified,2025-09-09 02:06:53
+A10074,mobile money,certified,2026-01-14 06:27:06
+A10221,e-commerce,certified,2026-05-03 08:18:52
+A10282,mobile money,certified,2026-01-24 08:22:13
+A10350,education,certified,2025-12-19 08:05:44
+A10425,insurance,certified,2026-03-17 15:27:36
+A10464,telecom,certified,2026-04-14 01:01:13
+A10726,logistics,certified,2026-01-08 09:07:07
+A10726,mobile money,certified,2026-07-19 22:57:34
+A10772,SACCO,certified,2026-07-27 07:23:58
+A10851,SACCO,certified,2026-06-05 13:34:12
+A10942,mobile money,certified,2025-10-10 11:19:35
+A10942,logistics,expired,2026-03-04 18:48:10
+A11025,telecom,certified,2026-04-29 15:37:14
+A11220,banking,certified,2026-07-02 13:09:02
+A11267,e-commerce,certified,2026-06-14 09:14:24
+A11267,education,certified,2026-05-27 07:56:50
+A11330,e-commerce,certified,2026-06-03 10:03:54
+A11504,SACCO,certified,2026-01-26 20:20:26
+A11504,banking,certified,2026-07-19 09:25:38
+A11607,healthcare,certified,2026-07-16 02:56:49
+A11607,telecom,certified,2026-07-28 01:29:02
+A11658,banking,certified,2026-05-21 12:03:29
+A11658,fashion,certified,2026-05-02 11:05:51
+A11854,agritech,certified,2026-07-31 10:33:01
+A11854,mobile money,certified,2026-07-19 08:27:45
+A11934,banking,certified,2026-02-11 15:08:16
+A12260,mobile money,certified,2025-12-11 02:26:21
+A12260,real estate,certified,2026-02-02 15:02:19
+A12540,education,certified,2026-07-29 18:10:49
+A12552,SACCO,certified,2026-01-25 02:49:15
+A12552,banking,certified,2026-05-08 07:21:41
+A12560,SACCO,certified,2026-07-16 03:53:40
+A12671,SACCO,certified,2026-05-17 07:01:39
+A12671,telecom,certified,2025-12-06 08:20:00
+A12671,real estate,expired,2026-06-11 07:50:20
+A12719,e-commerce,certified,2026-05-03 21:31:26
+A12757,agritech,certified,2026-02-21 23:28:51
+A12757,e-commerce,certified,2026-03-30 13:59:12
+A13101,mobile money,certified,2026-03-30 01:45:19
+A13201,insurance,certified,2026-07-26 01:24:05
+A13248,banking,certified,2026-03-12 18:10:13
+A13248,fashion,certified,2026-07-10 21:28:54
+A13278,banking,certified,2026-04-11 12:56:56
+A13365,telecom,certified,2025-12-30 04:06:50
+A13390,mobile money,certified,2026-05-24 21:53:32
+A13478,agritech,certified,2026-01-23 23:00:02
+A13478,banking,certified,2026-02-06 14:35:02
+A13534,mobile money,certified,2026-07-28 02:10:44
+A13552,banking,certified,2026-02-15 23:46:53
+A13552,mobile money,certified,2026-05-17 21:49:20
+A13617,SACCO,certified,2026-01-24 17:44:26
+A13617,mobile money,certified,2026-05-28 10:49:58
+A13761,mobile money,certified,2026-07-09 20:10:39
+A13804,education,certified,2026-07-30 18:21:39
+A13804,telecom,certified,2026-06-09 16:28:53
+A13905,e-commerce,certified,2026-01-04 16:28:55
+A14067,banking,certified,2026-07-13 08:17:28
+A14067,logistics,certified,2026-04-14 15:49:53
+A14117,mobile money,certified,2026-03-13 22:24:25
+A14117,telecom,expired,2026-03-25 01:57:24
+A14165,education,certified,2026-05-29 19:53:36
+A14207,SACCO,certified,2026-07-21 17:33:48
+A14207,telecom,certified,2025-12-20 21:05:26
+A14278,banking,certified,2026-04-18 08:09:49
+A14722,fashion,certified,2026-05-12 18:53:14
+A14722,mobile money,certified,2026-07-23 11:47:53
+A15014,mobile money,certified,2026-05-22 08:26:14
+A15075,mobile money,certified,2026-03-07 14:22:55
+A15075,telecom,certified,2026-06-25 19:22:33
+A15209,agritech,certified,2026-01-01 00:13:00
+A15209,fashion,certified,2026-03-22 16:08:49
+A15224,mobile money,certified,2026-05-09 00:43:11
+A15229,telecom,certified,2026-03-24 08:46:32
+A15273,e-commerce,certified,2025-12-20 23:22:37
+A15273,banking,expired,2025-11-22 03:14:27
+A15276,mobile money,certified,2026-07-15 02:15:27
+A15276,telecom,certified,2026-06-22 18:48:47
+A15383,insurance,certified,2026-07-08 11:42:13
+A15383,banking,expired,2026-05-29 22:44:42
+A15482,mobile money,certified,2026-07-29 12:47:31
+A15695,insurance,certified,2025-12-01 06:02:11
+A15695,telecom,certified,2026-05-14 21:59:03
+A15778,e-commerce,certified,2026-06-21 19:38:55
+A15817,education,certified,2026-06-15 08:28:32
+A15965,mobile money,certified,2026-05-15 21:00:29
+A16006,logistics,certified,2026-01-10 01:02:08
+A16006,mobile money,certified,2026-02-26 16:02:56
+A16006,telecom,certified,2026-03-27 16:13:03
+A16057,mobile money,certified,2026-07-31 17:55:24
+A16175,logistics,certified,2026-06-15 14:44:28
+A16175,telecom,certified,2026-07-21 18:33:06
+A16572,e-commerce,certified,2026-07-28 06:42:44
+A16572,telecom,certified,2026-06-25 16:12:27
+A16582,mobile money,certified,2026-07-02 17:11:23
+A16582,telecom,certified,2026-07-14 03:26:59
+A16590,insurance,certified,2026-04-20 21:03:49
+A16630,telecom,certified,2026-04-21 12:07:05
+A16630,banking,expired,2026-04-05 12:25:02
+A16658,mobile money,certified,2025-11-16 09:20:29
+A16658,insurance,expired,2025-12-22 22:01:37
+A16734,fashion,certified,2026-04-17 00:32:31
+A16734,telecom,certified,2026-04-28 06:05:42
+A16826,education,certified,2026-07-30 13:15:23
+A17026,banking,certified,2026-07-12 04:31:51
+A17026,SACCO,expired,2026-06-23 12:39:30
+A17100,mobile money,certified,2026-05-31 20:47:13
+A17146,telecom,certified,2026-03-15 02:17:19
+A17331,banking,certified,2026-06-11 17:39:59
+A17455,telecom,certified,2026-06-06 19:44:04
+A17492,telecom,certified,2026-04-21 09:21:39
+A17592,mobile money,certified,2026-06-19 09:03:19
+A17665,education,certified,2026-05-31 18:40:44
+A17685,education,certified,2026-02-02 10:20:37
+A17716,logistics,certified,2026-05-23 23:14:58
+A17816,education,certified,2026-06-25 20:44:56
+A17894,education,certified,2026-07-30 02:40:11
+A17944,mobile money,certified,2026-07-29 05:06:48
+A17989,e-commerce,certified,2026-07-14 06:32:30
+A18161,SACCO,certified,2026-05-17 12:25:32
+A18161,healthcare,certified,2026-06-08 17:39:35
+A18326,fashion,certified,2026-07-25 18:15:55
+A18326,mobile money,certified,2026-05-15 13:09:16
+A18392,banking,certified,2026-06-29 19:31:36
+A18418,telecom,certified,2026-03-15 06:38:46
+A18564,telecom,certified,2025-11-08 17:01:58
+A18564,real estate,expired,2025-12-21 08:20:49
+A18675,insurance,certified,2026-06-14 22:13:36
+A18834,mobile money,certified,2026-06-11 09:47:05
+A18907,banking,certified,2026-06-11 09:43:25
+A18981,healthcare,certified,2026-02-17 11:08:40
+A18993,telecom,certified,2026-02-21 23:52:09
+A19016,insurance,certified,2026-06-13 17:07:49
+A19016,mobile money,certified,2026-06-12 01:59:18
+A19038,insurance,certified,2026-05-16 13:36:21
+A19071,insurance,certified,2026-06-19 23:31:00
+A19071,mobile money,certified,2026-06-10 09:53:53
+A19099,telecom,certified,2026-07-21 06:11:48
+A19116,insurance,certified,2026-06-18 11:54:56
+A19116,real estate,certified,2026-06-24 01:06:59
+A19171,logistics,certified,2026-05-25 17:36:38
+A19171,agritech,expired,2026-05-16 19:48:36
+A19287,mobile money,certified,2025-08-14 13:10:58
+A19305,agritech,certified,2026-03-20 01:02:12
+A19305,telecom,certified,2026-03-16 00:44:41
+A19329,telecom,certified,2026-04-29 13:22:01
+A19358,mobile money,certified,2026-07-19 08:28:34
+A19359,education,certified,2026-06-18 19:39:10
+A19508,e-commerce,certified,2026-04-03 02:11:16
+A19545,real estate,certified,2026-04-03 07:15:07
+A19602,telecom,certified,2025-09-29 08:53:20
+A19710,insurance,certified,2026-05-04 15:39:03
+A19838,SACCO,certified,2026-07-13 03:04:50
+A19862,mobile money,certified,2026-07-17 00:48:58
+A19862,telecom,certified,2026-07-09 23:02:45
+A19880,fashion,certified,2026-06-18 09:02:50
+A19961,healthcare,certified,2025-11-22 20:17:32
+A20155,telecom,certified,2026-07-24 09:40:28
+A20322,banking,certified,2026-05-26 17:17:32
+A20328,mobile money,certified,2025-10-31 21:24:52
+A20458,mobile money,certified,2025-10-02 15:59:48
+A20500,insurance,certified,2025-11-28 08:17:21
+A20500,mobile money,certified,2025-10-11 20:43:28
+A20500,e-commerce,expired,2026-05-24 12:06:29
+A20543,SACCO,certified,2025-11-30 21:33:20
+A20561,agritech,certified,2026-06-24 23:27:28
+A20641,banking,certified,2026-07-17 19:22:42
+A20735,healthcare,certified,2026-05-14 11:39:17
+A20735,logistics,certified,2026-04-16 01:39:37
+A20745,mobile money,certified,2026-03-09 04:50:01
+A21003,banking,certified,2025-12-27 00:25:56
+A21114,banking,certified,2026-07-26 17:16:27
+A21114,mobile money,certified,2026-07-23 23:47:21
+A21164,mobile money,certified,2025-11-09 02:03:28
+A21221,banking,certified,2026-06-27 03:34:18
+A21221,mobile money,certified,2026-04-14 23:12:45
+A21226,banking,certified,2026-05-11 08:02:17
+A21226,telecom,certified,2026-06-13 03:59:05
+A21359,insurance,certified,2026-06-03 01:49:08
+A21395,fashion,certified,2026-06-03 18:01:03
+A21915,banking,certified,2025-10-01 05:02:47
+A21915,mobile money,certified,2025-09-05 07:27:34
+A21970,insurance,certified,2026-02-26 02:00:28
+A22097,fashion,certified,2026-06-16 15:27:56
+A22097,healthcare,certified,2026-04-05 07:35:44
+A22097,telecom,certified,2026-06-12 23:51:33
+A22156,telecom,certified,2026-06-04 01:08:12
+A22196,agritech,certified,2026-06-28 07:35:02
+A22224,insurance,certified,2026-02-16 07:47:56
+A22240,healthcare,certified,2026-04-29 10:32:30
+A22240,telecom,certified,2026-06-03 22:15:00
+A22280,insurance,certified,2026-05-21 14:32:43
+A22363,banking,certified,2026-06-26 19:14:10
+A22676,banking,certified,2026-01-04 04:57:02
+A22676,education,certified,2026-05-13 14:35:39
+A22704,banking,certified,2026-05-08 07:39:21
+A22704,insurance,certified,2026-01-24 12:06:09
+A22833,telecom,certified,2026-07-16 11:38:34
+A22899,telecom,certified,2026-04-26 23:10:58
+A23006,e-commerce,certified,2026-06-28 02:36:48
+A23006,telecom,certified,2026-07-20 21:12:17
+A23104,telecom,certified,2025-11-29 14:30:35
+A23176,insurance,certified,2026-05-31 02:48:14
+A23238,e-commerce,certified,2026-03-06 03:47:19
+A23238,insurance,certified,2026-03-14 00:37:51
+A23356,banking,certified,2026-04-13 03:55:12
+A23356,education,certified,2026-03-07 16:27:45
+A23356,mobile money,certified,2026-02-23 04:14:06
+A23396,agritech,certified,2026-01-04 00:56:23
+A23396,banking,certified,2025-08-17 13:57:15
+A23434,mobile money,certified,2026-02-04 10:25:09
+A23446,insurance,certified,2026-07-02 22:14:25
+A23446,fashion,expired,2026-07-15 13:16:13
+A23473,SACCO,certified,2026-07-04 03:58:23
+A23577,SACCO,certified,2026-01-07 03:08:06
+A23833,banking,certified,2026-08-01 03:22:06
+A23947,banking,certified,2026-07-27 03:32:14
+A23970,fashion,certified,2026-07-07 12:54:19
+A23970,mobile money,certified,2026-07-14 17:37:18
+A23970,insurance,expired,2026-06-04 00:10:25
+A24029,agritech,certified,2026-04-06 05:11:50
+A24029,mobile money,certified,2026-05-05 11:39:25
+A24168,banking,certified,2026-05-12 18:57:39
+A24208,SACCO,certified,2026-06-26 01:09:55
+A24322,SACCO,certified,2026-07-07 02:06:03
+A24322,fashion,certified,2026-03-30 09:05:15
+A24371,telecom,certified,2026-07-13 14:13:25
+A24592,insurance,certified,2026-05-14 18:37:10
+A24621,agritech,certified,2026-02-04 16:21:34
+A24662,banking,certified,2026-05-02 08:43:25
+A24663,telecom,certified,2026-03-05 06:23:55
+A24953,agritech,certified,2026-04-04 20:57:46
+A24993,SACCO,certified,2026-05-08 18:15:33
+A25012,telecom,certified,2026-07-24 07:58:20
+A25014,SACCO,certified,2026-05-06 01:41:48
+A25014,education,certified,2026-04-08 23:25:12
+A25043,agritech,certified,2026-07-09 01:31:48
+A25118,banking,certified,2026-05-31 23:51:46
+A25118,education,certified,2026-07-08 15:25:52
+A25129,e-commerce,certified,2026-03-27 08:30:58
+A25129,mobile money,certified,2026-04-14 20:21:25
+A25129,logistics,expired,2026-02-02 13:05:39
+A25157,telecom,certified,2026-04-19 03:52:04
+A25157,SACCO,expired,2026-07-26 19:48:33
+A25525,education,certified,2026-04-21 16:24:37
+A25670,logistics,certified,2026-07-05 11:55:54
+A25670,mobile money,certified,2026-04-04 15:48:56
+A25670,telecom,certified,2026-05-03 09:32:39
+A25713,agritech,certified,2026-06-18 19:27:24
+A25713,insurance,certified,2026-06-28 16:40:43
+A25713,telecom,expired,2026-07-18 20:26:23
+A25814,telecom,certified,2026-06-19 19:03:27
+A25860,e-commerce,certified,2026-07-13 03:15:30
+A25860,telecom,certified,2026-07-26 19:43:17
+A25866,insurance,certified,2026-07-24 06:20:56
+A25906,real estate,certified,2026-03-02 08:25:51
+A25906,telecom,certified,2026-01-26 23:23:03
+A26299,e-commerce,certified,2026-02-26 23:48:13
+A26299,mobile money,certified,2026-06-25 03:28:29
+A26334,e-commerce,certified,2026-04-30 02:38:47
+A26334,insurance,certified,2025-12-27 14:07:15
+A26361,education,certified,2025-12-27 10:53:39
+A26483,e-commerce,certified,2026-03-08 02:38:32
+A26544,banking,certified,2026-06-19 15:12:44
+A26544,mobile money,certified,2026-06-20 19:39:20
+A26551,mobile money,certified,2026-08-01 05:40:12
+A26591,telecom,certified,2026-06-13 06:23:21
+A26683,healthcare,certified,2025-12-28 14:46:44
+A26704,education,certified,2026-04-11 00:01:56
+A26728,e-commerce,certified,2026-05-03 11:23:04
+A26728,education,certified,2026-05-18 15:12:44
+A26828,telecom,certified,2026-05-22 09:12:55
+A27146,agritech,certified,2026-06-24 07:47:51
+A27146,mobile money,certified,2025-11-06 17:06:00
+A27154,agritech,certified,2026-05-27 14:39:11
+A27342,insurance,certified,2026-02-03 07:12:27
+A27342,mobile money,certified,2026-07-27 22:44:37
+A27361,education,certified,2026-01-09 09:34:06
+A27361,telecom,certified,2026-03-19 10:38:33
+A27477,SACCO,certified,2026-06-17 21:04:24
+A27477,telecom,certified,2026-05-31 06:13:09
+A27601,mobile money,certified,2026-06-18 18:45:07
+A27601,telecom,certified,2026-06-20 05:54:27
+A27786,telecom,certified,2026-06-26 00:50:03
+A28131,mobile money,certified,2026-02-27 23:31:52
+A28131,agritech,expired,2026-02-04 23:42:36
+A28136,insurance,certified,2026-06-26 06:25:03
+A28289,e-commerce,certified,2026-04-28 04:53:05
+A28301,mobile money,certified,2026-02-04 13:22:33
+A28301,education,expired,2026-07-20 20:59:08
+A28373,mobile money,certified,2026-05-17 18:35:50
+A28643,agritech,certified,2026-07-05 11:38:47
+A28726,telecom,certified,2025-10-30 11:08:29
+A29313,telecom,certified,2026-05-17 10:05:45
+A29342,mobile money,certified,2025-12-16 16:21:03
+A29410,banking,certified,2026-02-23 16:14:55
+A29528,insurance,certified,2026-06-17 09:56:48
+A29536,mobile money,certified,2026-01-31 00:30:15
+A29555,insurance,certified,2026-06-26 18:57:07
+A29769,telecom,certified,2026-03-13 14:24:40
+A29887,healthcare,certified,2026-05-26 23:52:17
+A29887,real estate,certified,2026-06-11 04:53:44
+A29973,SACCO,certified,2026-03-23 04:23:41
+A29973,banking,certified,2026-02-23 12:07:35
+A29973,telecom,certified,2026-06-25 13:43:11
+A30028,agritech,certified,2026-07-20 05:54:11
+A30028,mobile money,certified,2026-07-11 18:21:17
+A30032,agritech,certified,2026-06-16 22:44:06
+A30032,mobile money,certified,2026-04-18 14:19:31
+A30032,healthcare,expired,2026-03-27 07:51:02
+A30033,healthcare,certified,2026-02-08 04:30:04
+A30033,insurance,certified,2026-05-24 09:50:45
+A30033,telecom,certified,2026-02-13 05:43:57
+A30052,banking,certified,2026-07-16 07:55:10
+A30257,banking,certified,2026-03-08 17:45:49
+A30257,mobile money,certified,2025-12-13 11:34:35
+A30289,e-commerce,certified,2026-01-16 11:53:15
+A30289,telecom,certified,2025-12-21 21:41:32
+A30374,education,certified,2026-04-13 06:42:42
+A30379,healthcare,certified,2026-03-25 04:30:39
+A30379,telecom,certified,2026-03-19 08:26:25
+A30517,agritech,certified,2026-04-14 13:31:37
+A30517,mobile money,certified,2026-01-24 16:20:02
+A30585,mobile money,certified,2026-07-13 17:32:07
+A30635,e-commerce,certified,2026-03-26 11:26:54
+A30676,insurance,certified,2026-06-22 05:47:06
+A30730,SACCO,certified,2026-03-01 07:27:33
+A30861,telecom,certified,2026-07-29 11:04:54
+A30866,telecom,certified,2026-04-20 19:56:09
+A30926,telecom,certified,2026-04-20 21:01:50
+A30969,banking,certified,2026-05-30 11:09:00
+A31174,SACCO,certified,2025-12-19 06:06:40
+A31178,e-commerce,certified,2026-04-30 14:38:04
+A31178,healthcare,expired,2026-03-12 03:21:17
+A31299,banking,certified,2026-05-19 23:45:37
+A31299,e-commerce,certified,2026-07-13 16:43:35
+A31319,logistics,certified,2026-07-15 09:38:06
+A31319,telecom,certified,2026-07-18 03:21:30
+A31417,e-commerce,certified,2026-03-19 02:01:08
+A31417,insurance,certified,2026-03-13 06:48:25
+A31465,banking,certified,2026-05-17 19:11:00
+A31579,agritech,certified,2026-05-26 13:34:46
+A31632,e-commerce,certified,2026-07-11 09:35:14
+A31632,insurance,certified,2026-07-12 14:48:21
+A31643,mobile money,certified,2026-03-16 04:54:26
+A31747,mobile money,certified,2026-04-17 12:01:44
+A31798,education,certified,2026-05-06 10:02:51
+A31798,real estate,certified,2026-06-11 16:50:40
+A31992,banking,certified,2026-06-04 14:12:42
+A32241,telecom,certified,2026-07-27 16:57:06
+A32431,mobile money,certified,2026-06-01 07:44:09
+A32782,fashion,certified,2026-06-03 15:20:59
+A32810,SACCO,certified,2026-06-23 09:06:09
+A32810,mobile money,certified,2026-07-18 11:17:40
+A32962,e-commerce,certified,2025-12-09 11:22:08
+A33053,banking,certified,2026-06-21 06:03:01
+A33086,mobile money,certified,2026-07-30 01:01:05
+A33206,SACCO,certified,2026-05-13 19:12:12
+A33206,banking,certified,2026-07-21 17:01:53
+A33405,education,certified,2026-06-14 12:03:50
+A33416,e-commerce,certified,2025-12-27 20:03:44
+A33509,fashion,certified,2026-05-30 01:29:29
+A33519,education,certified,2025-10-10 17:58:14
+A33819,logistics,certified,2026-07-01 13:04:03
+A33834,banking,certified,2026-06-29 12:13:36
+A34050,e-commerce,certified,2026-02-06 15:36:45
+A34164,e-commerce,certified,2026-06-11 20:30:11
+A34267,e-commerce,certified,2026-05-24 21:02:27
+A34356,SACCO,certified,2026-05-06 13:33:43
+A34356,e-commerce,certified,2026-05-09 15:29:53
+A34890,insurance,certified,2026-07-06 22:19:38
+A34914,mobile money,certified,2026-07-01 05:12:22
+A34931,e-commerce,certified,2026-07-27 14:00:24
+A34957,e-commerce,certified,2026-02-13 13:54:19
+A34957,education,certified,2026-07-17 05:46:08
+A35042,e-commerce,certified,2026-07-25 15:01:35
+A35105,mobile money,certified,2026-07-29 04:07:48
+A35112,insurance,certified,2026-06-06 22:39:20
+A35112,telecom,certified,2026-07-01 00:00:21
+A35144,mobile money,certified,2026-06-22 17:46:57
+A35203,banking,certified,2026-08-01 03:37:45
+A35242,logistics,certified,2026-04-23 16:34:40
+A35313,SACCO,certified,2026-01-14 08:30:09
+A35443,banking,certified,2026-07-31 19:04:26
+A35443,insurance,certified,2026-04-15 11:50:58
+A35485,e-commerce,certified,2026-08-01 01:24:24
+A35485,education,certified,2026-06-14 03:08:46
+A35825,e-commerce,certified,2026-07-17 18:23:57
+A35825,education,expired,2026-01-23 10:21:26
+A35928,telecom,certified,2026-05-16 12:25:23
+A35995,telecom,certified,2026-05-26 01:49:29
+A36062,e-commerce,certified,2026-06-13 11:39:15
+A36071,e-commerce,certified,2026-05-15 04:05:54
+A36071,insurance,certified,2025-10-08 17:16:52
+A36100,SACCO,certified,2026-07-01 15:37:27
+A36100,fashion,certified,2026-07-26 03:28:34
+A36130,mobile money,certified,2026-05-29 17:57:21
+A36158,telecom,certified,2026-04-08 20:39:59
+A36365,mobile money,certified,2026-06-13 22:58:18
+A36685,telecom,certified,2026-06-17 23:53:50
+A36772,mobile money,certified,2025-11-30 12:47:14
+A37110,telecom,certified,2026-06-28 19:09:28
+A37235,mobile money,certified,2026-03-08 08:12:58
+A37460,banking,certified,2026-07-28 22:48:06
+A37535,fashion,certified,2025-08-27 12:23:47
+A37549,e-commerce,certified,2026-07-17 20:57:31
+A37607,mobile money,certified,2026-05-24 05:27:01
+A37653,agritech,certified,2026-05-18 04:54:32
+A37659,e-commerce,certified,2026-06-25 17:15:54
+A37742,mobile money,certified,2026-01-24 09:02:33
+A37760,e-commerce,certified,2026-04-13 16:43:20
+A37760,education,certified,2026-04-25 01:10:40
+A37802,healthcare,certified,2026-07-27 17:32:23
+A37802,mobile money,certified,2026-06-06 00:32:43
+A37802,insurance,expired,2026-01-29 11:13:26
+A37869,insurance,certified,2026-07-18 12:04:06
+A37869,mobile money,certified,2026-04-12 22:36:34
+A37938,e-commerce,certified,2026-06-03 22:45:46
+A37938,fashion,expired,2026-06-12 20:05:01
+A38010,mobile money,certified,2026-07-05 00:43:33
+A38016,banking,certified,2026-02-22 12:24:18
+A38016,e-commerce,certified,2026-02-20 19:21:56
+A38043,banking,certified,2025-12-29 22:29:35
+A38043,fashion,certified,2026-06-05 10:06:55
+A38080,e-commerce,certified,2026-06-14 20:49:47
+A38221,e-commerce,certified,2026-06-24 14:48:20
+A38221,fashion,expired,2026-06-19 15:22:43
+A38361,logistics,certified,2026-07-09 11:09:45
+A38361,telecom,certified,2026-06-02 13:23:29
+A38534,e-commerce,certified,2025-11-21 21:17:25
+A38534,mobile money,expired,2025-11-23 16:02:28
+A38569,healthcare,certified,2026-07-24 07:28:20
+A38569,mobile money,certified,2026-07-18 11:37:52
+A38657,e-commerce,certified,2026-01-14 14:14:43
+A38683,banking,certified,2026-06-18 13:52:03
+A38683,telecom,certified,2026-06-16 19:16:16
+A38746,SACCO,certified,2026-07-04 02:49:55
+A38746,telecom,expired,2026-06-26 11:08:55
+A38760,education,certified,2026-04-26 01:37:08
+A38785,education,certified,2026-07-08 16:12:51
+A38864,mobile money,certified,2026-07-02 17:45:02
+A38893,telecom,certified,2026-07-25 18:42:40
+A38906,telecom,certified,2026-07-11 23:53:46
+A39045,mobile money,certified,2026-05-04 18:33:02
+A39154,SACCO,certified,2026-03-27 18:05:44
+A39154,mobile money,certified,2026-02-03 11:55:15
+A39154,banking,expired,2026-05-02 07:24:05
+A39219,mobile money,certified,2026-01-21 05:42:52
+A39256,telecom,certified,2026-07-20 01:53:15
+A39389,insurance,certified,2026-01-03 10:08:44
+A39444,insurance,certified,2026-03-17 21:37:42
+A39444,fashion,expired,2026-05-31 16:24:40
+A39451,fashion,certified,2026-04-19 01:36:12
+A39451,telecom,certified,2026-06-08 12:18:15
+A39466,SACCO,certified,2026-05-24 19:56:23
+A39466,mobile money,certified,2026-06-30 22:32:26
+A39581,insurance,certified,2026-06-10 00:26:31
+A39816,e-commerce,certified,2026-06-28 05:03:04
+A39831,telecom,certified,2026-05-05 10:49:31
+A39871,banking,certified,2026-03-15 00:33:59
+A40005,agritech,certified,2026-03-07 12:45:38
+A40005,mobile money,expired,2026-07-13 02:02:23
+A40007,banking,certified,2025-11-02 22:41:59
+A40021,banking,certified,2025-12-24 00:50:57
+A40161,insurance,certified,2026-04-11 19:07:08
+A40217,e-commerce,certified,2026-02-26 17:17:40
+A40217,fashion,certified,2026-02-14 21:54:32
+A40217,telecom,certified,2026-02-13 18:54:25
+A40311,agritech,certified,2026-06-02 02:32:25
+A40311,fashion,certified,2026-01-08 16:49:43
+A40340,mobile money,certified,2025-12-18 18:20:49
+A40495,healthcare,certified,2026-04-07 00:21:03
+A40495,mobile money,certified,2025-11-26 22:22:22
+A40512,e-commerce,certified,2026-03-06 01:21:49
+A40595,mobile money,certified,2026-07-27 04:58:12
+A40735,banking,certified,2026-07-11 13:59:33
+A40784,real estate,certified,2026-04-18 02:27:56
+A40828,insurance,certified,2026-07-10 09:16:47
+A40982,telecom,certified,2025-12-26 02:53:45
+A41029,healthcare,certified,2026-02-02 23:22:39
+A41195,insurance,certified,2026-04-24 01:35:48
+A41195,mobile money,certified,2026-06-05 14:46:22
+A41266,banking,certified,2026-05-20 13:27:42
+A41266,e-commerce,certified,2026-04-27 16:06:20
+A41285,mobile money,certified,2025-12-30 20:04:55
+A41358,agritech,certified,2026-04-19 07:25:22
+A41358,education,certified,2026-03-16 05:08:37
+A41358,healthcare,certified,2026-03-04 07:32:09
+A41358,real estate,expired,2026-03-13 17:33:14
+A41385,agritech,certified,2025-12-05 08:06:31
+A41385,e-commerce,certified,2025-12-01 07:35:49
+A41439,agritech,certified,2025-12-28 15:58:20
+A41439,telecom,certified,2026-02-03 08:03:00
+A41499,SACCO,certified,2025-12-19 11:15:53
+A41571,banking,certified,2026-07-26 04:57:38
+A41635,real estate,certified,2026-07-28 07:24:51
+A41635,telecom,certified,2026-07-18 00:46:01
+A41830,mobile money,certified,2026-02-17 15:21:35
+A41850,e-commerce,certified,2025-11-30 02:36:16
+A41890,telecom,certified,2026-06-14 21:14:39
+A41963,banking,certified,2026-05-29 21:18:09
+A41963,e-commerce,certified,2026-07-01 13:59:37
+A41979,logistics,certified,2025-12-05 07:47:40
+A42018,agritech,certified,2026-07-16 01:08:16
+A42087,SACCO,certified,2026-07-31 18:15:37
+A42087,logistics,certified,2026-08-02 04:21:23
+A42092,telecom,certified,2026-06-11 23:42:34
+A42098,mobile money,certified,2026-01-19 11:21:31
+A42098,telecom,certified,2026-02-11 03:44:54
+A42177,banking,certified,2025-12-29 05:06:57
+A42271,SACCO,certified,2026-04-26 00:09:43
+A42271,e-commerce,certified,2026-07-24 21:19:12
+A42271,telecom,certified,2026-07-14 15:38:06
+A42325,SACCO,certified,2026-06-28 10:07:40
+A42406,SACCO,certified,2026-03-02 10:47:45
+A42406,logistics,certified,2026-01-02 14:44:54
+A42406,telecom,expired,2026-06-17 11:09:20
+A42411,SACCO,certified,2026-06-06 22:21:30
+A42411,agritech,certified,2026-06-12 10:50:42
+A42493,banking,certified,2026-04-09 04:35:23
+A42493,e-commerce,certified,2026-07-22 08:20:35
+A42527,e-commerce,certified,2026-06-30 14:37:09
+A42530,agritech,certified,2026-07-27 06:55:17
+A42591,SACCO,certified,2026-07-25 10:45:53
+A42591,banking,certified,2026-05-08 17:07:53
+A42662,e-commerce,certified,2026-02-09 22:18:32
+A42706,fashion,certified,2025-10-16 21:06:03
+A42706,healthcare,certified,2025-12-27 13:03:31
+A42742,e-commerce,certified,2026-01-04 20:51:28
+A42816,SACCO,certified,2026-07-18 05:56:19
+A42914,insurance,certified,2026-03-27 17:26:35
+A42951,insurance,certified,2026-06-25 03:20:31
+A42951,mobile money,certified,2026-01-01 12:47:03
+A42953,banking,certified,2026-07-27 13:43:56
+A43065,mobile money,certified,2026-05-31 13:20:17
+A43092,SACCO,certified,2026-07-30 00:23:30
+A43386,mobile money,certified,2026-03-22 02:30:32
+A43586,e-commerce,certified,2026-06-25 15:32:28
+A43586,mobile money,certified,2026-05-16 21:03:06
+A43862,education,certified,2026-07-25 02:33:59
+A43862,telecom,certified,2026-07-13 03:50:27
+A43972,e-commerce,certified,2025-12-30 01:18:03
+A44099,banking,certified,2026-06-19 18:21:06
+A44099,insurance,certified,2026-04-07 10:49:18
+A44179,SACCO,certified,2025-10-26 03:08:34
+A44237,insurance,certified,2026-06-15 22:06:14
+A44335,agritech,certified,2026-04-30 21:27:16
+A44438,education,certified,2026-03-17 04:26:57
+A44522,banking,certified,2026-01-20 13:36:39
+A44522,mobile money,certified,2026-02-17 21:18:18
+A44600,e-commerce,certified,2026-04-06 08:28:56
+A44600,insurance,certified,2026-02-07 07:39:57
+A44664,insurance,certified,2026-07-31 16:37:03
+A44664,logistics,certified,2026-07-07 05:49:53
+A44671,fashion,certified,2025-11-26 13:09:47
+A44675,mobile money,certified,2026-07-15 17:46:35
+A44687,e-commerce,certified,2026-07-20 13:35:35
+A44687,insurance,certified,2026-06-06 13:53:49
+A44718,banking,certified,2026-02-25 13:26:03
+A44741,mobile money,certified,2025-09-20 22:07:18
+A44760,telecom,certified,2026-02-25 13:57:58
+A44795,SACCO,certified,2026-05-08 13:44:22
+A44795,healthcare,expired,2026-04-14 08:24:11
+A44814,SACCO,certified,2026-03-23 11:15:29
+A44814,insurance,certified,2026-07-07 07:31:26
+A44816,banking,certified,2025-11-08 04:28:36
+A44970,fashion,certified,2026-02-20 01:32:26
+A44970,telecom,certified,2026-04-27 17:13:17
+A44970,logistics,expired,2026-03-02 09:36:32
+A44973,mobile money,certified,2026-07-28 11:02:58
+A44993,banking,certified,2026-05-21 10:27:08
+A45093,e-commerce,certified,2026-03-08 12:37:10
+A45093,telecom,certified,2026-03-05 20:36:58
+A45179,mobile money,certified,2026-07-22 00:49:43
+A45325,telecom,certified,2026-07-04 08:10:52
+A45382,mobile money,certified,2026-06-30 03:03:55
+A45382,telecom,certified,2025-12-29 17:48:14
+A45400,education,certified,2026-02-20 15:06:37
+A45509,telecom,certified,2026-01-08 10:04:59
+A45614,fashion,certified,2026-07-07 19:32:12
+A45614,mobile money,certified,2026-06-07 02:57:08
+A45614,logistics,expired,2026-07-09 00:03:21
+A45683,SACCO,certified,2026-07-12 08:23:53
+A45697,e-commerce,certified,2026-06-22 12:42:55
+A45697,telecom,certified,2026-06-10 20:13:49
+A45697,agritech,expired,2026-07-20 07:11:51
+A45774,e-commerce,certified,2026-06-03 02:28:52
+A45954,insurance,certified,2026-07-13 10:36:12
+A45992,SACCO,certified,2026-07-16 06:20:04
+A45992,healthcare,certified,2026-07-20 12:15:01
+A46048,mobile money,certified,2026-07-29 10:38:42
+A46211,banking,certified,2026-05-09 13:12:31
+A46241,education,certified,2026-07-25 14:58:50
+A46265,agritech,certified,2025-09-20 21:53:42
+A46347,SACCO,certified,2026-05-16 10:38:50
+A46347,mobile money,certified,2026-07-28 02:58:58
+A46421,banking,certified,2026-07-09 23:13:37
+A46434,insurance,certified,2026-02-22 11:46:58
+A46463,insurance,certified,2026-05-22 15:07:09
+A46471,insurance,certified,2026-07-28 06:28:23
+A46500,SACCO,certified,2026-07-14 09:49:55
+A46509,telecom,certified,2026-06-21 00:13:09
+A46517,healthcare,certified,2025-10-05 05:31:52
+A46517,mobile money,certified,2025-12-18 06:26:18
+A46517,telecom,certified,2025-09-12 02:44:51
+A46559,healthcare,certified,2026-07-03 23:35:03
+A46559,insurance,certified,2026-07-28 17:14:24
+A46585,mobile money,certified,2025-12-13 11:25:24
+A46585,telecom,certified,2026-03-27 19:57:47
+A46585,healthcare,expired,2026-04-05 21:00:59
+A46655,fashion,certified,2026-07-29 06:10:31
+A46930,banking,certified,2026-06-03 03:27:17
+A47056,e-commerce,certified,2026-03-21 14:27:41
+A47093,banking,certified,2026-06-23 14:06:19
+A47196,telecom,certified,2026-06-17 09:19:28
+A47268,mobile money,certified,2026-02-03 07:48:17
+A47353,mobile money,certified,2026-05-03 16:16:04
+A47388,SACCO,certified,2026-07-20 21:03:41
+A47388,real estate,certified,2026-07-05 05:57:34
+A47450,agritech,certified,2026-04-22 08:19:27
+A47450,mobile money,certified,2026-06-24 14:00:15
+A47606,telecom,certified,2026-06-05 08:11:20
+A47762,SACCO,certified,2026-04-10 09:41:27
+A47828,education,certified,2026-03-03 05:27:09
+A47930,banking,certified,2026-06-23 17:32:19
+A47930,healthcare,certified,2026-06-04 17:22:01
+A48175,e-commerce,certified,2026-06-14 16:23:57
+A48175,mobile money,certified,2026-06-30 16:01:19
+A48290,banking,certified,2026-01-16 23:28:52
+A48427,SACCO,certified,2026-01-03 07:47:31
+A48427,real estate,certified,2026-01-12 22:46:47
+A48469,mobile money,certified,2026-07-09 19:02:12
+A48566,agritech,certified,2026-06-02 06:50:25
+A48752,mobile money,certified,2026-06-06 03:06:06
+A48829,e-commerce,certified,2026-07-18 21:34:48
+A48829,education,certified,2026-07-17 04:47:29
+A48890,mobile money,certified,2026-07-25 09:57:59
+A48974,banking,certified,2026-05-19 21:06:33
+A49117,banking,certified,2026-07-29 07:56:13
+A49139,e-commerce,certified,2026-04-23 18:55:05
+A49240,banking,certified,2025-09-07 12:01:53
+A49321,agritech,certified,2026-06-16 11:47:37
+A49321,e-commerce,certified,2025-12-26 02:00:45
+A49363,telecom,certified,2026-07-31 15:33:42
+A49446,telecom,certified,2026-06-11 21:16:50
+A49529,healthcare,certified,2025-10-19 21:12:31
+A49529,telecom,certified,2025-09-23 23:48:31
+A49618,insurance,certified,2026-07-06 09:44:40
+A49618,logistics,expired,2026-07-15 12:01:04
+A49651,SACCO,certified,2026-06-11 13:13:21
+A49824,mobile money,certified,2026-07-03 19:36:31
+A49829,telecom,certified,2025-09-15 02:05:27
+A49857,healthcare,certified,2026-03-27 00:13:39
+A50001,e-commerce,certified,2026-06-22 06:53:30
+A50001,mobile money,certified,2026-01-25 02:13:31
+A50026,insurance,certified,2026-07-30 17:41:19
+A50135,telecom,certified,2025-11-26 06:21:08
+A50189,mobile money,certified,2026-06-20 19:27:57
+A50306,education,certified,2026-07-10 21:45:53
+A50319,mobile money,certified,2026-02-07 13:40:51
+A50319,telecom,certified,2026-03-07 12:06:10
+A50404,insurance,certified,2026-04-30 22:15:41
+A50404,education,expired,2026-07-12 14:50:37
+A50538,fashion,certified,2026-07-17 17:11:28
+A50538,mobile money,certified,2026-03-09 10:36:32
+A50687,banking,certified,2026-02-18 15:33:44
+A50768,banking,certified,2026-07-27 08:13:08
+A50768,mobile money,certified,2026-07-28 09:35:40
+A50857,banking,certified,2026-07-29 04:01:10
+A50888,e-commerce,certified,2025-09-24 06:43:17
+A50888,mobile money,certified,2026-02-12 16:27:33
+A51104,fashion,certified,2026-04-09 02:21:26
+A51114,agritech,certified,2026-02-13 10:28:03
+A51145,SACCO,certified,2026-05-13 22:57:07
+A51180,banking,certified,2026-02-10 10:40:16
+A51180,fashion,certified,2026-04-03 11:46:22
+A51245,education,certified,2026-03-17 14:38:57
+A51245,insurance,certified,2025-11-03 23:11:40
+A51347,banking,certified,2026-06-19 08:33:38
+A51359,mobile money,certified,2026-06-28 22:50:42
+A51441,SACCO,certified,2025-11-04 17:50:36
+A51441,agritech,certified,2026-07-28 12:39:19
+A51467,e-commerce,certified,2026-03-15 16:20:53
+A51467,education,expired,2026-01-28 00:52:04
+A51588,fashion,certified,2026-02-01 13:37:13
+A51904,telecom,certified,2026-05-18 23:58:51
+A52237,banking,certified,2026-07-30 20:52:05
+A52245,insurance,certified,2026-07-17 18:19:18
+A52247,SACCO,certified,2025-10-15 13:38:20
+A52247,mobile money,certified,2025-09-03 20:13:31
+A52487,real estate,certified,2026-04-27 11:50:34
+A52504,insurance,certified,2026-06-20 02:21:18
+A52600,real estate,certified,2026-05-25 02:56:31
+A52753,insurance,certified,2026-07-11 21:22:11
+A52840,SACCO,certified,2026-06-27 01:25:46
+A52840,fashion,certified,2026-06-27 13:12:00
+A52906,agritech,certified,2026-02-19 16:41:09
+A52906,mobile money,certified,2025-12-12 18:47:06
+A53025,agritech,certified,2026-07-13 01:09:40
+A53279,insurance,certified,2026-04-11 06:53:13
+A53279,education,expired,2026-07-01 16:19:00
+A53309,e-commerce,certified,2026-07-22 23:57:00
+A53309,real estate,certified,2026-04-18 01:22:46
+A53357,mobile money,certified,2026-08-01 15:42:59
+A53357,real estate,certified,2026-07-21 09:26:03
+A53369,mobile money,certified,2026-05-25 15:27:51
+A53404,banking,certified,2026-05-24 05:24:13
+A53404,telecom,certified,2026-05-15 22:53:59
+A53540,agritech,certified,2026-03-02 01:21:05
+A53719,banking,certified,2025-11-07 19:48:04
+A53719,healthcare,expired,2026-05-03 22:35:42
+A53933,e-commerce,certified,2026-04-03 07:49:44
+A54020,healthcare,certified,2026-05-31 15:34:23
+A54057,insurance,certified,2025-10-27 17:39:29
+A54092,healthcare,certified,2026-03-20 15:33:26
+A54092,telecom,certified,2026-07-14 17:52:18
+A54118,e-commerce,certified,2026-07-12 15:36:10
+A54118,fashion,certified,2026-07-04 18:35:57
+A54236,telecom,certified,2026-06-11 01:52:16
+A54313,banking,certified,2026-07-18 04:07:48
+A54473,healthcare,certified,2026-05-13 12:36:48
+A54587,education,certified,2026-04-02 20:29:30
+A54597,mobile money,certified,2026-03-04 18:47:33
+A54597,telecom,certified,2026-02-14 09:37:58
+A54608,mobile money,certified,2026-07-13 21:20:40
+A54657,e-commerce,certified,2026-06-16 10:25:54
+A54657,banking,expired,2026-04-07 15:22:40
+A54725,e-commerce,certified,2026-05-08 23:52:08
+A54942,banking,certified,2026-06-26 15:16:58
+A55056,insurance,certified,2025-12-26 09:12:28
+A55082,mobile money,certified,2026-07-22 21:39:50
+A55309,banking,certified,2026-04-30 08:53:47
+A55508,banking,certified,2026-06-10 20:49:19
+A55745,telecom,certified,2026-03-13 06:29:43
+A55830,SACCO,certified,2026-05-30 13:02:45
+A55830,mobile money,certified,2025-10-16 19:08:22
+A55870,telecom,certified,2026-06-29 10:59:16
+A55870,healthcare,expired,2026-01-30 09:02:19
+A56025,banking,certified,2026-05-01 11:38:47
+A56025,mobile money,certified,2026-01-29 23:16:06
+A56105,SACCO,certified,2026-04-02 13:36:14
+A56112,banking,certified,2026-05-26 22:31:07
+A56357,SACCO,certified,2026-06-06 13:53:37
+A56357,real estate,certified,2026-05-26 01:24:54
+A56438,banking,certified,2026-08-01 00:21:30
+A56507,mobile money,certified,2026-04-14 07:28:56
+A56566,agritech,certified,2025-12-23 16:24:38
+A56566,banking,certified,2025-12-30 18:14:28
+A56898,banking,certified,2026-04-26 06:51:06
+A56898,healthcare,certified,2026-07-25 22:03:40
+A56898,telecom,certified,2026-05-25 22:41:43
+A57052,SACCO,certified,2026-06-24 14:37:13
+A57301,mobile money,certified,2026-07-11 02:39:46
+A57400,mobile money,certified,2026-01-08 05:52:33
+A57447,telecom,certified,2026-07-30 14:38:00
+A57472,e-commerce,certified,2026-06-20 10:11:33
+A57576,banking,certified,2026-05-10 10:41:45
+A57739,banking,certified,2026-01-29 22:07:48
+A57739,fashion,certified,2026-06-12 21:35:47
+A57795,banking,certified,2025-12-12 16:56:15
+A57819,banking,certified,2026-05-26 16:38:09
+A57819,fashion,certified,2026-06-23 14:27:37
+A57819,telecom,certified,2026-07-04 08:31:10
+A58351,insurance,certified,2025-12-21 04:17:24
+A58368,banking,certified,2025-11-02 14:13:41
+A58368,e-commerce,certified,2025-12-04 21:59:29
+A58393,e-commerce,certified,2025-12-06 11:25:32
+A58434,agritech,certified,2026-07-23 12:34:10
+A58520,insurance,certified,2026-07-16 14:51:42
+A58520,SACCO,expired,2026-07-25 01:37:13
+A58571,insurance,certified,2026-07-11 05:48:14
+A58944,e-commerce,certified,2026-07-14 01:00:10
+A58944,mobile money,certified,2026-07-06 09:09:31
+A59009,education,certified,2026-08-03 09:59:14
+A59009,fashion,certified,2026-04-07 11:18:12
+A59192,banking,certified,2026-01-07 17:37:55
+A59192,e-commerce,certified,2026-02-04 12:55:57
+A59192,healthcare,certified,2026-07-01 07:13:04
+A59615,mobile money,certified,2025-11-21 05:52:03
+A59672,agritech,certified,2026-06-10 21:50:18
+A59672,telecom,certified,2026-05-25 13:35:31
+A59674,fashion,certified,2026-04-20 08:18:11
+A59674,mobile money,certified,2026-07-20 17:27:56
+A59689,mobile money,certified,2025-12-03 20:28:06
+A59692,e-commerce,certified,2026-06-28 21:10:37
+A59692,logistics,certified,2026-07-20 09:07:19
+A59692,mobile money,certified,2026-06-30 15:27:29
+A59695,banking,certified,2025-12-24 08:26:26
+A59735,education,certified,2026-07-13 12:19:21
+A59735,healthcare,certified,2026-05-02 21:36:13
+A59797,telecom,certified,2026-06-10 02:01:31
+A59823,agritech,certified,2026-04-20 00:55:23
+A59823,banking,certified,2026-05-14 11:18:16
+A59823,telecom,expired,2026-05-26 06:07:47
+A59856,agritech,certified,2026-05-25 20:33:09
+A59857,banking,certified,2026-04-07 05:06:47
+A59857,mobile money,certified,2026-01-20 00:31:30
+A60019,education,certified,2026-04-07 02:25:18
+A60140,insurance,certified,2026-07-26 20:25:38
+A60140,telecom,certified,2026-07-18 22:59:34
+A60205,SACCO,certified,2025-10-10 23:03:49
+A60328,agritech,certified,2026-04-12 00:56:22
+A60328,logistics,certified,2026-04-11 16:48:31
+A60328,mobile money,certified,2026-04-03 05:17:42
+A60432,banking,certified,2026-05-17 12:10:39
+A60488,mobile money,certified,2026-07-28 14:47:47
+A60968,telecom,certified,2026-05-12 06:05:51
+A61049,telecom,certified,2026-04-08 12:56:09
+A61116,e-commerce,certified,2025-12-04 23:23:59
+A61116,telecom,certified,2026-03-10 05:59:32
+A61173,education,certified,2026-05-03 10:40:59
+A61645,banking,certified,2026-01-10 18:42:02
+A61856,banking,certified,2026-06-01 16:32:35
+A61876,real estate,certified,2025-10-31 03:31:54
+A61876,telecom,certified,2026-04-24 16:01:13
+A61990,agritech,certified,2026-06-18 07:24:06
+A62227,SACCO,certified,2026-04-19 03:19:42
+A62227,education,certified,2025-12-31 18:09:15
+A62296,insurance,certified,2026-06-04 03:00:59
+A62350,telecom,certified,2026-07-16 19:45:34
+A62383,mobile money,certified,2026-04-11 18:19:55
+A62386,telecom,certified,2026-02-20 08:48:50
+A62521,education,certified,2026-02-14 06:43:03
+A62521,telecom,certified,2026-06-22 12:25:25
+A62565,real estate,certified,2026-06-09 03:58:38
+A62581,e-commerce,certified,2026-08-01 04:49:07
+A62581,insurance,certified,2026-07-31 13:25:28
+A62743,banking,certified,2026-04-08 12:58:33
+A62743,fashion,certified,2026-05-20 18:52:07
+A62757,insurance,certified,2026-06-17 15:19:33
+A62772,healthcare,certified,2026-04-08 23:42:50
+A62923,SACCO,certified,2026-07-24 06:27:24
+A62923,banking,certified,2026-07-11 19:38:31
+A62994,SACCO,certified,2026-06-08 14:27:05
+A62994,banking,certified,2026-01-08 10:50:45
+A63005,agritech,certified,2026-04-14 07:19:05
+A63005,banking,certified,2026-02-07 12:12:17
+A63225,banking,certified,2026-03-21 20:20:31
+A63264,e-commerce,certified,2026-03-25 11:41:08
+A63269,mobile money,certified,2026-05-09 00:58:59
+A63271,logistics,certified,2026-07-30 05:28:30
+A63271,telecom,certified,2026-07-13 04:20:23
+A63354,banking,certified,2026-07-30 08:02:32
+A63424,e-commerce,certified,2026-07-30 21:15:22
+A63528,telecom,certified,2026-04-11 16:21:50
+A63545,agritech,certified,2026-07-07 03:14:58
+A63883,e-commerce,certified,2026-02-25 03:47:37
+A63883,logistics,certified,2026-05-08 02:50:28
+A63964,mobile money,certified,2026-03-27 21:37:08
+A64040,SACCO,certified,2026-07-10 12:47:28
+A64321,fashion,certified,2026-07-16 07:40:42
+A64377,banking,certified,2026-03-24 13:05:33
+A64496,fashion,certified,2026-02-22 15:15:16
+A64548,SACCO,certified,2026-05-24 06:06:35
+A64921,e-commerce,certified,2026-06-27 00:13:00
+A64921,mobile money,certified,2026-01-17 09:50:49
+A64948,SACCO,certified,2026-05-23 20:35:51
+A64987,mobile money,certified,2026-03-23 21:50:43
+A65057,banking,certified,2026-04-25 14:57:30
+A65057,healthcare,certified,2026-06-13 13:23:15
+A65069,telecom,certified,2026-06-29 17:15:08
+A65108,education,certified,2026-03-21 00:54:30
+A65255,education,certified,2026-02-14 02:58:53
+A65296,SACCO,certified,2026-05-27 17:52:28
+A65302,telecom,certified,2026-07-18 11:25:59
+A65333,telecom,certified,2026-04-01 03:44:19
+A65392,SACCO,certified,2026-01-28 02:25:49
+A65444,agritech,certified,2026-02-07 17:59:25
+A65461,insurance,certified,2026-07-06 05:50:40
+A65518,SACCO,certified,2026-04-08 03:39:31
+A65519,mobile money,certified,2026-02-02 04:44:40
+A65723,e-commerce,certified,2025-10-20 12:04:19
+A65724,banking,certified,2026-07-25 16:37:05
+A65724,telecom,certified,2026-03-22 09:14:15
+A65771,fashion,certified,2026-02-03 03:50:50
+A65771,real estate,certified,2026-06-23 12:58:55
+A65933,real estate,certified,2026-05-08 18:32:07
+A65933,telecom,certified,2026-07-29 02:22:31
+A66057,fashion,certified,2025-12-14 10:48:23
+A66148,e-commerce,certified,2026-07-06 12:08:44
+A66155,e-commerce,certified,2026-04-30 15:32:01
+A66155,insurance,certified,2026-05-11 01:12:06
+A66179,SACCO,certified,2026-02-14 07:23:39
+A66179,mobile money,expired,2026-06-14 09:08:42
+A66207,banking,certified,2025-09-29 01:07:56
+A66207,real estate,certified,2026-01-16 08:14:02
+A66333,fashion,certified,2026-06-27 08:28:17
+A66346,education,certified,2026-06-01 10:24:09
+A66498,insurance,certified,2026-07-09 04:51:18
+A66498,real estate,certified,2026-06-11 05:15:49
+A66531,e-commerce,certified,2026-06-21 11:22:30
+A66626,banking,certified,2026-03-25 15:33:57
+A66822,mobile money,certified,2026-03-08 16:21:41
+A66959,telecom,certified,2026-05-24 15:29:28
+A66985,telecom,certified,2026-05-30 01:55:48
+A67080,banking,certified,2026-06-07 09:25:36
+A67091,telecom,certified,2026-06-23 17:58:47
+A67125,SACCO,certified,2026-07-12 20:56:39
+A67125,fashion,certified,2026-05-30 19:57:26
+A67125,healthcare,certified,2026-07-30 20:15:37
+A67154,e-commerce,certified,2026-05-11 07:36:44
+A67154,logistics,certified,2026-04-05 12:45:53
+A67199,telecom,certified,2026-07-12 09:33:58
+A67377,telecom,certified,2026-06-26 14:57:49
+A67422,insurance,certified,2025-12-04 10:28:51
+A67422,mobile money,certified,2026-03-28 19:45:35
+A67433,healthcare,certified,2026-07-23 07:27:16
+A67433,mobile money,certified,2026-02-27 05:40:28
+A67560,insurance,certified,2026-06-05 04:39:11
+A67560,mobile money,certified,2026-07-15 00:02:16
+A67560,healthcare,expired,2026-06-09 23:51:20
+A67654,education,certified,2025-10-29 19:33:46
+A67733,education,certified,2026-07-12 16:29:41
+A67733,telecom,certified,2026-06-02 09:10:05
+A67905,banking,certified,2026-06-20 06:31:20
+A67905,mobile money,expired,2026-06-09 10:10:30
+A67912,SACCO,certified,2026-07-26 10:32:30
+A67954,SACCO,certified,2026-03-27 13:48:56
+A68008,healthcare,certified,2026-07-01 18:56:27
+A68008,mobile money,certified,2026-01-20 08:05:04
+A68008,real estate,expired,2026-05-03 21:53:39
+A68028,SACCO,certified,2026-02-18 05:44:10
+A68028,logistics,certified,2026-05-29 12:39:43
+A68082,SACCO,certified,2026-07-20 22:58:35
+A68446,mobile money,certified,2026-01-01 04:43:51
+A68446,telecom,certified,2026-06-17 20:28:40
+A68743,telecom,certified,2026-04-06 16:59:24
+A68800,agritech,certified,2026-02-19 01:51:29
+A68800,banking,certified,2026-03-26 11:52:13
+A68878,SACCO,certified,2026-06-05 20:19:24
+A68878,e-commerce,certified,2026-06-10 00:03:01
+A68991,agritech,certified,2026-07-29 18:16:13
+A69048,e-commerce,certified,2025-11-21 20:11:04
+A69049,e-commerce,certified,2025-12-11 04:01:00
+A69049,banking,expired,2026-05-06 20:03:16
+A69087,mobile money,certified,2026-07-21 13:45:41
+A69177,SACCO,certified,2025-11-04 16:06:44
+A69177,mobile money,certified,2026-03-21 05:22:59
+A69429,banking,certified,2026-07-17 04:34:05
+A69470,mobile money,certified,2026-07-28 19:14:00
+A69473,fashion,certified,2025-10-15 13:13:20
+A69473,banking,expired,2025-09-03 02:40:22
+A69510,mobile money,certified,2026-07-20 09:43:01
+A69598,telecom,certified,2026-05-02 15:09:47
+A69638,mobile money,certified,2026-04-15 22:55:53
+A69692,fashion,certified,2026-03-05 13:05:09
+A69829,SACCO,certified,2026-06-26 18:17:06
+A69929,SACCO,certified,2026-07-09 16:29:56
+A70068,banking,certified,2026-07-05 12:12:02
+A70142,e-commerce,certified,2025-11-08 22:20:19
+A70217,e-commerce,certified,2026-07-11 23:58:29
+A70217,education,certified,2026-04-24 20:53:31
+A70258,healthcare,certified,2026-04-03 02:05:07
+A70332,telecom,certified,2026-05-18 05:04:39
+A70515,SACCO,certified,2026-06-01 17:25:16
+A70589,SACCO,certified,2026-07-23 22:34:54
+A70589,telecom,certified,2026-07-28 20:06:49
+A70637,mobile money,certified,2026-04-26 00:42:51
+A70889,insurance,certified,2026-07-02 07:12:07
+A70889,logistics,certified,2026-06-07 12:23:58
+A70889,e-commerce,expired,2026-07-31 08:20:00
+A70901,logistics,certified,2026-03-04 17:13:55
+A70901,telecom,certified,2026-01-24 23:45:55
+A70910,banking,certified,2026-03-19 05:07:20
+A70931,mobile money,certified,2026-06-13 00:33:28
+A70931,telecom,certified,2025-11-11 09:52:33
+A70946,banking,certified,2026-05-05 21:46:56
+A70952,healthcare,certified,2026-07-14 03:27:58
+A70952,mobile money,certified,2026-07-25 04:25:21
+A70952,telecom,expired,2026-07-31 15:00:43
+A71069,e-commerce,certified,2026-05-26 15:54:29
+A71069,healthcare,certified,2026-06-10 14:57:05
+A71213,insurance,certified,2026-07-01 00:23:52
+A71261,e-commerce,certified,2026-06-29 02:22:47
+A71261,insurance,certified,2026-04-11 13:23:28
+A71348,healthcare,certified,2026-04-27 15:25:54
+A71348,telecom,certified,2026-03-18 01:17:25
+A71433,telecom,certified,2026-03-04 23:30:48
+A71524,banking,certified,2026-07-20 00:40:02
+A71524,mobile money,certified,2026-03-19 02:30:11
+A71592,e-commerce,certified,2026-02-28 02:51:37
+A71592,insurance,certified,2025-12-28 11:34:58
+A71644,healthcare,certified,2026-05-03 02:46:25
+A71644,mobile money,certified,2026-07-25 13:59:18
+A71644,insurance,expired,2026-04-13 06:33:31
+A71669,banking,certified,2026-07-24 04:44:05
+A71669,healthcare,certified,2026-08-03 12:59:00
+A71694,SACCO,certified,2026-07-12 04:41:43
+A71953,banking,certified,2026-05-14 08:23:50
+A71953,logistics,certified,2026-07-01 12:57:08
+A71993,banking,certified,2025-09-18 07:07:25
+A71993,telecom,certified,2026-03-18 05:34:13
+A72021,insurance,certified,2026-03-10 13:33:11
+A72031,mobile money,certified,2026-08-01 01:30:35
+A72070,agritech,certified,2025-11-15 09:42:40
+A72216,real estate,certified,2026-07-13 11:08:44
+A72277,banking,certified,2026-04-30 12:37:06
+A72296,real estate,certified,2026-06-08 16:05:45
+A72402,banking,certified,2026-07-26 10:30:01
+A72493,insurance,certified,2026-07-20 16:13:30
+A72518,banking,certified,2026-06-07 01:05:53
+A72518,education,certified,2026-04-16 12:01:18
+A72616,education,certified,2026-05-15 06:49:56
+A72746,SACCO,certified,2026-06-21 14:27:47
+A72746,mobile money,certified,2026-06-01 19:35:18
+A73092,e-commerce,certified,2026-03-25 06:00:17
+A73372,SACCO,certified,2025-12-31 02:55:27
+A73464,education,certified,2026-03-20 02:36:06
+A73464,fashion,certified,2026-04-27 08:58:07
+A73517,banking,certified,2026-07-17 02:44:15
+A73624,telecom,certified,2026-07-14 09:59:45
+A73653,SACCO,certified,2026-05-13 08:36:43
+A73653,banking,certified,2026-05-06 14:40:30
+A73654,insurance,certified,2026-07-14 18:04:51
+A73699,SACCO,certified,2026-06-02 21:34:34
+A73699,real estate,expired,2025-10-11 06:25:50
+A73788,SACCO,certified,2025-11-29 23:34:46
+A73904,e-commerce,certified,2026-07-16 15:47:30
+A73904,mobile money,certified,2026-07-17 12:55:32
+A73993,insurance,certified,2026-06-14 18:52:10
+A74032,banking,certified,2026-04-17 02:58:22
+A74032,e-commerce,certified,2026-05-07 21:17:50
+A74038,telecom,certified,2026-07-09 05:49:10
+A74042,SACCO,certified,2026-02-02 13:57:59
+A74042,real estate,certified,2026-05-31 22:54:53
+A74042,telecom,certified,2026-05-03 04:23:31
+A74251,logistics,certified,2026-04-14 08:40:13
+A74332,SACCO,certified,2026-06-27 01:35:01
+A74340,agritech,certified,2026-07-11 07:34:54
+A74454,mobile money,certified,2026-07-20 08:27:17
+A74686,SACCO,certified,2026-07-17 09:57:12
+A74722,SACCO,certified,2026-06-08 15:38:13
+A74722,healthcare,certified,2026-07-28 09:41:02
+A74789,banking,certified,2026-05-20 00:17:04
+A74799,e-commerce,certified,2026-07-20 01:23:00
+A74799,telecom,certified,2026-07-09 23:48:25
+A75435,banking,certified,2026-05-23 13:17:21
+A75597,e-commerce,certified,2026-08-01 00:13:24
+A75597,healthcare,certified,2026-05-31 14:36:09
+A75597,mobile money,certified,2026-06-04 21:35:57
+A75612,e-commerce,certified,2026-06-20 18:04:15
+A75909,education,certified,2026-03-06 02:02:09
+A75909,mobile money,certified,2026-05-22 04:15:25
+A76162,banking,certified,2026-06-23 08:43:17
+A76237,e-commerce,certified,2026-04-12 16:13:00
+A76244,SACCO,certified,2026-02-26 23:08:40
+A76244,fashion,expired,2026-07-24 17:40:34
+A76307,e-commerce,certified,2026-07-06 20:28:09
+A76307,mobile money,certified,2026-07-20 21:25:27
+A76317,education,certified,2026-07-06 05:34:35
+A76469,agritech,certified,2025-11-06 12:52:16
+A76540,SACCO,certified,2025-12-26 10:08:49
+A76542,e-commerce,certified,2026-05-01 16:30:39
+A76542,telecom,certified,2026-03-06 01:01:48
+A76562,telecom,certified,2026-02-03 15:42:47
+A76768,telecom,certified,2026-04-02 09:59:58
+A76784,banking,certified,2026-04-17 16:57:41
+A77000,telecom,certified,2026-01-01 06:54:30
+A77033,e-commerce,certified,2026-03-25 06:26:11
+A77391,banking,certified,2026-06-18 07:32:53
+A77561,SACCO,certified,2026-07-30 10:41:58
+A77561,agritech,certified,2026-07-13 00:42:36
+A77561,banking,certified,2026-07-12 18:17:50
+A77715,education,certified,2026-04-09 08:08:16
+A77715,insurance,certified,2026-06-02 03:04:33
+A77715,telecom,certified,2026-06-22 04:37:43
+A77839,mobile money,certified,2026-07-15 04:38:31
+A77889,telecom,certified,2026-07-30 16:40:23
+A78021,telecom,certified,2026-06-29 02:28:12
+A78146,telecom,certified,2026-05-16 04:03:08
+A78327,telecom,certified,2025-11-01 04:38:47
+A78386,e-commerce,certified,2026-06-05 13:34:23
+A78494,banking,certified,2026-07-24 09:22:02
+A78494,healthcare,certified,2026-06-09 23:57:48
+A78522,banking,certified,2025-09-25 05:25:45
+A78765,mobile money,certified,2025-12-29 07:47:26
+A78765,banking,expired,2025-11-22 05:02:41
+A79163,mobile money,certified,2026-06-29 20:26:57
+A79329,banking,certified,2026-07-19 21:36:31
+A79352,agritech,certified,2026-04-05 09:40:08
+A79352,fashion,certified,2026-05-28 08:35:50
+A79352,telecom,certified,2026-07-23 09:41:12
+A79514,education,certified,2026-05-18 07:43:03
+A79588,telecom,certified,2026-05-21 14:38:30
+A79615,e-commerce,certified,2026-07-08 15:28:29
+A79615,logistics,certified,2026-07-15 07:44:39
+A79615,mobile money,certified,2026-07-24 05:48:14
+A79616,agritech,certified,2026-07-09 01:43:30
+A79616,education,certified,2026-08-01 10:25:54
+A79822,SACCO,certified,2026-07-14 03:17:47
+A79827,banking,certified,2026-02-10 04:42:17
+A79827,telecom,certified,2026-03-12 07:58:25
+A80008,insurance,certified,2026-05-17 12:34:42
+A80010,agritech,certified,2026-07-06 23:57:46
+A80010,mobile money,certified,2026-03-20 01:16:47
+A80236,mobile money,certified,2025-12-28 18:16:08
+A80282,agritech,certified,2026-04-30 17:45:44
+A80282,mobile money,certified,2026-03-05 06:59:10
+A80282,insurance,expired,2026-05-25 05:36:51
+A80284,banking,certified,2026-07-09 07:50:12
+A80292,SACCO,certified,2026-07-25 11:02:07
+A80381,agritech,certified,2025-11-08 04:28:03
+A80381,mobile money,certified,2026-02-10 03:25:48
+A80468,e-commerce,certified,2026-06-28 18:09:11
+A80468,logistics,certified,2026-06-21 13:15:37
+A80539,agritech,certified,2026-03-17 11:55:13
+A80545,e-commerce,certified,2026-07-21 06:01:16
+A80545,telecom,certified,2026-05-27 22:25:16
+A80575,agritech,certified,2025-11-15 04:41:30
+A80644,SACCO,certified,2026-05-12 13:03:13
+A80678,telecom,certified,2026-07-13 07:14:13
+A80686,fashion,certified,2025-11-24 12:44:44
+A80686,logistics,expired,2026-02-14 11:48:51
+A80697,banking,certified,2026-07-06 03:06:43
+A80697,mobile money,certified,2026-06-15 15:39:24
+A80702,mobile money,certified,2026-03-06 06:43:37
+A80702,telecom,certified,2026-06-17 19:08:29
+A80776,insurance,certified,2026-07-20 14:30:26
+A80798,telecom,certified,2026-06-04 14:08:18
+A80855,banking,certified,2025-12-11 05:41:13
+A80855,fashion,certified,2025-12-03 03:30:14
+A80855,insurance,certified,2025-11-24 02:46:55
+A81066,telecom,certified,2026-07-04 14:22:43
+A81121,e-commerce,certified,2026-06-05 18:59:10
+A81200,mobile money,certified,2026-05-05 04:57:26
+A81376,real estate,certified,2025-12-21 13:23:37
+A81426,banking,certified,2025-12-02 18:01:26
+A81482,banking,certified,2026-07-03 04:25:23
+A81511,SACCO,certified,2026-04-08 06:51:16
+A81511,education,certified,2025-09-09 01:58:50
+A81582,e-commerce,certified,2026-07-06 07:20:54
+A81810,banking,certified,2026-04-24 12:38:59
+A81810,e-commerce,certified,2026-03-17 23:14:46
+A81819,banking,certified,2026-03-31 16:04:26
+A81819,mobile money,certified,2026-06-29 10:45:19
+A82063,healthcare,certified,2026-07-29 18:53:57
+A82132,mobile money,certified,2026-03-15 22:47:59
+A82132,telecom,expired,2026-05-08 10:33:56
+A82140,SACCO,certified,2026-06-10 17:46:28
+A82309,SACCO,certified,2026-06-07 07:53:28
+A82309,mobile money,certified,2026-03-07 09:24:29
+A82350,real estate,certified,2026-05-24 09:41:00
+A82350,telecom,certified,2026-07-22 17:44:20
+A82357,agritech,certified,2026-07-10 17:36:28
+A82420,banking,certified,2026-07-05 03:07:24
+A82420,healthcare,certified,2026-07-04 13:11:52
+A82512,e-commerce,certified,2026-05-06 14:20:01
+A82512,insurance,expired,2026-05-22 21:28:10
+A82529,insurance,certified,2026-06-01 14:51:49
+A82544,e-commerce,certified,2025-12-01 23:44:05
+A82603,banking,certified,2026-07-16 17:56:45
+A82667,fashion,certified,2026-02-03 00:25:55
+A82667,telecom,certified,2026-06-24 23:22:40
+A82692,SACCO,certified,2026-05-21 14:31:23
+A82692,fashion,expired,2026-05-25 08:40:55
+A82768,mobile money,certified,2026-03-03 16:58:39
+A82845,telecom,certified,2025-12-10 01:52:07
+A82848,insurance,certified,2026-07-31 11:24:41
+A82848,mobile money,certified,2026-06-27 01:12:52
+A82848,telecom,certified,2026-07-24 05:32:13
+A83000,e-commerce,certified,2026-05-20 23:09:28
+A83060,banking,certified,2026-03-20 21:01:40
+A83147,fashion,certified,2025-11-11 07:49:33
+A83147,mobile money,certified,2025-09-21 06:45:56
+A83147,telecom,certified,2026-01-10 12:17:12
+A83259,mobile money,certified,2026-03-25 22:38:07
+A83385,e-commerce,certified,2026-03-16 08:26:55
+A83385,agritech,expired,2026-07-24 10:52:20
+A83519,insurance,certified,2025-11-11 23:54:24
+A83563,e-commerce,certified,2025-12-02 12:07:38
+A83579,mobile money,certified,2026-05-25 11:48:21
+A83772,agritech,certified,2026-07-19 13:37:17
+A83772,SACCO,expired,2026-03-23 01:30:09
+A83792,banking,certified,2026-05-16 08:04:28
+A83792,insurance,certified,2026-03-06 22:46:02
+A83792,real estate,expired,2026-05-25 03:33:29
+A83920,insurance,certified,2026-07-27 02:29:19
+A83975,telecom,certified,2026-07-30 18:24:34
+A83975,fashion,expired,2026-07-24 22:36:35
+A84085,e-commerce,certified,2026-07-16 20:42:22
+A84085,mobile money,certified,2026-07-05 22:08:50
+A84177,e-commerce,certified,2026-07-02 01:37:04
+A84341,insurance,certified,2026-07-17 11:17:01
+A84341,mobile money,certified,2026-05-31 17:59:58
+A84364,telecom,certified,2025-10-27 06:20:46
+A84531,e-commerce,certified,2026-02-15 14:51:17
+A84531,insurance,certified,2026-07-16 15:23:10
+A84531,mobile money,expired,2026-07-21 03:51:28
+A84593,SACCO,certified,2026-03-11 19:51:48
+A84593,banking,certified,2026-06-30 21:34:57
+A84607,agritech,certified,2026-07-02 19:45:05
+A84607,fashion,certified,2026-05-09 03:26:37
+A84668,banking,certified,2025-09-01 14:11:01
+A84691,banking,certified,2026-02-25 10:40:42
+A84847,mobile money,certified,2025-12-11 17:54:59
+A85243,e-commerce,certified,2026-07-30 15:01:40
+A85243,telecom,certified,2026-07-18 07:19:34
+A85392,agritech,certified,2026-01-19 15:44:24
+A85454,banking,certified,2026-06-17 00:05:05
+A85454,e-commerce,certified,2026-06-17 23:26:34
+A85454,telecom,certified,2026-07-31 04:01:32
+A85456,mobile money,certified,2026-03-24 23:21:15
+A85456,telecom,certified,2026-04-05 05:23:53
+A85470,mobile money,certified,2026-07-28 13:32:34
+A85525,e-commerce,certified,2026-07-15 13:31:27
+A85525,logistics,certified,2026-07-26 06:31:00
+A85525,fashion,expired,2026-07-19 07:32:35
+A85529,e-commerce,certified,2026-05-06 20:27:21
+A85574,real estate,certified,2026-07-07 01:33:44
+A85631,SACCO,certified,2026-01-09 02:13:01
+A85674,banking,certified,2026-04-03 07:05:04
+A85849,SACCO,certified,2026-06-01 00:03:07
+A85849,healthcare,certified,2026-07-15 10:44:25
+A85849,real estate,expired,2026-07-01 19:21:03
+A85880,e-commerce,certified,2026-07-28 01:47:34
+A85914,telecom,certified,2026-07-08 15:50:28
+A86019,banking,certified,2025-10-24 10:14:48
+A86019,mobile money,certified,2026-05-23 18:34:51
+A86099,education,certified,2026-05-23 11:45:06
+A86099,mobile money,certified,2026-07-24 04:27:50
+A86225,banking,certified,2026-05-30 12:00:41
+A86350,e-commerce,certified,2026-06-24 01:52:14
+A86350,insurance,certified,2026-04-22 18:58:12
+A86350,real estate,expired,2026-07-09 06:37:41
+A86484,education,certified,2026-07-27 20:23:40
+A86503,banking,certified,2026-06-13 16:44:05
+A86556,mobile money,certified,2026-06-04 09:52:32
+A86569,e-commerce,certified,2026-03-03 09:17:48
+A86569,healthcare,certified,2026-08-01 01:41:38
+A86622,banking,certified,2026-02-03 03:25:20
+A86622,telecom,certified,2025-12-30 05:02:08
+A86955,SACCO,certified,2026-06-24 15:19:49
+A86955,banking,certified,2026-01-31 07:48:45
+A87110,e-commerce,certified,2026-06-09 06:26:12
+A87128,telecom,certified,2026-04-17 13:52:21
+A87139,real estate,certified,2026-01-23 09:16:05
+A87236,banking,certified,2026-07-25 11:17:45
+A87236,mobile money,expired,2026-06-15 05:06:07
+A87278,agritech,certified,2026-07-04 23:45:15
+A87304,telecom,certified,2026-06-03 01:40:26
+A87304,logistics,expired,2026-07-15 14:07:10
+A87397,insurance,certified,2026-07-02 13:59:44
+A87580,telecom,certified,2026-07-20 18:48:03
+A87580,real estate,expired,2026-07-18 10:37:19
+A87607,banking,certified,2026-07-17 16:42:58
+A87656,SACCO,certified,2026-05-05 07:36:44
+A87832,banking,certified,2026-02-19 17:54:06
+A87832,telecom,certified,2026-02-09 06:56:44
+A87924,healthcare,certified,2026-06-24 22:15:08
+A87924,mobile money,certified,2026-05-14 02:49:12
+A87992,agritech,certified,2026-01-21 13:59:41
+A87992,banking,certified,2026-02-22 14:23:18
+A87992,healthcare,certified,2026-05-24 01:45:06
+A87993,SACCO,certified,2026-04-03 05:56:24
+A87993,mobile money,certified,2026-07-17 01:13:06
+A88047,banking,certified,2026-07-19 19:22:43
+A88047,e-commerce,certified,2026-07-10 22:24:19
+A88104,e-commerce,certified,2026-05-03 00:55:00
+A88104,fashion,certified,2026-05-28 07:25:31
+A88104,mobile money,certified,2026-07-10 15:03:02
+A88135,insurance,certified,2026-03-06 08:12:36
+A88139,telecom,certified,2026-02-22 15:53:05
+A88139,e-commerce,expired,2026-06-20 04:15:45
+A88172,banking,certified,2026-07-13 17:18:29
+A88193,mobile money,certified,2026-08-04 12:48:58
+A88193,telecom,certified,2026-04-02 06:51:08
+A88222,mobile money,certified,2026-07-12 19:57:19
+A88222,agritech,expired,2025-12-26 23:55:23
+A88385,SACCO,certified,2026-04-02 09:39:16
+A88504,mobile money,certified,2026-06-16 16:17:49
+A88697,insurance,certified,2026-07-11 13:53:41
+A88697,telecom,certified,2026-04-25 19:43:02
+A88907,agritech,certified,2025-10-31 23:00:09
+A89069,education,certified,2026-03-29 11:33:44
+A89069,mobile money,certified,2025-12-31 21:29:16
+A89129,telecom,certified,2026-06-27 00:34:52
+A89131,mobile money,certified,2026-07-08 08:38:06
+A89276,mobile money,certified,2026-06-26 05:56:01
+A89415,e-commerce,certified,2026-03-02 06:23:56
+A89457,mobile money,certified,2026-07-06 04:26:49
+A89471,insurance,certified,2026-05-07 20:50:33
+A89507,mobile money,certified,2026-03-27 17:41:25
+A89516,SACCO,certified,2026-04-09 10:49:49
+A89593,SACCO,certified,2026-01-24 05:29:31
+A89818,banking,certified,2026-07-24 05:31:28
+A89840,agritech,certified,2025-10-30 15:35:18
+A89905,mobile money,certified,2026-04-15 20:53:56
+A89905,real estate,certified,2026-06-21 21:15:02
+A89997,mobile money,certified,2026-07-04 04:54:31
+A90120,telecom,certified,2026-06-26 19:42:57
+A90173,banking,certified,2026-07-21 19:19:04
+A90173,logistics,certified,2026-07-16 19:24:50
+A90301,mobile money,certified,2025-12-06 08:19:48
+A90676,banking,certified,2026-06-17 16:45:10
+A90728,telecom,certified,2026-07-03 17:24:48
+A91057,insurance,certified,2026-01-14 09:30:00
+A91057,mobile money,certified,2026-01-05 04:26:38
+A91070,e-commerce,certified,2026-07-28 14:40:54
+A91167,telecom,certified,2026-01-17 20:53:05
+A91183,e-commerce,certified,2026-06-21 05:02:42
+A91351,mobile money,certified,2026-01-10 02:16:54
+A91351,e-commerce,expired,2025-12-03 14:18:51
+A91399,agritech,certified,2025-11-20 16:24:27
+A91399,insurance,certified,2026-04-02 23:18:16
+A91416,education,certified,2026-07-23 17:17:26
+A91439,insurance,certified,2026-02-20 02:21:47
+A91560,insurance,certified,2026-06-05 23:45:04
+A91678,SACCO,certified,2026-07-15 08:48:26
+A91678,education,certified,2026-02-23 19:29:39
+A91927,healthcare,certified,2026-01-25 15:31:29
+A91927,mobile money,certified,2026-04-20 22:18:35
+A91927,telecom,certified,2026-01-18 14:39:21
+A91959,SACCO,certified,2026-03-13 01:28:13
+A91959,banking,certified,2026-07-09 08:16:03
+A91987,SACCO,certified,2026-06-10 11:43:48
+A92149,agritech,certified,2026-03-24 19:35:09
+A92149,banking,certified,2025-12-26 06:34:01
+A92149,real estate,certified,2026-01-14 02:43:49
+A92213,banking,certified,2025-12-06 06:08:11
+A92240,e-commerce,certified,2026-01-15 08:48:32
+A92397,telecom,certified,2026-07-08 12:26:26
+A92502,e-commerce,certified,2026-03-15 23:19:19
+A92544,healthcare,certified,2026-06-18 06:42:03
+A92719,mobile money,certified,2026-06-27 06:56:01
+A92960,banking,certified,2026-07-30 20:52:18
+A93130,agritech,certified,2026-03-24 09:44:33
+A93136,SACCO,certified,2026-05-30 07:21:35
+A93136,logistics,certified,2026-07-23 08:30:00
+A93227,SACCO,certified,2026-06-21 23:55:30
+A93307,mobile money,certified,2026-06-07 23:40:46
+A93320,banking,certified,2026-06-24 15:58:17
+A93320,fashion,certified,2026-06-30 18:11:12
+A93507,SACCO,certified,2026-05-30 15:20:46
+A93507,banking,certified,2026-04-29 10:54:28
+A93579,e-commerce,certified,2026-06-13 08:06:41
+A93579,mobile money,certified,2025-10-04 02:58:52
+A93579,banking,expired,2026-02-27 09:44:56
+A93606,mobile money,certified,2026-07-23 19:21:21
+A93748,banking,certified,2026-07-07 02:46:55
+A93748,e-commerce,certified,2026-07-08 05:37:10
+A93810,agritech,certified,2026-07-01 20:04:33
+A93810,insurance,certified,2026-06-19 21:41:00
+A93886,telecom,certified,2026-07-11 15:12:00
+A94012,e-commerce,certified,2026-03-19 04:11:47
+A94012,education,certified,2026-07-02 07:58:02
+A94080,mobile money,certified,2026-07-26 01:02:26
+A94080,telecom,certified,2026-04-13 14:32:17
+A94246,e-commerce,certified,2026-07-20 16:51:53
+A94259,banking,certified,2026-06-07 04:43:53
+A94607,banking,certified,2026-03-06 11:46:43
+A94607,insurance,certified,2026-06-19 10:53:22
+A94659,mobile money,certified,2025-12-01 00:44:30
+A94696,logistics,certified,2026-04-19 20:38:10
+A94874,e-commerce,certified,2026-07-11 10:44:46
+A94874,healthcare,certified,2026-07-31 18:14:54
+A94886,banking,certified,2026-02-18 05:25:13
+A94886,e-commerce,certified,2025-10-02 17:56:11
+A94939,agritech,certified,2026-04-01 08:54:18
+A94939,banking,certified,2026-01-27 20:53:05
+A95180,mobile money,certified,2026-02-17 01:48:24
+A95181,banking,certified,2026-06-13 21:56:55
+A95181,e-commerce,certified,2026-05-19 04:46:30
+A95181,mobile money,certified,2026-08-04 01:58:02
+A95215,banking,certified,2026-02-05 09:37:50
+A95215,mobile money,certified,2026-05-28 08:37:02
+A95256,banking,certified,2026-07-16 22:57:14
+A95426,banking,certified,2026-05-27 16:05:47
+A95477,telecom,certified,2026-01-14 12:08:49
+A95649,banking,certified,2026-03-29 04:21:48
+A95717,banking,certified,2026-02-21 00:31:58
+A95813,telecom,certified,2026-01-18 10:05:24
+A95909,mobile money,certified,2026-08-01 04:42:38
+A95909,telecom,certified,2026-07-31 19:56:20
+A95990,education,certified,2026-07-05 18:12:15
+A95990,mobile money,certified,2026-05-18 17:54:17
+A96163,SACCO,certified,2026-01-22 10:35:55
+A96163,agritech,certified,2025-12-29 17:07:24
+A96356,mobile money,certified,2026-01-12 05:29:33
+A96374,banking,certified,2026-07-12 06:43:12
+A96474,logistics,certified,2026-04-30 01:15:29
+A96511,agritech,certified,2025-12-19 10:37:25
+A96511,telecom,expired,2025-11-16 09:57:10
+A96563,telecom,certified,2026-02-14 11:31:29
+A96662,agritech,certified,2025-08-31 04:17:47
+A96673,insurance,certified,2026-06-27 10:14:34
+A96706,mobile money,certified,2026-07-14 15:22:03
+A96706,e-commerce,expired,2026-07-13 00:26:59
+A96752,banking,certified,2026-06-01 00:37:09
+A96900,banking,certified,2026-04-05 17:46:01
+A96900,healthcare,certified,2026-07-12 10:43:11
+A96951,e-commerce,certified,2026-05-30 07:48:16
+A97012,mobile money,certified,2025-09-29 11:38:55
+A97012,telecom,expired,2025-09-07 22:36:04
+A97026,SACCO,certified,2026-03-15 18:37:39
+A97026,mobile money,certified,2026-04-01 20:39:06
+A97062,mobile money,certified,2026-07-28 15:10:24
+A97153,education,certified,2026-05-23 19:58:52
+A97410,telecom,certified,2026-04-08 22:43:41
+A97416,banking,certified,2026-04-24 00:17:41
+A97500,banking,certified,2026-05-13 21:11:59
+A97538,e-commerce,certified,2025-12-01 20:35:58
+A97580,agritech,certified,2026-05-16 03:29:32
+A97670,banking,certified,2026-04-25 14:05:53
+A97670,insurance,certified,2026-01-19 08:35:44
+A97684,education,certified,2026-07-06 02:32:13
+A97747,fashion,certified,2026-04-20 09:58:33
+A97747,mobile money,certified,2026-05-24 01:17:57
+A97782,telecom,certified,2026-03-19 21:00:47
+A97806,insurance,certified,2026-07-04 23:04:28
+A97841,SACCO,certified,2025-11-05 18:38:07
+A97900,telecom,certified,2026-05-26 15:19:13
+A98039,mobile money,certified,2026-06-14 06:08:12
+A98117,banking,certified,2026-05-25 16:13:38
+A98117,fashion,certified,2026-05-26 21:20:36
+A98184,banking,certified,2026-06-23 09:36:55
+A98259,telecom,certified,2026-03-10 10:17:30
+A98381,banking,certified,2026-06-11 14:21:29
+A98381,insurance,certified,2026-05-28 13:07:36
+A98381,mobile money,certified,2026-05-15 10:38:46
+A98501,telecom,certified,2026-05-30 02:15:44
+A98555,healthcare,certified,2026-05-25 19:52:28
+A98555,mobile money,certified,2025-12-30 23:23:37
+A98696,SACCO,certified,2026-07-23 16:35:47
+A98777,banking,certified,2026-07-23 15:23:48
+A98777,e-commerce,certified,2026-05-15 00:37:52
+A98781,mobile money,certified,2026-06-13 19:38:47
+A99016,SACCO,certified,2026-04-13 05:40:02
+A99065,e-commerce,certified,2026-07-20 12:53:26
+A99166,e-commerce,certified,2026-02-28 19:04:36
+A99166,mobile money,certified,2026-01-28 21:13:22
+A99192,banking,certified,2026-04-05 23:52:50
+A99192,telecom,certified,2026-02-14 20:06:34
+A99353,e-commerce,certified,2026-02-24 21:57:43
+A99399,insurance,certified,2026-07-24 08:10:00
+A99593,insurance,certified,2025-12-24 20:06:41
+A99593,mobile money,certified,2025-12-27 22:19:39
+A99687,banking,certified,2026-01-05 11:56:27
+A99733,banking,certified,2026-07-12 18:41:25
+A99733,insurance,certified,2026-07-11 21:39:36
+A99974,insurance,certified,2026-06-22 04:44:28
+A99974,mobile money,certified,2026-05-21 20:10:42

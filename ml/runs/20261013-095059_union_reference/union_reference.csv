@@ -1,0 +1,4 @@
+method,flagged,true_positives,false_positives,precision,recall,recall_ring,agents_ring,recall_weak_ring,agents_weak_ring,recall_sequential,agents_sequential,recall_duplicate,agents_duplicate,recall_weak,agents_weak
+lof_v3_4f (cutoff 1.445),20,15,5,0.75,0.75,1.0,6,0.75,4,1.0,3,1.0,3,0.0,4
+duplicate_activation_rule (pairs > 0),17,17,0,1.0,0.85,1.0,6,1.0,4,0.0,3,1.0,3,1.0,4
+union (either flags),25,20,5,0.8,1.0,1.0,6,1.0,4,1.0,3,1.0,3,1.0,4

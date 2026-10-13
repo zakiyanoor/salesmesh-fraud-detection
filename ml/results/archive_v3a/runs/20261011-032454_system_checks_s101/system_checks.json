@@ -1,0 +1,36 @@
+{
+  "S1": {
+    "agents": 1000,
+    "score_table_seconds": 0.047935300011886284,
+    "score_ms_per_agent": 0.047935300011886284,
+    "feature_computation_seconds": 5.578440300014336,
+    "pass": true
+  },
+  "S2": {
+    "swapped_model_version": "lof_swap_check",
+    "rows": 50,
+    "threshold_from_bundle": 1.5,
+    "pass": 1.0
+  },
+  "S3": {
+    "rows": 1000,
+    "columns": [
+      "agent_id",
+      "analysis_period_start",
+      "analysis_period_end",
+      "score",
+      "flag",
+      "threshold",
+      "model_version",
+      "top_features",
+      "reason"
+    ],
+    "problems": [],
+    "pass": true
+  },
+  "S4": {
+    "pass": true,
+    "note": "timing only, no accuracy claim"
+  },
+  "measured_on": "features only; no labels"
+}

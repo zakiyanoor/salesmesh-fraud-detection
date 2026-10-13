@@ -1,0 +1,11 @@
+criterion,measured_on,condition,value,result
+Q1,validation,mean validation PR AUC (seeds 1-5) > best single-feature validation PR AUC,0.8129989239097399,PASS
+Q2,test,"test PR AUC > best single-feature test PR AUC (max over the 5 features, training directions: 0.670; collusion_score alone 0.565)",0.84536680072518,PASS
+Q3,test,test PR AUC >= 3 x test fraud rate (0.380) and CI low > fraud rate (0.127),0.845 (CI 0.684 to 0.960),PASS
+Q4,validation,train ROC AUC - validation ROC AUC <= 0.10,0.01589806744979172,PASS
+Q5,test,test recall at the cutoff >= 0.60,0.7894736842105263,PASS
+Q6,test,test alert rate at the cutoff <= 25%,0.16666666666666666,PASS
+S1,test timing,scoring <= 10 ms per agent and <= 5 s for the 1000-agent table,0.060 ms per test agent; all 1000 agents in 0.035 s,PASS
+S2,frozen system checks,model replaceable; threshold read from the bundle,"swap to lof_swap_check, threshold 1.5 from the bundle",PASS
+S3,test output,"every test output row has all 9 fields, non-empty",150 rows,PASS
+S4,frozen system checks,scoring 10000 agents <= 60 s; features + scoring <= 600 s,"10000 agents: scoring 0.254 s, end to end 15.9 s",PASS

@@ -1,0 +1,6 @@
+rule,recall_ring,recall_weak_ring,recall_sequential,recall_duplicate,recall_weak
+min expected cost 5:1,1.0,0.75,1.0,1.0,0.0
+min expected cost 2:1,1.0,0.75,1.0,0.3333333333333333,0.0
+min expected cost 10:1,1.0,1.0,1.0,1.0,0.5
+max F1,1.0,0.75,1.0,0.3333333333333333,0.0
+alert budget 15%,1.0,0.75,1.0,1.0,0.0

@@ -1,0 +1,40 @@
+{
+  "run_id": "20261011-021228_eda_s0",
+  "kind": "eda",
+  "timestamp": "2026-10-11T02:12:28",
+  "seed": 0,
+  "parameters": {
+    "sample_rows": 8,
+    "night_hours": [
+      0,
+      4
+    ],
+    "clean_run": "20261011-020933_clean"
+  },
+  "data_files": {
+    "activation_records.csv": "b0c3088cf1ffd6cd9b6ec139fa0358bf8ac805659db4a84e7b29c4f1821f5425",
+    "activation_records_clean.csv": "b0c3088cf1ffd6cd9b6ec139fa0358bf8ac805659db4a84e7b29c4f1821f5425",
+    "agents.csv": "af76abfe830ee449c7e9ce87bf90694233ce2482da710129170e5274480d40b8",
+    "clients.csv": "9b2e5fd7c1b3f881e828e7ec405935b7810b915bea9b9f2a8881bbdea2827e87",
+    "labels.csv": "db42e4dd58894bf0dbaded7dbf56c039f1263c87291382b595e239d7ac6b13b3",
+    "record_flags.csv": "ff27d273cfe45e759df030751e4d9de9018ee98dad19ba76301a12ad6e18727f"
+  },
+  "system": {
+    "python": "3.14.0",
+    "os": "Windows-11-10.0.26200-SP0",
+    "cpu": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+    "cpu_count": 12,
+    "ram_gb": 15.7,
+    "git_commit": "e070367e6f7d1024e8872f2215fe2f140d3d640c"
+  },
+  "library_versions": {
+    "python": "3.14.0",
+    "numpy": "2.5.2",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.0",
+    "faker": "40.37.0",
+    "matplotlib": "3.11.1",
+    "joblib": "1.6.0",
+    "shap": null
+  }
+}

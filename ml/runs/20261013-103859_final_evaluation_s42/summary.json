@@ -1,0 +1,25 @@
+{
+  "model_version": "lof_v3_4f",
+  "cutoff": 1.4447993633890617,
+  "test_agents": 150,
+  "test_fraud": 19,
+  "fraud_rate": 0.12666666666666668,
+  "train_minus_test_roc_auc": -0.013266101045433465,
+  "rings_with_a_flagged_member": 14,
+  "rings_at_least_half_flagged": 14,
+  "rings": 14,
+  "ring_candidates": 14,
+  "errors": 14,
+  "acceptance": {
+    "Q1": "PASS",
+    "Q2": "PASS",
+    "Q3": "PASS",
+    "Q4": "PASS",
+    "Q5": "PASS",
+    "Q6": "PASS",
+    "S1": "PASS",
+    "S2": "PASS",
+    "S3": "PASS",
+    "S4": "PASS"
+  }
+}

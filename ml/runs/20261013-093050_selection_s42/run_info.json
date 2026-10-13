@@ -1,0 +1,79 @@
+{
+  "run_id": "20261013-093050_selection_s42",
+  "kind": "selection",
+  "timestamp": "2026-10-13T09:30:50",
+  "seed": 42,
+  "parameters": {
+    "selection_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "bootstrap_resamples": 1000,
+    "bootstrap_seed": 0,
+    "tie_margin": 0.02,
+    "heavy_overlap": 0.75,
+    "if_grid": {
+      "n_estimators": [
+        100,
+        200,
+        500
+      ],
+      "max_samples": [
+        64,
+        128,
+        256
+      ],
+      "max_features": [
+        0.6,
+        0.8,
+        1.0
+      ]
+    },
+    "lof_grid": {
+      "n_neighbors": [
+        10,
+        20,
+        35,
+        50,
+        100
+      ]
+    },
+    "contamination": "auto",
+    "cost_missed_fraud": 5,
+    "cost_false_alarm": 1,
+    "sensitivity_ratios": [
+      2,
+      10
+    ],
+    "fitted_on": "train",
+    "evaluated_on": "validation",
+    "acceptance_best_single_feature_pr_auc": 0.573601851851852,
+    "baselines_run": "20261013-093033_baselines"
+  },
+  "data_files": {
+    "feature_vectors.csv": "7d7afa399d0f56c2d0961ed731bb39c8426a958914c92df3e8565263ef40714d",
+    "split.csv": "d58aef9124317b8228c8db816bc694729132333fbb7a6df73efa5684c17ffc10",
+    "labels.csv": "102db7224eaecf0cad54aaf721e7e94a18ba580ea383ec0db1b52e33b491b34c"
+  },
+  "system": {
+    "python": "3.14.0",
+    "os": "Windows-11-10.0.26200-SP0",
+    "cpu": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+    "cpu_count": 12,
+    "ram_gb": 15.7,
+    "git_commit": "bdcaca253fa115c7b9e417f75610a5fd80d71bc0"
+  },
+  "library_versions": {
+    "python": "3.14.0",
+    "numpy": "2.5.2",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.0",
+    "faker": "40.37.0",
+    "matplotlib": "3.11.1",
+    "joblib": "1.6.0",
+    "shap": null
+  }
+}
