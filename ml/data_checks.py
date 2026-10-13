@@ -1,17 +1,201 @@
 """
 Checks on a generated SyntheticDataset, written to the generation run folder
-(data_checks.json) and reused by tests. Labels are read here for checking the
-generator only; nothing in this file feeds a feature or a model.
+(data_checks.json) and reused by tests: integrity rules R1-R6, referential
+integrity, value ranges, identity uniqueness and the independence table.
+Labels are read here for checking the generator only; nothing in this file
+feeds a feature or a model.
 """
+
+import re
 
 import numpy as np
 import pandas as pd
 from scipy.stats import chi2_contingency
+from sklearn.metrics import roc_auc_score
 
-from data_generation import COUNTIES, COUNTY_TO_FORMER_PROVINCE
+from data_generation import (
+    ANALYSIS_START, CLIENT_CATEGORY, COUNTIES, COUNTY_TO_FORMER_PROVINCE, NATIONAL_ID_DIGITS, PHONE_DIGITS,
+    PHONE_PREFIX, pending_window_start,
+)
 from feature_engineering import collusion_scores, identifier_similarity  # noqa: F401
 
 SMALL_COUNTY_AGENTS = 5
+INDEPENDENCE_AUC_RANGE = (0.35, 0.65)
+PAIR = ["customer_id", "client_id"]
+
+
+def by_class(counts, is_fraud):
+    """Splits a per-agent count Series into honest and fraud totals."""
+    fraud = np.array([bool(is_fraud.get(a, False)) for a in counts.index], dtype=bool)
+    return {"honest": int(counts[~fraud].sum()), "fraud": int(counts[fraud].sum())}
+
+
+def r1_shared_pairs(acts, is_fraud):
+    """(customer, client) pairs used by 2+ agents: 'honest' if any user is honest, else 'fraud'."""
+    users = acts[PAIR + ["agent_id"]].drop_duplicates()
+    users = users.assign(fraud=users["agent_id"].map(is_fraud).astype(bool))
+    per_pair = users.groupby(PAIR).agg(agents=("agent_id", "size"), all_fraud=("fraud", "all"))
+    shared = per_pair[per_pair["agents"] >= 2]
+    return {"honest": int((~shared["all_fraud"]).sum()), "fraud": int(shared["all_fraud"].sum())}
+
+
+def r2_violations(acts):
+    """Per agent: repeats of its own (customer, client) pair that do not follow a failed or pending attempt."""
+    ordered = acts.sort_values(["timestamp", "record_id"], kind="mergesort")
+    previous = ordered.groupby(["agent_id"] + PAIR)["activation_status"].shift()
+    return previous.eq("completed").groupby(ordered["agent_id"]).sum()
+
+
+def r6_violations(acts):
+    old_pending = acts["activation_status"].eq("pending") & (pd.to_datetime(acts["timestamp"]) < pending_window_start())
+    return old_pending.groupby(acts["agent_id"]).sum()
+
+
+def r5_violations(acts, agents, agent_categories):
+    """Per agent: activations before registration, or without a certification in force at that time."""
+    ts = pd.to_datetime(acts["timestamp"])
+    registration = acts["agent_id"].map(pd.to_datetime(agents.set_index("agent_id")["registration_timestamp"]))
+    certified = agent_categories[agent_categories["certification_status"] == "certified"]
+    cert_at = pd.MultiIndex.from_frame(acts[["agent_id", "category"]]).map(
+        pd.to_datetime(certified.set_index(["agent_id", "category"])["certified_at"]).to_dict().get)
+    cert_at = pd.to_datetime(pd.Series(cert_at, index=acts.index))
+    bad = (ts < registration) | cert_at.isna() | (ts < cert_at)
+    return bad.groupby(acts["agent_id"]).sum()
+
+
+def referential_integrity(dataset):
+    agents = set(dataset.agents["agent_id"])
+    acts, cats = dataset.activations, dataset.agent_categories
+    expired = cats[cats["certification_status"] == "expired"]
+    active_in_expired = acts.merge(expired[["agent_id", "category"]], on=["agent_id", "category"])
+    return {
+        "unknown_agent_id": {name: int((~frame["agent_id"].isin(agents)).sum()) for name, frame in [
+            ("activation_records", acts), ("agent_identity", dataset.identity),
+            ("agent_categories", cats), ("labels", dataset.labels)]},
+        "agents_missing_identity_row": len(agents - set(dataset.identity["agent_id"])),
+        "duplicate_identity_rows": int(dataset.identity["agent_id"].duplicated().sum()),
+        "unknown_client_id": int((~acts["client_id"].isin(dataset.clients["client_id"])).sum()),
+        "category_not_client_category": int((acts["category"] != acts["client_id"].map(CLIENT_CATEGORY)).sum()),
+        "clients_category_mismatch": int((dataset.clients["category"] != dataset.clients["client_id"].map(CLIENT_CATEGORY)).sum()),
+        "duplicate_agent_category_rows": int(cats.duplicated(["agent_id", "category"]).sum()),
+        "activations_in_expired_category": int(len(active_in_expired)),
+        "certified_after_first_activity_or_before_registration": int(certification_order_errors(dataset)),
+    }
+
+
+def certification_order_errors(dataset):
+    cats = dataset.agent_categories.assign(certified_at=pd.to_datetime(dataset.agent_categories["certified_at"]))
+    registration = cats["agent_id"].map(pd.to_datetime(dataset.agents.set_index("agent_id")["registration_timestamp"]))
+    first = dataset.activations.assign(timestamp=pd.to_datetime(dataset.activations["timestamp"])).groupby(
+        ["agent_id", "category"])["timestamp"].min()
+    first_at = pd.MultiIndex.from_frame(cats[["agent_id", "category"]]).map(first.to_dict().get)
+    first_at = pd.to_datetime(pd.Series(first_at, index=cats.index))
+    return int(((cats["certified_at"] < registration) | (first_at.notna() & (cats["certified_at"] > first_at))).sum())
+
+
+def rule_checks(dataset):
+    acts = dataset.activations
+    is_fraud = dataset.labels.set_index("agent_id")["is_fraud"].astype(bool).to_dict()
+    honest = acts[~acts["agent_id"].map(is_fraud).astype(bool)]
+    honest_customers = honest.groupby("customer_id")["agent_id"].nunique()
+    honest_pairs = honest.groupby(PAIR)["agent_id"].nunique()
+    expired = dataset.agent_categories["certification_status"].eq("expired")
+    return {
+        "R1_pairs_used_by_another_agent": r1_shared_pairs(acts, is_fraud),
+        "R2_repeat_after_completed": by_class(r2_violations(acts), is_fraud),
+        "R3_honest_customers_shared_by_2plus_honest_agents": int((honest_customers >= 2).sum()),
+        "R3_honest_pairs_shared_by_2plus_honest_agents": int((honest_pairs >= 2).sum()),
+        "R5_activation_without_certification_or_before_registration": by_class(
+            r5_violations(acts, dataset.agents, dataset.agent_categories), is_fraud),
+        "R5_agents_with_expired_category": int(dataset.agent_categories.loc[expired, "agent_id"].nunique()),
+        "R6_pending_before_last_72h": by_class(r6_violations(acts), is_fraud),
+    }
+
+
+def range_checks(dataset):
+    acts = dataset.activations
+    completed = acts["activation_status"].eq("completed")
+    rate = acts["client_id"].map(dataset.clients.set_index("client_id")["commission_per_activation_kes"])
+    return {
+        "quality_score_outside_0_100": int((~acts["quality_score"].between(0, 100)).sum()),
+        "commission_nonzero_when_not_completed": int((acts.loc[~completed, "commission_kes"] != 0).sum()),
+        "commission_not_client_rate_when_completed": int((acts.loc[completed, "commission_kes"] != rate[completed]).sum()),
+        "client_rate_outside_40_400": int((~dataset.clients["commission_per_activation_kes"].between(40, 400)).sum()),
+        "account_status_values": dataset.agents["account_status"].value_counts().to_dict(),
+    }
+
+
+def identity_checks(identity):
+    phone = rf"^{re.escape(PHONE_PREFIX)}\d{{{PHONE_DIGITS}}}$"
+    return {
+        "rows": int(len(identity)),
+        "duplicate_full_name": int(identity["full_name"].duplicated().sum()),
+        "duplicate_phone_number": int(identity["phone_number"].duplicated().sum()),
+        "duplicate_national_id_number": int(identity["national_id_number"].duplicated().sum()),
+        "malformed_full_name": int((~identity["full_name"].str.fullmatch(r"[A-Z][a-z]+ [A-Z][a-z]+")).sum()),
+        "malformed_phone_number": int((~identity["phone_number"].str.fullmatch(phone)).sum()),
+        "malformed_national_id_number": int(
+            (~identity["national_id_number"].astype(str).str.fullmatch(rf"[1-9]\d{{{NATIONAL_ID_DIGITS - 1}}}")).sum()),
+    }
+
+
+def context_by_agent(dataset):
+    acts = dataset.activations
+    by_agent = acts.groupby("agent_id")
+    agents = dataset.agents.set_index("agent_id")
+    return pd.DataFrame({
+        "account_status_suspended": agents["account_status"].eq("suspended").astype(int),
+        "n_categories": dataset.agent_categories.groupby("agent_id").size(),
+        "registration_age_days": (ANALYSIS_START - pd.to_datetime(agents["registration_timestamp"])).dt.days,
+        "mean_quality_score": by_agent["quality_score"].mean(),
+        "completed_share": acts["activation_status"].eq("completed").groupby(acts["agent_id"]).mean(),
+        "commission_total_kes": by_agent["commission_kes"].sum(),
+        "commission_mean_per_record_kes": by_agent["commission_kes"].mean(),
+    }).fillna(0)
+
+
+def independence_table(dataset):
+    """Single-field AUC against is_fraud (data audit only; never a model input)."""
+    table = context_by_agent(dataset)
+    y = dataset.labels.set_index("agent_id")["is_fraud"].astype(bool).reindex(table.index)
+    rows = {}
+    for column in table:
+        auc = float(roc_auc_score(y, table[column]))
+        rows[column] = {"auc": round(auc, 3), "strength": round(max(auc, 1 - auc), 3),
+                        "within_0.35_0.65": bool(INDEPENDENCE_AUC_RANGE[0] <= auc <= INDEPENDENCE_AUC_RANGE[1])}
+    return rows
+
+
+def behaviour_summary(dataset):
+    acts = dataset.activations.merge(dataset.labels[["agent_id", "is_fraud", "profile"]], on="agent_id")
+    acts = acts.sort_values(["timestamp", "record_id"], kind="mergesort")
+    lab = dataset.labels.set_index("agent_id")
+    coll = collusion_scores(dataset.activations).reindex(lab.index).fillna(0)
+    honest = acts[~acts["is_fraud"]]
+    acts["repeat_customer"] = acts.duplicated(["agent_id", "customer_id"])
+    acts["repeat_pair"] = acts.duplicated(["agent_id"] + PAIR)
+    users = acts[PAIR + ["agent_id", "is_fraud"]].drop_duplicates(PAIR + ["agent_id"])
+    per_pair = users.groupby(PAIR).agg(agents=("agent_id", "size"), fraud_agents=("is_fraud", "sum"))
+    per_agent = acts.groupby("agent_id").size()
+    rpa = per_agent.groupby(lab["profile"]).agg(["mean", "min", "max"]).round(1)
+
+    def spread(series):
+        return [round(float(x), 3) for x in series.agg(["min", "median", "max"])]
+
+    return {
+        "fraud_by_pattern": lab.loc[lab["is_fraud"], "profile"].value_counts().sort_index().to_dict(),
+        "honest_collusion_max": round(float(coll[~lab["is_fraud"]].max()), 3),
+        "honest_collusion_nonzero": int((coll[~lab["is_fraud"]] > 0).sum()),
+        "strong_ring_collusion_min_median_max": spread(coll[lab["profile"] == "ring"]),
+        "weak_ring_collusion_min_median_max": spread(coll[lab["profile"] == "weak_ring"]),
+        "repeat_customer_share_by_profile": acts.groupby("profile")["repeat_customer"].mean().round(4).to_dict(),
+        "repeat_pair_share_by_profile": acts.groupby("profile")["repeat_pair"].mean().round(4).to_dict(),
+        "records_per_agent_by_profile": {p: r.to_dict() for p, r in rpa.iterrows()},
+        "customers_shared_by_2plus_honest_agents": int((honest.groupby("customer_id")["agent_id"].nunique() >= 2).sum()),
+        "pairs_shared_by_2plus_honest_agents": int((honest.groupby(PAIR)["agent_id"].nunique() >= 2).sum()),
+        "pairs_shared_by_2plus_fraud_agents": int((per_pair["fraud_agents"] >= 2).sum()),
+        "pairs_shared_by_honest_and_fraud": int(((per_pair["fraud_agents"] >= 1) & (per_pair["agents"] > per_pair["fraud_agents"])).sum()),
+    }
 
 
 def primary_by_agent(activations, column):
@@ -80,6 +264,12 @@ def run_checks(dataset):
             g: int((repeats[repeats.index.get_level_values("agent_id").isin(table.index[table["group"] == g])] - 1).sum())
             for g in ["legitimate", "strong_ring", "weak_ring", "other_fraud"]},
         "same_customer_different_clients_pairs": int((customer_clients > 1).sum()),
+        "referential_integrity": referential_integrity(dataset),
+        "rules": rule_checks(dataset),
+        "ranges": range_checks(dataset),
+        "identity": identity_checks(dataset.identity),
+        "independence_auc": independence_table(dataset),
+        "behaviour": behaviour_summary(dataset),
     }
 
 

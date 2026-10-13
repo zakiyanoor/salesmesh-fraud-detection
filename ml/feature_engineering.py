@@ -31,6 +31,8 @@ ALL_FEATURES = BASE_FEATURES + [CANDIDATE_FEATURE]
 # Features the models use. Step 4 decision (run 20261011-023802_feature_checks): KEEP volume_vs_peers
 # (training AUC 0.780 > 0.55; max |Spearman| 0.807 <= 0.85).
 FEATURE_COLUMNS = ALL_FEATURES
+# Inputs of the chosen model if_v3_4f (Step 9, amended rule).
+MODEL_FEATURES = list(BASE_FEATURES)
 DEFAULT_PERIOD = (ANALYSIS_START, ANALYSIS_END + pd.Timedelta(days=1))
 
 

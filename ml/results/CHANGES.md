@@ -10,7 +10,8 @@ The v2 results and data are archived unchanged in `ml/results/archive_v2/` and `
    - v2: the repeat-customer share was widened;
    - v3 Step 1: customer ids were widened to 8 digits;
    - v3 Step 1B: per-county popular customers and weak rings were added;
-   - v3 Step 1C: hard-limit shortcuts were removed, and the overlap audit was added. This was the last change.
+   - v3 Step 1C: hard-limit shortcuts were removed, and the overlap audit was added.
+   - Change 5 (2026-10-13): a validity fix found by review, made after validation results had been seen. See "Data change 5" below. This is the last change.
 2. **`collusion_score` uses all agents, including test agents.** No labels are involved, but the partitions are not independent at the feature level.
 3. **The earlier deployment choice was made after looking at test results.** v2 had only a train/test split (92 agents with 12 fraud, and 23 agents with 3 fraud). Switching the live detector to Isolation Forest v2 was decided from test-set results: the seed-42 test split, where LOF scored higher (F1 1.000 vs 0.800), and the seeds 1–5 test splits, where Isolation Forest scored higher. v3 adds a validation set so that model choice no longer touches the test set.
 4. **Accepted separations remain as limitations.** Strong rings separate on `collusion_score`, and sequential agents on customer similarity and on night share. See DATA_CARD.md, "Accepted separations".
@@ -422,6 +423,69 @@ These checks are formally repeated at Step 11.
 - `acceptance_criteria.md` and `selection_rule.md`.
 
 It states that no test label has been loaded. `ml/tests/test_freeze.py` fails if any of these files changes.
+
+## Data change 5: integrity rules and SalesMesh context (2026-10-13)
+
+**Why.** A review of the frozen v3 data found two problems:
+1. Honest agents shared a customer on the same client and category. By the platform rule one customer activates one client service once, so a second activation is a duplicate and should occur only in fraud. On seed 42, 33 (customer, client, category) combinations were used by 2 or more honest agents. A further 243 were used by 2 or more fraud agents (correct), and 10 mixed an honest and a fraud agent.
+2. The data had too little SalesMesh context: `agents.csv` held only `agent_id`, `registration_timestamp` and `region`; activations had no quality score or commission; agents had no identity details.
+
+**Nature of the change.** This is a validity fix found by review. It was not tuned to improve any metric, and no model was run to choose it. It was made **after validation results on the old data had been seen** (Steps 7 to 10). **The test set was never read:** the labels guard stayed on; the generator's own checks use the labels it creates, for the data audit only; the report examples used training labels only, through `labels_guard`. **The selection rule (with its amendment) and the acceptance criteria apply unchanged**; `selection_rule.md` and `acceptance_criteria.md` were not edited, and their hashes are in the new `FREEZE.md`.
+
+**What changed in the generator**
+- Rules R1 to R6 are enforced while generating, not by filtering (definitions in DATA_CARD.md): no honest pair is used by another agent (R1); honest repeats of a pair are retries after a failed or pending attempt only, with at most one completed activation per pair (R2); popular pool picks skip taken pairs (R3); only the planted fraud patterns break R1 and R2 (R4); activations only in certified categories, after registration and certification (R5); pending only in the last 72 hours, with completed to failed kept at 17:1 (R6).
+- `legit_repeat` is now cross sell plus retries. The per-agent share (15% to 50%) is kept; the 4 to 12 regular customers repeated for the same client are gone. Single-client `legit_repeat` agents get one cross-sell client (same category when possible).
+- New fields and files from separate RNG streams spawned from seed 42: `account_status` in `agents.csv`; new `agent_identity.csv` and `agent_categories.csv`; `commission_per_activation_kes` in `clients.csv`; `quality_score` and `commission_kes` in `activation_records.csv`. The same distributions apply to honest and fraud agents; no fraud pattern uses them.
+- Unchanged: seed, 1000 agents, 130 fraud, pattern shares, counties, clients, categories, window, time zone, customer id format, hour and volume settings, ring settings, and the 4 model features. `agents.csv` (first three columns), `labels.csv` and `rings.csv` are byte-identical to v3a, so the split assignment is unchanged.
+
+**Archived, unchanged (sha256 checked after the move):** v3 data in `ml/data/archive_v3a/` (8 files); all 26 v3a run folders (148 files) in `ml/results/archive_v3a/runs/`; `data_cleaning_report.md`, `FREEZE_v3a.md` (copy), `DATA_CARD_v3a.md` (copy) and the v3a generator, checks and generator tests in `ml/results/archive_v3a/`.
+
+**New generation run:** `20261013-091128_datagen_s42`; datagen freeze note in `FREEZE.md` (written by `freeze.py --data`).
+
+**Behaviour before and after (seed 42)**
+
+| | v3a | Change 5 |
+|---|---|---|
+| Records | 135,509 | 135,494 |
+| Fraud agents by pattern (ring / weak_ring / sequential / duplicate / weak) | 41 / 21 / 21 / 21 / 26 | 41 / 21 / 21 / 21 / 26 |
+| Pairs used by 2+ honest agents | 33 | 0 |
+| Pairs used by 2+ fraud agents | 243 | 290 |
+| Pairs shared by an honest and a fraud agent | 10 | 0 |
+| Customers shared by 2+ honest agents (any client) | 464 | 356 |
+| Honest `collusion_score` max (non-zero agents) | 0.110 (353) | 0.100 (258) |
+| Strong ring `collusion_score` min / median / max | 0.340 / 0.611 / 0.760 | 0.288 / 0.581 / 0.814 |
+| Weak ring `collusion_score` min / median / max | 0.032 / 0.074 / 0.149 | 0.030 / 0.090 / 0.164 |
+| Repeated customer share (legit / legit_repeat / duplicate / weak / ring) | 0.012 / 0.261 / 0.581 / 0.127 / 0.214 | 0.052 / 0.367 / 0.636 / 0.164 / 0.236 |
+| Same-pair repeat share (legit / legit_repeat / duplicate) | 0.001 / 0.223 / 0.578 | 0.041 / 0.044 / 0.634 |
+| Records per agent, mean (legit / legit_repeat / legit_busy / ring / sequential / duplicate / weak) | 116.7 / 115.5 / 260.3 / 207.9 / 301.8 / 256.1 / 160.6 | 117.5 / 124.1 / 255.0 / 201.3 / 300.3 / 253.9 / 153.4 |
+| Status shares (completed / failed / pending) | weights 0.85 / 0.05 / 0.10, at any time | 0.917 / 0.053 / 0.030 |
+
+Plain legit agents now repeat a customer in 5.2% of records (v3a: 1.2%), because failed attempts are retried. The overlap audit has one new zero-overlap row, the same-pair repeat share of duplicate fraud, which follows from R2; it is a raw descriptor, not a model feature, and is added to the accepted list. The model feature `customer_similarity` still overlaps for duplicate fraud (76% of duplicate agents inside the honest range).
+
+**Independence table** (single-field AUC against `is_fraud`, data audit only): account status 0.496, number of categories 0.515, registration age 0.515, mean quality 0.524, completed share 0.516, all inside 0.35 to 0.65. **Commission total is 0.679, outside the range**, because it follows completed volume and fraud agents submit more; commission per record is 0.550.
+
+**Checks** (in `data_checks.json`): R1, R2, R5 and R6 honest counts are 0; fraud side R1 290 and R2 4,887. Referential integrity, value ranges and identity uniqueness and format all report 0 problems.
+
+**Tests**
+- New: `ml/tests/test_integrity_rules.py` (12 tests: one per rule R1 to R6 on small fixtures, the rules on generated data, identity, the model input list of exactly 4 features with no context or identity column, feature vectors without context columns, identity columns not in `labels.csv`, and the independence of the context fields).
+- New in `test_data_generation.py`: `test_new_files_and_columns`, `test_context_fields_do_not_change_behaviour`, `test_quality_and_commission_follow_status`.
+- Changed for the new schema: `test_agents_file_carries_no_labels` (agents now have `account_status`; also checks the new files carry no label column); `test_only_accepted_signatures_have_zero_overlap_with_legit` (adds the duplicate same-pair repeat share, which R2 makes a definitional signature); `test_freeze.py` now checks the new freeze note (11 hashes instead of 12; the test code is unchanged).
+- Code changed for the new schema: `clean_data.EXPECTED_COLUMNS` includes `quality_score` and `commission_kes`; `feature_engineering.MODEL_FEATURES` names the chosen model's 4 inputs; `freeze.py --data` writes the datagen freeze note.
+- Skipped until the pipeline is re-run (they need `split.csv` and `feature_vectors.csv`, which were archived): `test_step_7_and_8_run_without_any_test_label`, `test_unlabelled_test_features_carry_no_labels`, `test_real_scaler_matches_training_agents`.
+- Backend (not touched): `test_pipeline.py::test_collusion_ring_agents_from_synthetic_data_score_above_every_legit_agent` now fails on its fixed floor of 0.3 (lowest strong ring 0.288); the separation it is about still holds (0.288 against an honest maximum of 0.100). The two known backend failures are unchanged.
+
+**Backend and database changes needed later (backend sprint)**
+1. `agents` table: add `account_status` (`active` or `suspended`).
+2. New table `agent_identity` (`agent_id` primary key and foreign key, `full_name`, `phone_number`, `national_id_number`), separate from `agents`, readable by admin roles only, never joined into the feature or scoring pipeline.
+3. New table `agent_categories` (`agent_id`, `category`, `certification_status`, `certified_at`; key `agent_id` + `category`).
+4. `activation_records` table: add `quality_score` (integer 0 to 100) and `commission_kes` (integer).
+5. Client reference data: add `commission_per_activation_kes` per client.
+6. `backend/src/load_data.py`: load the two new files and the new columns.
+7. **Data minimisation:** in the analyst interface, API responses and logs, show phone number and national ID number masked, with only the last 3 digits visible; never write the full values to logs or audit records.
+8. The backend feature pipeline must keep ignoring every context and identity column (parity with `MODEL_FEATURES`).
+9. Update the backend test with the 0.3 floor, and reload the database with this data (Step 13).
+
+**Process note.** During this change one read-only `git diff --stat` was run by mistake (no output, nothing changed). `run_info.json` records the commit through the read-only `git rev-parse HEAD`, as in every earlier run.
 
 ## Model results
 

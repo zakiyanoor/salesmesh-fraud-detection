@@ -47,6 +47,7 @@ DEFAULT_REPORT = Path(__file__).resolve().parent / "results" / "data_cleaning_re
 
 EXPECTED_COLUMNS = [
     "record_id", "agent_id", "timestamp", "customer_id", "activation_status", "client_id", "category",
+    "quality_score", "commission_kes",
 ]
 REQUIRED_COLUMNS = ["agent_id", "timestamp", "customer_id"]
 VALID_STATUSES = {"completed", "pending", "failed"}

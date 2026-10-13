@@ -44,8 +44,38 @@ def test_invalid_parameters_raise(n_agents, fraud_rate):
 
 
 def test_agents_file_carries_no_labels(dataset):
-    assert list(dataset.agents.columns) == ["agent_id", "registration_timestamp", "region"]
+    assert list(dataset.agents.columns) == ["agent_id", "registration_timestamp", "region", "account_status"]
     assert set(dataset.labels.columns) == {"agent_id", "is_fraud", "profile", "ring_id"}
+    for frame in [dataset.identity, dataset.agent_categories, dataset.activations, dataset.clients]:
+        assert not {"is_fraud", "profile", "ring_id"} & set(frame.columns)
+
+
+def test_new_files_and_columns(dataset):
+    assert list(dataset.identity.columns) == ["agent_id", "full_name", "phone_number", "national_id_number"]
+    assert list(dataset.agent_categories.columns) == ["agent_id", "category", "certification_status", "certified_at"]
+    assert list(dataset.clients.columns) == ["client_id", "name", "category", "commission_per_activation_kes"]
+    assert list(dataset.activations.columns[-2:]) == ["quality_score", "commission_kes"]
+    assert set(dataset.agents["account_status"]) == {"active", "suspended"}
+    assert (dataset.agents["account_status"] == "suspended").sum() == 60
+    assert set(dataset.agent_categories["certification_status"]) == {"certified", "expired"}
+
+
+def test_context_fields_do_not_change_behaviour(dataset):
+    dg.seed_everything(42)
+    agents_df = dg.generate_agents(870, 130)
+    profiles, rings = dg.assign_profiles(agents_df)
+    behaviour = dg.generate_activation_records(agents_df, profiles, rings)
+    assert behaviour.equals(dataset.activations[behaviour.columns])
+
+
+def test_quality_and_commission_follow_status(dataset):
+    acts = dataset.activations
+    by_status = acts.groupby("activation_status")["quality_score"].mean()
+    assert 10 < by_status["completed"] - by_status["failed"] < 20
+    assert 75 < acts["quality_score"].mean() < 85
+    completed = acts["activation_status"] == "completed"
+    assert (acts.loc[~completed, "commission_kes"] == 0).all()
+    assert acts.loc[completed, "commission_kes"].between(40, 400).all()
 
 
 def test_agent_ids_are_unique_and_not_ordered_by_label(dataset):
@@ -214,7 +244,10 @@ def test_timestamps_fall_in_the_observation_window(dataset):
     assert ts.min() >= dg.ANALYSIS_START and ts.max() < dg.ANALYSIS_END + pd.Timedelta(days=1)
 
 
-ACCEPTED_ZERO_OVERLAP = {("collusion_score", "ring"), ("customer_similarity", "sequential"), ("night_share", "sequential")}
+# Change #5: under R2 an honest agent repeats its own (customer, client) pair only as a retry,
+# so duplicate fraud's resubmission share is outside the honest range by definition.
+ACCEPTED_ZERO_OVERLAP = {("collusion_score", "ring"), ("customer_similarity", "sequential"), ("night_share", "sequential"),
+                         ("repeat_share", "duplicate")}
 
 
 @pytest.fixture(scope="module")
