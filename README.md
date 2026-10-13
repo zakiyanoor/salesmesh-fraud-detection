@@ -91,14 +91,23 @@ Step 11 (`final_evaluation.py`) has already been run and refuses to run again. D
 
 ## Architecture
 
-- **Data:** PostgreSQL (agents, activation records, feature vectors, fraud flags, review decisions, administrators).
-- **Backend:** Flask REST API, session-based auth, SQLAlchemy ORM. The backend's `FraudDetector` loads a saved model and scores agents; detection cycles are scheduled with APScheduler. **The backend still serves the v2 Isolation Forest (`ml/models/isolation_forest_v2.joblib`) and the v2 features.** Moving it to `lof_v3_4f`, the v3 features and the new data is backend-sprint work (`ml/results/CHANGES.md`, change 5).
-- **Frontend:** React and MUI dashboard.
+- **Data:** PostgreSQL.
+  - The v3 data: agents, agent_identity (fictional, masked in the API), agent_categories, clients and activation records.
+  - Detection results: agent_scores, duplicate_evidence, detection_runs, and feature_vectors / fraud_flags for the review workflow.
+  - Review decisions, the admin audit log and administrators.
+- **Backend:** Flask REST API with session-based auth, roles and an audit log; SQLAlchemy ORM.
+  - **Detection uses the frozen v3 model `lof_v3_4f`:** the scoring bundle from `ml/runs/20261013-100433_explain`, checked against `ml/results/FREEZE.md`, at the validation cutoff of 1.445.
+  - The feature code is imported from `ml/`, not copied, and backend scores match the ML pipeline within 1e-9.
+  - The duplicate activation rule runs beside the model; each agent gets a `flag_source` of ML, Rule, Both or None.
+  - The APScheduler job runs on a configurable interval and reports its status.
+  - Endpoints: `docs/API.md`; changes: `backend/CHANGES.md`.
+- **Frontend:** React and MUI dashboard. Its risk tiers still assume 0 to 1 scores; see `backend/CHANGES.md`.
 
 ## Repository layout
 
 - `ml/`: synthetic data, the ML pipeline, results (`ml/results/`) and run folders (`ml/runs/`); docs `ml/README.md`, `ml/DATA_CARD.md`, `ml/MODEL_CARD.md`
-- `backend/`: Flask API, auth, database layer and the live detection pipeline (`src/pipeline.py`, `src/detector.py`)
+- `backend/`: Flask API (`src/api.py`), auth, database layer (`src/db.py`, `src/migrate.py`, `src/load_data.py`), detection (`src/scoring_service.py`, `src/ml_bridge.py`, `src/pipeline.py`) and the scheduler (`src/scheduler.py`)
+- `docs/`: API reference (`docs/API.md`)
 - `frontend/`: React dashboard
 
 ## Backend setup
@@ -112,10 +121,14 @@ cd backend
 pip install -r requirements.txt
 ```
 
-Create `backend/.env` with `DB_PASSWORD` and `FLASK_SECRET_KEY`. Then, from `backend/`:
+Create `backend/.env` with `DB_PASSWORD` and `FLASK_SECRET_KEY`. Optional: `DB_NAME` (default `salesmesh_fraud_detection`), `DB_USER`, `DB_HOST`, `DB_PORT`, `DETECTION_INTERVAL_MINUTES` (default 1440) and `DETECTION_RUN_ON_START` (default true). Then, from `backend/`:
 
 ```bash
-pytest                     # run tests
-python -m src.load_data    # load the CSVs from ml/data/synthetic/ into PostgreSQL
-python -m src.pipeline     # run the detection pipeline
+python -m src.migrate      # create the database, tables and columns if missing (safe to repeat)
+python -m src.load_data    # reload the five v3 files from ml/data/synthetic (hash and count checked; never labels.csv)
+python -m src.auth         # demo accounts (demo and test only)
+python -m src.pipeline     # one detection run with the frozen lof_v3_4f model
+python -m src.scheduler    # detection now and then every DETECTION_INTERVAL_MINUTES
+python -m src.api          # the API on port 5000
+pytest                     # tests, on the separate salesmesh_fraud_detection_test database
 ```

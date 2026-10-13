@@ -201,9 +201,17 @@ def test_audit_log_records_login_and_logout(client) -> None:
 
 
 def test_failed_login_is_not_recorded_as_login(client) -> None:
-    client.post("/api/login", json={"username": ANALYST["username"], "password": "wrong-password"})
+    # Compares the analyst's entries before and after the failed attempt, so
+    # entries left by earlier runs or other tests cannot make it fail.
     login(client, COMPLIANCE)
-    assert _audit_entries(client, ANALYST["admin_id"]) == []
+    before = {e["log_id"] for e in _audit_entries(client, ANALYST["admin_id"])}
+    client.post("/api/logout")
+
+    response = client.post("/api/login", json={"username": ANALYST["username"], "password": "wrong-password"})
+    assert response.status_code == 401
+    login(client, COMPLIANCE)
+    after = [e for e in _audit_entries(client, ANALYST["admin_id"]) if e["log_id"] not in before]
+    assert after == []
 
 
 def test_audit_log_records_decision_actions_with_target_agent(client) -> None:
