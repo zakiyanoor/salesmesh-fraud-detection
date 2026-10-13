@@ -566,6 +566,86 @@ Recall by pattern at 5:1: ring 1.00, weak_ring 0.75, sequential 1.00, duplicate 
 
 **Freeze:** `ml/results/FREEZE.md` is the new model freeze; the datagen note it replaces is kept as `results/FREEZE_data_change5.md`.
 
+## Records, reason text fix, Step 12a, reference table and retrain (2026-10-13, validation only)
+
+**Author decisions:** `lof_v3_4f` accepted as the rule selected it, and the selection rule is not changed; the behaviour-only S4 is kept and the 4,900-name limit documented, with the generator untouched; EDA after the split, without test agents, confirmed.
+
+**Records of the rerun (Part 1)**
+1. **Tie order.** The amended rule does not say how to order a LOF against an Isolation Forest in a tie. The code reads a LOF's missing trees and `max_samples` as 0, so it sorts as simplest. The chosen `lof_v3_4f` is also the top mean PR AUC (0.813); the alternative would have been Isolation Forest, 100 trees, `max_samples` 64, `max_features` 0.8 (0.804). Recorded in the new `results/selection_notes.md` (`selection_rule.md` and its hash unchanged) and documented by `test_amended_rule_tie_order_puts_lof_first`.
+2. **EDA and test labels.** The v3a EDA read the labels of test agents, for descriptive tables and plots only; no modelling decision used it. It now runs after the split, on training and validation agents only (850), through `labels_guard.load_labels`.
+3. **Q1 and Q2 reference.** It was hard coded to the v3a value (0.541). It now reads the Step 7 best single-feature validation PR AUC (0.574 on this data), as the criterion defines it.
+4. **`feature_analysis.py`** had a broken string (a line break inside it); the `\n` was restored, with no logic change.
+5. **S4** times the generation of agents and activations only, because the fictional name lists allow 70 x 70 = 4,900 unique full names, and `generate_dataset` refuses more agents. The generator is not changed (author decision).
+6. **`duplicate_activation_rule`** is a reported baseline only. Its precision of 1.000 depends on the generator making R1 and R2 absolute for honest agents, so it is a reference ceiling, not real-world evidence.
+
+**Reason text fix (Part 2).** A feature now appears in the reason only if its robust deviation |d| >= 1 **and** |value − training median| >= 10% of its training P5 to P95 range; this now applies to the first feature too, which was previously always shown. If no feature passes, the reason reads "no single feature far from typical; flagged on the combination of features". `reference_stats` now also stores P5 and P95.
+- New explain run `20261013-094740_explain` (the bundle with the new reference statistics; new `validation_scores.csv`) and system checks `20261013-094743_system_checks_s101` (all PASS). `FREEZE.md` rewritten; `test_freeze.py` passes. Run `20261013-093225_explain` is superseded and kept.
+- Scores, flags and `top_features` are identical (largest score difference 0.0).
+- **For the 20 flagged validation agents no reason changed:** each shown feature already passed both conditions. Applied to all 150 validation agents as if flagged, 61 reasons change, all to the combination sentence, for example "customer IDs look alike: similarity 0.104 vs typical 0.102" for A13905. Those lines come from the first feature, which used to be shown regardless of size.
+- For `customer_similarity`, 10% of the training P5 to P95 range (0.0014) is smaller than one IQR (0.0026), so on this data the IQR condition is the binding one for that feature.
+- Tests: `test_reason_display_rule_needs_iqr_and_range_size`, `test_reference_stats_include_p5_and_p95`.
+
+**Step 12a: 5-fold cross-validation (run `20261013-095040_cross_validation_s42`; informational, did not change the selection).** 850 training and validation agents (111 fraud); folds stratified by pattern, seed 42; scaler and model fitted inside each fold on its training part only; no tuning.
+
+| Method | PR AUC folds 1 to 5 | PR AUC mean (SD) | ROC AUC mean (SD) |
+|---|---|---|---|
+| `lof_v3_4f` (chosen) | 0.841, 0.846, 0.848, 0.802, 0.883 | 0.844 (0.029) | 0.937 (0.015) |
+| Isolation Forest 100 / 64 / 0.8 (sensitivity) | 0.825, 0.828, 0.825, 0.868, 0.894 | 0.848 (0.032) | 0.942 (0.018) |
+| Random (mean of 20 seeds) | 0.148, 0.164, 0.156, 0.141, 0.144 | 0.151 (0.009) | 0.493 (0.018) |
+| Volume rule (fold-train P90) | 0.384, 0.406, 0.378, 0.441, 0.368 | 0.395 (0.029) | 0.743 (0.054) |
+| Best single feature (`collusion_score`) | 0.563, 0.536, 0.557, 0.557, 0.540 | 0.550 (0.012) | 0.720 (0.028) |
+| `duplicate_activation_rule` | 0.842, 0.881, 0.763, 0.763, 0.774 | 0.805 (0.054) | 0.888 (0.031) |
+
+Pooled out-of-fold recall by pattern (models and the single feature at the 15% budget; the rules at their own flags):
+
+| Method | ring | weak_ring | sequential | duplicate | weak | honest flag rate |
+|---|---|---|---|---|---|---|
+| `lof_v3_4f` | 1.00 | 0.67 | 1.00 | 0.94 | 0.09 | 0.06 |
+| Isolation Forest | 1.00 | 0.67 | 1.00 | 0.94 | 0.09 | 0.06 |
+| Volume rule | 0.29 | 0.00 | 0.72 | 0.56 | 0.14 | 0.07 |
+| `collusion_score` | 1.00 | 0.94 | 0.00 | 0.06 | 0.05 | 0.10 |
+| `duplicate_activation_rule` | 1.00 | 0.61 | 0.00 | 1.00 | 1.00 | 0.00 |
+
+The LOF and the Isolation Forest are indistinguishable (difference 0.004, against an SD of about 0.03).
+
+**Reference table (run `20261013-095059_union_reference`; reported only, not a selection candidate, not used for any decision)**, validation:
+
+| Method | Flagged | Precision | Recall | ring (6) | weak_ring (4) | sequential (3) | duplicate (3) | weak (4) |
+|---|---|---|---|---|---|---|---|---|
+| `lof_v3_4f` (cutoff 1.445) | 20 | 0.75 | 0.75 | 1.00 | 0.75 | 1.00 | 1.00 | 0.00 |
+| `duplicate_activation_rule` | 17 | 1.00 | 0.85 | 1.00 | 1.00 | 0.00 | 1.00 | 1.00 |
+| Union (either flags) | 25 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+**Step 13a: retrain command.** `retrain.py` refits the scaler and the model on unlabelled agent features, recomputes the explanation reference, and sets the cutoff as the score quantile for the validated alert rate (13.3%, read from the selection run's operating points). It reads no label. Run `20261013-095135_retrain_s42` on the 850 training and validation agents: cutoff 1.476, 113 flagged (13.3%), `model_version` `lof_v3_4f_r20261013-095135`. This run is a demonstration; it does not replace the frozen model. Tests: `tests/test_retrain.py` (3).
+
+**Docs:** new `ml/README.md`; `MODEL_CARD.md` rewritten for `lof_v3_4f` (the v3a draft is kept as `results/archive_v3a/MODEL_CARD_v3a_draft.md`).
+
+**New modules** (`cross_validation.py`, `union_reference.py`, `retrain.py`) are added to the labels-guard source scan in `test_labels_guard.py`.
+
+## Reason wording, reproduce command, model card and pre-declaration (2026-10-13, validation only)
+
+**Author decisions:** keep the display rule as it is; keep `lof_v3_4f`; Step 12 robustness runs inside the Step 11 task; add the reproduce command.
+
+**Reason wording.** The display conditions are unchanged. Each shown feature line now ends with its standing among training agents. Values at or above the training median read "(higher than P percent of training agents)", P being the share of training agents strictly below. Values below it read "(lower than P percent of training agents)", P being the share strictly above. P is rounded down. The reference statistics now store each feature's sorted training values; no label is used.
+- New explain run `20261013-100433_explain` and system checks `20261013-100436_system_checks_s101` (all PASS). Runs `20261013-094740_explain` and `20261013-094743_system_checks_s101` are superseded and kept.
+- Scores, flags, `top_features` and the threshold are identical (largest score difference 0.0).
+
+| Agent | Before | After |
+|---|---|---|
+| A23473 | 10% of customers also used by other agents vs typical 0%; customer IDs look alike: similarity 0.111 vs typical 0.102 | 10% of customers also used by other agents vs typical 0% (higher than 95 percent of training agents); customer IDs look alike: similarity 0.111 vs typical 0.102 (higher than 93 percent of training agents) |
+| A97580 | busiest 24 hours: 7 submissions vs typical 14 | busiest 24 hours: 7 submissions vs typical 14 (lower than 98 percent of training agents) |
+| A86099 | customer IDs look alike: similarity 0.108 vs typical 0.102; busiest 24 hours: 23 submissions vs typical 14 | customer IDs look alike: similarity 0.108 vs typical 0.102 (higher than 91 percent of training agents); busiest 24 hours: 23 submissions vs typical 14 (higher than 86 percent of training agents) |
+
+Test: `test_reason_adds_training_percentile`.
+
+**Reproduce command.** `run_pipeline.py` runs Steps 1 to 10 in order (generate, clean, split, EDA without test agents, features, feature checks, preprocessing, baselines, default models, selection, learning curve, explanations, system checks); each step writes its run folder. Options: `--seed` (generation only), `--skip-generation`, `--dry-run`. It never reads test labels and does not run Step 11 or the freeze. Only its dry run was executed; the full pipeline was not re-run by it. `ml/README.md` now uses it. Tests: `tests/test_run_pipeline.py` (3); `run_pipeline.py` is added to the labels-guard source scan.
+
+**MODEL_CARD.md:** new sections "Scope", "Fit to SRS" (S1 to S4, SRS 3.6, 7.5 and 8.2) and "Class imbalance handling"; Limitations now state that `duplicate_activation_rule` is a reference ceiling, not a real-world estimate, and that weak fraud is missed by the model.
+
+**Pre-declared secondary analysis** (in `results/selection_notes.md`; `selection_rule.md` unchanged): Step 11 reports `lof_v3_4f` alone as the primary result, and the union of its flags with `duplicate_activation_rule` flags as a secondary analysis. The union is not a candidate for selection. `selection_notes.md` is now hashed in `FREEZE.md`, so the declaration cannot change unnoticed.
+
+**Freeze:** `FREEZE.md` rewritten (16 hashes; the new bundle and scaler, and `selection_notes.md` added). `test_freeze.py` passes. ML tests: 171 passed, 0 skipped, 0 failed.
+
 ## Model results
 
 Step 11 (test) has not been run. This section will be filled in after Step 11, with old and new numbers side by side, and it will state whether the model choice changed.

@@ -21,8 +21,8 @@ ML = Path(__file__).resolve().parent
 DATA_RUN = "20261013-091128_datagen_s42"
 SPLIT_RUN = "20261013-092952_split_s42"
 SELECTION_RUN = "20261013-093050_selection_s42"
-EXPLAIN_RUN = "20261013-093225_explain"
-SYSTEM_CHECKS_RUN = "20261013-093332_system_checks_s101"
+EXPLAIN_RUN = "20261013-100433_explain"
+SYSTEM_CHECKS_RUN = "20261013-100436_system_checks_s101"
 FREEZE_PATH = ML / "results" / "FREEZE.md"
 
 FILES = [
@@ -41,6 +41,7 @@ FILES = [
     ("Scoring bundle (model, scaler, cutoff, explanation reference)", f"runs/{EXPLAIN_RUN}/scoring_bundle.joblib"),
     ("Rules", "results/acceptance_criteria.md"),
     ("Rules", "results/selection_rule.md"),
+    ("Rules (tie order note; pre-declared Step 11 secondary analysis)", "results/selection_notes.md"),
 ]
 
 

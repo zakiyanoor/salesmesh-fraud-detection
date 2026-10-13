@@ -155,6 +155,24 @@ Evidence for Steps 1 to 10 above refers to v3a runs, now archived in `ml/results
 - [x] All ML tests pass, none skipped. Evidence: 156 passed.
 - [ ] `acceptance_criteria.md` agreed with the supervisor (still a draft).
 
+## Records, reason fix, Step 12a, reference table, Step 13a (2026-10-13)
+
+- [x] `results/selection_notes.md` (LOF and Isolation Forest tie order) and its test. Evidence: `test_amended_rule_tie_order_puts_lof_first`; `selection_rule.md` hash unchanged.
+- [x] CHANGES.md records: EDA test labels, Q1/Q2 reference, `feature_analysis.py` string, S4 name limit, duplicate rule as a reference ceiling. Evidence: CHANGES.md, "Records, reason text fix...".
+- [x] Reason display rule (|d| >= 1 and at least 10% of the training P5 to P95 range). Evidence: `explain.shown_in_reason`; run `20261013-094740_explain`; `test_reason_display_rule_needs_iqr_and_range_size`; `FREEZE.md` rewritten, `test_freeze.py` passing.
+- [x] Reference table: model, duplicate rule and union by pattern (reported only). Evidence: run `20261013-095059_union_reference`.
+- [x] `ml/README.md` (reproduce, score, retrain) and `MODEL_CARD.md` for `lof_v3_4f`. Evidence: those files; the v3a draft is kept in `results/archive_v3a/MODEL_CARD_v3a_draft.md`.
+- [x] ML tests. Evidence: 165 passed, 0 skipped, 0 failed.
+
+## Reason wording, reproduce command, model card, pre-declaration (2026-10-13)
+
+- [x] Reason lines show the training percentile; display conditions unchanged; scores, flags and `top_features` identical. Evidence: run `20261013-100433_explain`; `test_reason_adds_training_percentile`.
+- [x] Reproduce command `run_pipeline.py`. Evidence: dry run lists 13 steps in order; `test_dry_run_lists_the_steps_in_order`.
+- [x] MODEL_CARD.md sections Fit to SRS, Scope, Class imbalance handling; Limitations updated. Evidence: MODEL_CARD.md.
+- [x] Union of `lof_v3_4f` and `duplicate_activation_rule` pre-declared as a Step 11 secondary analysis, not a selection candidate. Evidence: `results/selection_notes.md`, hashed in `FREEZE.md`.
+- [x] Freeze rewritten and all ML tests pass. Evidence: `FREEZE.md` (16 hashes); 171 passed, 0 skipped.
+- [ ] Step 12 robustness (seeds 1 to 10): moved into the Step 11 task (author decision).
+
 ## Step 11: final test (test set read once)
 
 - [ ] Precision, recall, F1, ROC AUC and PR AUC.
@@ -171,22 +189,22 @@ Evidence for Steps 1 to 10 above refers to v3a runs, now archived in `ml/results
 ## Step 12: robustness
 
 - [ ] Seeds 1 to 10.
-- [ ] 5-fold stratified cross-validation at agent level.
-- [ ] Mean and spread reported.
+- [x] 5-fold stratified cross-validation at agent level (Step 12a; training and validation agents only, test excluded). Evidence: `cross_validation.py`, run `20261013-095040_cross_validation_s42`; `lof_v3_4f` PR AUC 0.844 (SD 0.029).
+- [x] Mean and spread reported (for the 5-fold CV; seeds 1 to 10 still open). Evidence: `cv_summary.csv`, `cv_pattern_recall.csv`; CHANGES.md.
 
 ## Step 13: artifacts and docs
 
-- [ ] Model and scaler saved with joblib.
-- [ ] A retrain command that writes a new versioned model, with `model_version` stored on every flag (periodic retraining).
+- [x] Model and scaler saved with joblib. Evidence: `runs/20261013-093050_selection_s42/chosen_model.joblib`, `runs/20261013-094740_explain/scoring_bundle.joblib` and `scaler.joblib`; hashes in `FREEZE.md`.
+- [x] A retrain command that writes a new versioned model, with `model_version` stored on every flag (periodic retraining). Evidence: `retrain.py` (cutoff from the validated alert rate, no labels); run `20261013-095135_retrain_s42`; `tests/test_retrain.py`.
 - [ ] pytest tests for each module.
 - [ ] `MODEL_CARD.md`, covering:
-  - [ ] no labels used in training;
-  - [ ] scores not calibrated;
-  - [ ] results on synthetic data alone cannot prove real-world performance;
-  - [ ] a section "Fit to SRS";
-  - [ ] a section "Scope";
-  - [ ] a section "Class imbalance handling": stratified agent-level split, PR AUC and F1 instead of accuracy, no oversampling or augmentation, and why.
-- [ ] README with one command to reproduce everything.
+  - [x] no labels used in training; Evidence: MODEL_CARD.md, "Model".
+  - [x] scores not calibrated; Evidence: MODEL_CARD.md, "Model" and "Limitations".
+  - [x] results on synthetic data alone cannot prove real-world performance; Evidence: MODEL_CARD.md, "Limitations".
+  - [x] a section "Fit to SRS"; Evidence: MODEL_CARD.md.
+  - [x] a section "Scope"; Evidence: MODEL_CARD.md.
+  - [x] a section "Class imbalance handling": stratified agent-level split, PR AUC and F1 instead of accuracy, no oversampling or augmentation, and why. Evidence: MODEL_CARD.md.
+- [x] README with one command to reproduce everything. Evidence: `python run_pipeline.py` (Steps 1 to 10; `--seed`, `--skip-generation`, `--dry-run`) in `ml/README.md`; `tests/test_run_pipeline.py`.
 - [ ] `CHANGES.md`.
 - [ ] `DATA_CARD.md`.
 - [ ] `run_info.json` with Python, OS, CPU, RAM and git commit hash (read-only `git rev-parse HEAD`). (Implemented in `ml/run_utils.py`; to be confirmed for the final runs.)
@@ -200,7 +218,7 @@ Evidence for Steps 1 to 10 above refers to v3a runs, now archived in `ml/results
 
 ## Disclosures for the documentation
 
-- [ ] SMOTE from Chapter 3 was not used: it needs labels, and the models are unsupervised.
+- [x] SMOTE from Chapter 3 was not used: it needs labels, and the models are unsupervised. Evidence: MODEL_CARD.md, "Class imbalance handling".
 - [ ] All data is synthetic, not SalesMesh data.
 - [ ] The features differ from Chapter 3.
 - [ ] The generator was changed after seeing labels.
