@@ -135,6 +135,24 @@ def round_or_none(value, digits: int = 3):
 MASK_VISIBLE = 3
 SCORE_EDGES = (1.1, 1.3, 2.0)
 MAX_PAGE = 1000
+REVIEW_SCORE = 1.3
+RISK_BANDS = ("high", "review", "low")
+
+
+def risk_band(flag_source, anomaly_score, threshold):
+    """
+    high: the model flagged the agent (flag_source ML or Both).
+    review: the rule alone flagged it (Rule), or its score is at or above
+            REVIEW_SCORE but below the cutoff.
+    low: everything else. None when the agent has not been scored.
+    """
+    if flag_source is None:
+        return None
+    if flag_source in ("ML", "Both"):
+        return "high"
+    if flag_source == "Rule" or REVIEW_SCORE <= anomaly_score < threshold:
+        return "review"
+    return "low"
 
 
 def mask_tail(value, visible: int = MASK_VISIBLE):
@@ -192,6 +210,7 @@ def score_payload(score):
         "rule_flagged": score.rule_flagged,
         "duplicate_pairs": score.duplicate_pairs,
         "flag_source": score.flag_source,
+        "risk_band": risk_band(score.flag_source, score.anomaly_score, score.threshold),
         "top_features": score.top_features.split(";") if score.top_features else [],
         "reasons": score.reasons,
         "scored_at": score.created_at.isoformat(),
@@ -273,6 +292,7 @@ def get_flagged_agents():
                 "flag_status": flag.flag_status,
                 "model_version": flag.model_version,
                 "flag_source": score.flag_source if score else None,
+                "risk_band": risk_band(score.flag_source, score.anomaly_score, score.threshold) if score else None,
                 "threshold": round_or_none(score.threshold, 6) if score else None,
             })
 
@@ -312,6 +332,7 @@ def get_all_agents():
                 "status": "flagged" if flag and flag.flag_status == "flagged" else "clear",
                 "suspicion_score": round_or_none(flag.suspicion_score) if flag else None,
                 "flag_source": score.flag_source if score else None,
+                "risk_band": risk_band(score.flag_source, score.anomaly_score, score.threshold) if score else None,
                 "submission_frequency": vector.submission_frequency if vector else None,
                 "time_of_day_dist": round_or_none(vector.time_of_day_dist) if vector else None,
                 "customer_similarity": round_or_none(vector.customer_similarity) if vector else None,
@@ -375,6 +396,7 @@ def get_agent_detail(agent_id):
             "agent_id": agent.agent_id,
             "region": agent.region,
             "account_status": agent.account_status,
+            "risk_band": risk_band(score.flag_source, score.anomaly_score, score.threshold) if score else None,
             # Fictional identity; phone and national ID masked (last 3 digits only).
             "identity": identity_payload(identity),
             "certifications": [{
