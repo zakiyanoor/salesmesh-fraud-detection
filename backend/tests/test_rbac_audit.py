@@ -33,8 +33,7 @@ def _any_flag():
 
 
 def _audit_entries(client, admin_id):
-    entries = client.get("/api/audit-log").get_json()["entries"]
-    return [e for e in entries if e["admin_id"] == admin_id]
+    return client.get(f"/api/audit-log?actor={admin_id}&limit=1000").get_json()["entries"]
 
 
 def _propose(client, flag_id):

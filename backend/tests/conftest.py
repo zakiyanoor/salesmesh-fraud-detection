@@ -54,15 +54,15 @@ def known_agent_id(database):
 
 
 def _delete_rows_created_since(started) -> None:
-    """Removes audit entries and review decisions the test accounts created during a test."""
-    from src.db import AdminActionLog, ReviewDecision, get_session
+    """
+    Removes review decisions the test accounts created during a test. Audit
+    entries stay: the audit log is append only (a database trigger refuses
+    deletes), so tests compare entries before and after instead.
+    """
+    from src.db import ReviewDecision, get_session
 
     db_session = get_session()
     try:
-        db_session.query(AdminActionLog).filter(
-            AdminActionLog.admin_id.in_(TEST_ADMIN_IDS),
-            AdminActionLog.timestamp >= started,
-        ).delete(synchronize_session=False)
         db_session.query(ReviewDecision).filter(
             ReviewDecision.reviewer_id.in_(TEST_ADMIN_IDS),
             ReviewDecision.decision_timestamp >= started,
