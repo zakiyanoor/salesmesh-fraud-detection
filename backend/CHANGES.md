@@ -102,5 +102,8 @@ Elsewhere: `ml/models/isolation_forest_v2.joblib` (v2 model, no longer used). Th
 ### Known follow-ups
 
 - **Frontend:** `Dashboard.jsx` colours risk with fixed tiers (0.8 high, 0.5 medium) made for the old 0 to 1 scores. With LOF scores nearly every agent shows as high risk. It should use `threshold` and `flag_source` from the API instead.
-- **Line endings:** the repository uses `core.autocrlf=true`. On checkout, git rewrote three frozen ML files (`ml/results/acceptance_criteria.md`, `selection_rule.md`, `selection_notes.md`) with CRLF, so 4 ML freeze tests fail on this machine although the content is unchanged. A `.gitattributes` rule (for example `ml/results/*.md -text`) followed by a fresh checkout of those files would fix it; it was not applied, because `ml/` was out of scope.
+- **Line endings (fixed in commit `e31f5eb`):** with `core.autocrlf=true`, checkout had rewritten three frozen ML markdown files with CRLF, so 4 ML freeze tests failed.
+  - The root `.gitattributes` now pins each hashed file to the line ending it was frozen with: LF for `FREEZE.md`, `acceptance_criteria.md`, `selection_rule.md` and `selection_notes.md`; CRLF for the hashed data files (the CSVs, `operating_point.json` and `data_generation.py`).
+  - Binary files (`*.joblib`, `*.png`) are never converted.
+  - No stored content changed. All 17 frozen hashes match `FREEZE.md`, and all 185 ML tests pass.
 - **Audit:** reading identity is not written to the audit log; consider it if identity becomes viewable beyond the masked form.
