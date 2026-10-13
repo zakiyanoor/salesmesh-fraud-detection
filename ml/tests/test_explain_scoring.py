@@ -74,6 +74,39 @@ def test_reason_skips_features_that_are_not_unusual():
     assert explain.reasons(reference, COLUMNS, row)[0].count(";") == 0
 
 
+def test_reason_display_rule_needs_iqr_and_range_size():
+    # tiny IQR: 0.002 above the median is 2 IQRs but only 2% of the P5-P95 range (0.1), so it is not shown
+    reference = {"customer_similarity": {"median": 0.102, "iqr": 0.001, "p5": 0.098, "p95": 0.198},
+                 "collusion_score": {"median": 0.0, "iqr": 0.01, "p5": 0.0, "p95": 0.5}}
+    columns = ["customer_similarity", "collusion_score"]
+    small = pd.DataFrame({"customer_similarity": [0.104], "collusion_score": [0.30]})
+    assert explain.reasons(reference, columns, small) == ["30% of customers also used by other agents vs typical 0%"]
+    large = pd.DataFrame({"customer_similarity": [0.120], "collusion_score": [0.30]})
+    assert explain.reasons(reference, columns, large)[0].count(";") == 1
+    neither = pd.DataFrame({"customer_similarity": [0.1025], "collusion_score": [0.004]})
+    assert explain.reasons(reference, columns, neither) == [explain.COMBINATION_REASON]
+    assert explain.shown_in_reason(reference["collusion_score"], 0.05, 5.0)
+    assert not explain.shown_in_reason(reference["collusion_score"], 0.04, 4.0)
+
+
+def test_reason_adds_training_percentile():
+    stats = explain.reference_stats(pd.DataFrame({"x": np.arange(100.0)}), ["x"])["x"]
+    assert explain.percentile_phrase(stats, 98.5) == " (higher than 99 percent of training agents)"
+    assert explain.percentile_phrase(stats, 2.0) == " (lower than 97 percent of training agents)"
+    assert explain.percentile_phrase({"median": 0.0}, 1.0) == ""
+    reference = {"collusion_score": {**explain.reference_stats(
+        pd.DataFrame({"collusion_score": np.linspace(0, 0.5, 101)}), ["collusion_score"])["collusion_score"],
+        "median": 0.0, "iqr": 0.01}}
+    row = pd.DataFrame({"collusion_score": [0.30]})
+    assert explain.reasons(reference, ["collusion_score"], row) == [
+        "30% of customers also used by other agents vs typical 0% (higher than 59 percent of training agents)"]
+
+
+def test_reference_stats_include_p5_and_p95():
+    stats = explain.reference_stats(pd.DataFrame({"x": np.arange(101.0)}), ["x"])["x"]
+    assert stats["p5"] == 5.0 and stats["p95"] == 95.0
+
+
 def test_output_schema_top_features_on_every_row_reason_only_when_flagged():
     bundle = bundle_for("isolation_forest", threshold=0.6)
     out = scoring.score_agents(bundle, pd.concat([features(30, seed=3), ring_like_agent()]))

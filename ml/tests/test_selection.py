@@ -91,6 +91,20 @@ def amended_row(name, n_features, mean, trees, samples, ms, low=0.5, high=0.95):
             "score_ms_per_agent": ms}
 
 
+def test_amended_rule_tie_order_puts_lof_first():
+    """Documents results/selection_notes.md: a LOF has no trees or max_samples, which choose() reads as 0."""
+    grid = pd.DataFrame([
+        amended_row("isolation_forest", 4, 0.804, 100, 64, 0.04),
+        amended_row("lof", 4, 0.813, "", "", 0.02),
+        amended_row("lof_five", 5, 0.812, "", "", 0.01),
+    ])
+    chosen, ties, _ = selection.choose(grid)
+    assert len(ties) == 3
+    assert chosen["model"] == "lof"
+    without_lof = grid[grid["model"] == "isolation_forest"]
+    assert selection.choose(without_lof)[0]["model"] == "isolation_forest"
+
+
 def test_amended_rule_ignores_ci_overlap():
     grid = pd.DataFrame([amended_row("a", 4, 0.80, 500, 64, 0.2), amended_row("b", 4, 0.70, 100, 64, 0.1)])
     chosen, ties, _ = selection.choose(grid)

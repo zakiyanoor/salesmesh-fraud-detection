@@ -1,0 +1,8 @@
+{
+  "model_version": "lof_v3_4f_r20261013-095135",
+  "agents": 850,
+  "cutoff": 1.4764131262113664,
+  "alert_rate_target": 0.1333333333333333,
+  "flagged": 113,
+  "alert_rate_achieved": 0.13294117647058823
+}
