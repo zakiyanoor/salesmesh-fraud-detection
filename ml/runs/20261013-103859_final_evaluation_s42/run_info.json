@@ -1,0 +1,42 @@
+{
+  "run_id": "20261013-103859_final_evaluation_s42",
+  "kind": "final_evaluation",
+  "timestamp": "2026-10-13T10:38:59",
+  "seed": 42,
+  "parameters": {
+    "model_bundle": "C:\\Users\\User\\salesmesh-fraud-detection\\ml\\runs\\20261013-100433_explain\\scoring_bundle.joblib",
+    "selection_run": "20261013-093050_selection_s42",
+    "explain_run": "20261013-100433_explain",
+    "bootstrap_resamples": 1000,
+    "bootstrap_seed": 42,
+    "best_single_feature": "collusion_score",
+    "ring_min_shared_customers": 3,
+    "secondary_analysis": "union of model and duplicate rule flags (pre-declared)"
+  },
+  "data_files": {
+    "feature_vectors.csv": "7d7afa399d0f56c2d0961ed731bb39c8426a958914c92df3e8565263ef40714d",
+    "split.csv": "d58aef9124317b8228c8db816bc694729132333fbb7a6df73efa5684c17ffc10",
+    "labels.csv": "102db7224eaecf0cad54aaf721e7e94a18ba580ea383ec0db1b52e33b491b34c",
+    "activation_records_clean.csv": "efcc0131a21c75718f79802a721aca845f95aba04b1790f38225bf00713bf0aa",
+    "agents.csv": "f10364e58a046a9df0cb878aae0a37c1a43e0fbfde05ca176de90d1704a94b0e",
+    "scoring_bundle.joblib": "5cdd9d277c68a464b36ea7934d45276207f39ca03c95226cd6441919e695d67f"
+  },
+  "system": {
+    "python": "3.14.0",
+    "os": "Windows-11-10.0.26200-SP0",
+    "cpu": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+    "cpu_count": 12,
+    "ram_gb": 15.7,
+    "git_commit": "19917bc5d3d15670559f6ab0bdd862d0bd1c731d"
+  },
+  "library_versions": {
+    "python": "3.14.0",
+    "numpy": "2.5.2",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.0",
+    "faker": "40.37.0",
+    "matplotlib": "3.11.1",
+    "joblib": "1.6.0",
+    "shap": null
+  }
+}

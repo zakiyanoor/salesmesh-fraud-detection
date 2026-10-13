@@ -1,0 +1,1 @@
+Figure: precision-recall curves on the 150 test agents (19 fraud) for the frozen model lof_v3_4f and the frozen baselines. The dashed line is a random score. Higher and further right is better.

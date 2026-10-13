@@ -6,12 +6,12 @@ The v2 results and data are archived unchanged in `ml/results/archive_v2/` and `
 
 ## Known issues carried into v3
 
-1. **The generator was changed four times after reviews that saw labels**, all before any model was run. The changes are listed in order in DATA_CARD.md, "Label-aware changes":
+1. **The generator was changed after reviews that saw labels: four label-aware changes, all before any model was run, plus the integrity fix (change 5).** They are listed in order in DATA_CARD.md:
    - v2: the repeat-customer share was widened;
    - v3 Step 1: customer ids were widened to 8 digits;
    - v3 Step 1B: per-county popular customers and weak rings were added;
    - v3 Step 1C: hard-limit shortcuts were removed, and the overlap audit was added.
-   - Change 5 (2026-10-13): a validity fix found by review, made after validation results had been seen. See "Data change 5" below. This is the last change.
+   - plus the integrity fix, change 5 (2026-10-13): a validity fix found by review, made after validation results had been seen. See "Data change 5" below. This is the last change.
 2. **`collusion_score` uses all agents, including test agents.** No labels are involved, but the partitions are not independent at the feature level.
 3. **The earlier deployment choice was made after looking at test results.** v2 had only a train/test split (92 agents with 12 fraud, and 23 agents with 3 fraud). Switching the live detector to Isolation Forest v2 was decided from test-set results: the seed-42 test split, where LOF scored higher (F1 1.000 vs 0.800), and the seeds 1–5 test splits, where Isolation Forest scored higher. v3 adds a validation set so that model choice no longer touches the test set.
 4. **Accepted separations remain as limitations.** Strong rings separate on `collusion_score`, and sequential agents on customer similarity and on night share. See DATA_CARD.md, "Accepted separations".
@@ -646,6 +646,75 @@ Test: `test_reason_adds_training_percentile`.
 
 **Freeze:** `FREEZE.md` rewritten (16 hashes; the new bundle and scaler, and `selection_notes.md` added). `test_freeze.py` passes. ML tests: 171 passed, 0 skipped, 0 failed.
 
+## Step 11: the final test (2026-10-13, test set read once)
+
+**Script:** `final_evaluation.py`, the only file that calls `labels_guard.unlock_test_labels`.
+- Before reading any test label it checked all 16 hashes in `FREEZE.md` and the `labels.csv` hash from the generation run; **all 17 matched**.
+- It logged the unlock in `results/test_read_attempts.log` (one entry), and after the run wrote `results/test_read_once.json` (timestamp, run id, hashes).
+- A second run now stops at once. This was checked once by hand, and is tested by `test_marker_blocks_a_second_run` and `test_real_marker_blocks_a_second_run`.
+
+**Rehearsed first.** Before the real run, every code path was run on a substitute dataset (seed 101, 400 agents, its own split, model and cutoff; `tests/test_final_evaluation.py`), and the figures were inspected. The rehearsal found and fixed:
+- a default-argument bug in the read-once check (the real marker check worked; only patching it in tests did not);
+- two figure layout problems (overlapping histogram bars; a legend over the value labels).
+
+The rehearsal used no real test label.
+
+**Run `20261013-103859_final_evaluation_s42`:** `lof_v3_4f`, scaler fitted on training only, cutoff 1.445 from validation; no refit and no new cutoff. Bootstrap 95% CIs from 1000 agent-level resamples, seed 42.
+
+| Method (test, 150 agents, 19 fraud) | PR AUC (CI) | ROC AUC (CI) | Precision | Recall | F1 | Flagged |
+|---|---|---|---|---|---|---|
+| **`lof_v3_4f` (primary)** | **0.845 (0.684 to 0.960)** | **0.953 (0.897 to 0.992)** | 0.600 | 0.789 | 0.682 | 25 |
+| Random (20 seeds, 15% budget) | 0.140 (0.104 to 0.221) | 0.474 | 0.104 | 0.126 | 0.114 | 23 |
+| Volume rule (training P90, 24.1) | 0.346 (0.201 to 0.593) | 0.749 | 0.385 | 0.263 | 0.312 | 13 |
+| `collusion_score` (15% budget) | 0.565 (0.360 to 0.778) | 0.734 | 0.435 | 0.526 | 0.476 | 23 |
+| `duplicate_activation_rule` | 0.862 (0.696 to 1.000) | 0.921 | 1.000 | 0.842 | 0.914 | 16 |
+| Union (pre-declared secondary) | 0.655 on the 0/1 flag | 0.962 on the 0/1 flag | 0.655 | 1.000 | 0.792 | 29 |
+
+- **Confusion matrix:** TN 121, FP 10, FN 4 (all weak fraud), TP 15.
+- **Cost sensitivity** (validation cutoffs): 2:1 cutoff 1.766 flags 17 (precision 0.824, recall 0.737); 10:1 cutoff 1.164 flags 61 (precision 0.295, recall 0.947). Nothing was changed.
+- **Recall by pattern:** ring, weak_ring, sequential and duplicate 1.00; weak 0.00.
+- **Rings:** 14 of 14 rings have at least half their members flagged; the 14 ring candidates (at least 3 shared customers) map one to one onto true rings, with no honest member.
+- **Timing and size:** 0.060 ms per agent; model 0.35 MB.
+- **Acceptance:** Q1 to Q6 and S1 to S4 all PASS. Q2 is judged against the best single feature on test (0.670).
+- Full results, the error analysis, subgroups, limitations and disclosures are in `results/FINAL_TEST_RESULTS.md`; figures `fig11` to `fig15`, with captions, are in the run folder.
+
+## Step 12: stability across data seeds (run `20261013-104305_stability`)
+
+`stability.py`: seeds 101 to 110, each a separate dataset with its own split (70/15/15 by pattern), the frozen `lof_v3_4f` settings fitted on its training agents, and a cutoff set without labels (validation-score quantile at 13.3%). The seed 42 test set was not used again. No tuning.
+
+| Method | PR AUC mean (SD) [range] | ROC AUC mean (SD) | Precision mean | Recall mean [range] | F1 mean |
+|---|---|---|---|---|---|
+| `lof_v3_4f` | 0.811 (0.035) [0.746 to 0.860] | 0.933 (0.019) | 0.748 | 0.689 [0.579 to 0.737] | 0.713 |
+| `duplicate_activation_rule` | 0.835 (0.039) [0.770 to 0.862] | 0.905 (0.022) | 1.000 | 0.811 [0.737 to 0.842] | 0.895 |
+| Union (secondary) | 0.792 (0.097) [0.675 to 0.950] | 0.972 (0.023) | 0.805 | 0.979 [0.895 to 1.000] | 0.882 |
+
+Seed 42's test PR AUC (0.845) and ROC AUC (0.953) are about one SD above these means.
+
+## Closing records (2026-10-13, after Step 12; the test set stays read once)
+
+- **Disclosure wording corrected everywhere:** the generator was changed after labelled summaries had been seen, in four label-aware changes plus the integrity fix (change 5). DATA_CARD.md, MODEL_CARD.md, this file, FINAL_TEST_RESULTS.md and DEVIATIONS_FROM_PROPOSAL.md now all say so.
+- **Acceptance table:** `results/ACCEPTANCE_TABLE.md` gives every criterion's exact text from `acceptance_criteria.md`, its threshold, and its validation and test values.
+  - **Q6 is defined on the test alert rate, with a 25% limit:** 16.7% passes.
+  - The 15% figure is the Step 7 and 8 comparison budget, not a criterion.
+  - No criterion was changed.
+- **Score figure redrawn, presentation only:** `fig13b_score_distribution_clipped.png` (axis clipped at 5, overflow bin; 2 fraud agents score 8.8 and 9.8).
+  - It was built by `redraw_score_figure.py` from the saved `test_scores.csv` and `error_analysis.csv`, with nothing recomputed and `labels.csv` not read.
+  - The original figure is kept.
+- **Deviations file:** `results/DEVIATIONS_FROM_PROPOSAL.md`, 11 deviations from Chapters 1 to 3 with reasons, plus the disclosures. Items that need the proposal's exact wording are marked for the author.
+- **Reproduction check:** the `ml` folder was copied outside the repository and `run_pipeline.py` ran there for real (13 steps, exit 0). Compared with the frozen runs:
+  - **identical:** the hashes of the 5 data files, `split.csv` and `feature_vectors.csv` (and of `labels.csv` and `rings.csv`, by hash only);
+  - **identical:** the chosen model (`lof_v3_4f`, `n_neighbors` 50, 4 features, seed 42) and the cutoff (1.4447993633890617);
+  - **identical (largest numeric difference 0):** every validation table: the selection grid (64 rows), the per-seed grid (320 rows), operating points, acceptance, baselines, default models, learning curve, permutation importance, ablation, and `validation_scores.csv` including reasons;
+  - S1 to S4 passed in the copy;
+  - `chosen_model.joblib` and `scoring_bundle.joblib` differ byte-wise, as expected; their behaviour is identical (score difference 0.0 on all 1000 agents, same flags, same scaler and explanation reference); `scaler.joblib` is byte-identical.
+  - No frozen file was replaced, and the temporary copy was deleted.
+- **`run_info.json` audit:** all 18 runs used in the results have one, with seed, commit (read-only `git rev-parse HEAD`), parameters and input hashes.
+  - Steps with no randomness record `seed: null`; their seed lists are in the parameters.
+  - The stability run lists no input files, because its 10 datasets are generated in memory.
+  - The commits recorded are `ac3df5d` (generation), `bdcaca2` (Steps 2 to 9B), `b6d69cc` (explanations to retrain) and `19917bc` (Steps 11 and 12).
+- **Tests:** `tests/test_reporting_modules.py` added, so every `ml/*.py` module now has a test.
+- **Docs:** root `README.md` rewritten for v3 (it still described the v2 pipeline); `results/PR_DESCRIPTION.md` written.
+
 ## Model results
 
-Step 11 (test) has not been run. This section will be filled in after Step 11, with old and new numbers side by side, and it will state whether the model choice changed.
+Final. `lof_v3_4f` on test: PR AUC 0.845 (CI 0.684 to 0.960), recall 0.789, precision 0.600; every acceptance criterion passes. The model choice did not change after the test. The v3a choice (`if_v3_4f`) was made on earlier data and never tested. This section will be filled in after Step 11, with old and new numbers side by side, and it will state whether the model choice changed.

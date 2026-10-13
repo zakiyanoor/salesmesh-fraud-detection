@@ -1,0 +1,10 @@
+profile,agents,fraud,flagged,true_positives,false_alarms,recall
+duplicate,3.0,3.0,3.0,3.0,0.0,1.0
+legit,97.0,0.0,5.0,0.0,5.0,
+legit_busy,11.0,0.0,3.0,0.0,3.0,
+legit_night,13.0,0.0,1.0,0.0,1.0,
+legit_repeat,10.0,0.0,1.0,0.0,1.0,
+ring,6.0,6.0,6.0,6.0,0.0,1.0
+sequential,3.0,3.0,3.0,3.0,0.0,1.0
+weak,4.0,4.0,0.0,0.0,0.0,0.0
+weak_ring,3.0,3.0,3.0,3.0,0.0,1.0

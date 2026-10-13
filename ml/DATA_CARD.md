@@ -1,6 +1,6 @@
 # Data card: SalesMesh synthetic activation data (v3, change #5)
 
-**Status: final after data change #5 (2026-10-13).** Change #5 is a validity fix found by review: it enforces the platform's integrity rules (R1 to R6 below) in the generator and adds SalesMesh context fields. The data will not be changed again. Change #5 came after validation results on the earlier data had been seen; the test set was never read. See `results/CHANGES.md`, change 5.
+**Status: final after data change #5 (2026-10-13).** Change #5 is a validity fix found by review: it enforces the platform's integrity rules (R1 to R6 below) in the generator and adds SalesMesh context fields. The data will not be changed again. Change #5 came after validation results on the earlier data had been seen, and before the test set had been read. The test set was read once, at Step 11 (2026-10-13, run `20261013-103859_final_evaluation_s42`; `results/FINAL_TEST_RESULTS.md`). See `results/CHANGES.md`, change 5.
 
 **Generator:** `ml/data_generation.py`, seed 42, 1000 agents, fraud rate 0.13.
 
@@ -320,7 +320,7 @@ Bold marks strength 0.95 or above (shortcut risk, listed as limitations). Compar
 | Lesson 8.2: coverage | the cases the model will meet | 5 fraud patterns, 3 hard honest groups, 47 counties, 20 clients, 12 categories, every hour of the day |
 | Lesson 8.2: balance | class shares and how they are handled | 13% fraud (130 of 1000); stratified agent-level split; PR AUC reported; no oversampling |
 | Lesson 8.2: independence | units are independent; no leakage | agents and rings as units; labels only in `labels.csv` and `rings.csv`; context fields from separate streams; independence table |
-| Lesson 9.3: risks | what can go wrong with synthetic data | Limitations below; accepted separations; label-aware changes listed in order |
+| Lesson 9.3: risks | what can go wrong with synthetic data | Limitations below; accepted separations; the four label-aware changes and the integrity fix listed in order |
 | Lesson 9.4: record the generator, rules and filtering | reproducibility | `data_generation.py` with named constants; rules R1 to R6 (enforced, not filtered; nothing is filtered out after generation); `run_info.json` with hashes; `FREEZE.md` |
 | Build Phase Sprint I: data source | where the data comes from | synthetic, from `data_generation.py`, seed 42; no SalesMesh data |
 | Build Phase Sprint I: preparation steps | how data is prepared | generation with checks, then `clean_data.py` (Step 2), features (Step 4), split (Step 5), scaling (Step 6) |
@@ -335,21 +335,22 @@ Bold marks strength 0.95 or above (shortcut risk, listed as limitations). Compar
 4. **Accepted separations remain:** strong rings on `collusion_score`; sequential agents on customer similarity and night share; duplicate agents on the same-pair repeat share (a raw descriptor).
 5. **Customer ids only.** There are no customer names, phones or addresses, so customer similarity is measured on identifiers.
 6. **`quality_score` is capped at 100** (1.9% of records sit at the cap), for every agent alike.
-7. **The data was changed five times after seeing labelled summaries** (list below). Change #5 came after validation results had been seen.
+7. **The generator was changed after seeing labelled summaries: four label-aware changes, plus the integrity fix (change 5)** (list below). The integrity fix came after validation results had been seen.
 8. **The backend database and backend features are still v2.** Reload and parity are Step 13 and backend sprint tasks (see CHANGES.md, change 5).
 
-## Label-aware changes, in order (final)
+## Generator changes after seeing labelled summaries, in order (final): four label-aware changes plus the integrity fix
 
 1. **v2.** The legitimate repeat-customer share was widened after `customer_similarity` separated the classes perfectly.
 2. **v3 Step 1.** Customer ids were widened to 8 digits after chance collisions raised honest `collusion_score`.
 3. **v3 Step 1B.** Per-county popular customers and weak rings were added after `collusion_score` separated rings perfectly.
 4. **v3 Step 1C.** Hard limits were removed (honest hours and daily caps), and the overlap audit was added.
-5. **Change #5 (2026-10-13), a validity fix found by review, not tuned to improve metrics.** Honest agents shared (customer, client) pairs (33 pairs on seed 42), which the platform rule allows only in fraud, and the data lacked SalesMesh context. R1 to R6 are now enforced, `legit_repeat` is cross sell plus retries, and context fields were added from separate streams. Made after validation results on the earlier data had been seen; the test set was never read; the selection rule (with its amendment) and the acceptance criteria apply unchanged.
+
+**Plus the integrity fix, change 5 (2026-10-13): a validity fix found by review, not tuned to improve metrics.** Honest agents shared (customer, client) pairs (33 pairs on seed 42), which the platform rule allows only in fraud, and the data lacked SalesMesh context. R1 to R6 are now enforced, `legit_repeat` is cross sell plus retries, and context fields were added from separate streams. Made after validation results on the earlier data had been seen; the test set was never read; the selection rule (with its amendment) and the acceptance criteria apply unchanged.
 
 ## Known issues
 
-1. Steps 2 to 10 were re-run on this data on 2026-10-13 with every setting unchanged (CHANGES.md, "Pipeline rerun"). The chosen model is now `lof_v3_4f`. The v3a results are archived and describe the earlier data.
+1. Steps 2 to 10 were re-run on this data on 2026-10-13 with every setting unchanged (CHANGES.md, "Pipeline rerun"). The chosen model is `lof_v3_4f`. Step 11 (test, read once) and Step 12 (seeds 101 to 110) followed; results are in `results/FINAL_TEST_RESULTS.md`. The v3a results are archived and describe the earlier data.
 2. The fictional name lists give at most 70 x 70 = 4,900 unique full names, so `generate_dataset` refuses more than 4,900 agents. The S4 scaling check therefore generates behaviour only (agents and activations).
-3. `duplicate_activation_rule` (a reported Step 7 baseline) has precision 1.000 on training and validation, because R1 and R2 forbid honest shared or post-completion repeated pairs by construction. It shows how strong the integrity rules are in this data, not what a rule would achieve on real records.
+3. `duplicate_activation_rule` (a reported baseline) has precision 1.000 on training, validation, test and all 10 stability seeds, because R1 and R2 forbid honest shared or post-completion repeated pairs by construction. It shows how strong the integrity rules are in this data, not what a rule would achieve on real records.
 4. Backend test `test_pipeline.py::test_collusion_ring_agents_from_synthetic_data_score_above_every_legit_agent` asserts a fixed floor of 0.3 for strong-ring `collusion_score`; the lowest is now 0.288. Separation still holds (0.288 against an honest maximum of 0.100). The backend was not touched.
 5. `ml/data/synthetic/train_test_split.csv` and `fraud_flags*.csv` are v2 leftovers, not used by v3.

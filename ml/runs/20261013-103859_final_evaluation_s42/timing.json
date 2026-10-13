@@ -1,0 +1,8 @@
+{
+  "test_agents": 150,
+  "score_ms_per_agent": 0.059936666669576276,
+  "score_and_explain_ms_per_agent": 0.20596399999097534,
+  "all_agents": 1000,
+  "score_all_agents_seconds": 0.03529940000044007,
+  "score_all_agents_ms_per_agent": 0.03529940000044007
+}
