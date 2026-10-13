@@ -1,0 +1,15 @@
+ring_id,pattern,members,flagged_members,test_members,test_flagged,candidates,at_least_one_flagged,at_least_half_flagged
+ring_01,ring,5,5,0,0,cand_07,True,True
+ring_02,ring,4,4,1,1,cand_03,True,True
+ring_03,ring,3,3,0,0,cand_05,True,True
+ring_04,ring,6,6,0,0,cand_11,True,True
+ring_05,ring,6,6,1,1,cand_14,True,True
+ring_06,ring,6,6,2,2,cand_12,True,True
+ring_07,ring,6,6,1,1,cand_10,True,True
+ring_08,ring,3,3,0,0,cand_09,True,True
+ring_09,ring,2,2,1,1,cand_01,True,True
+ring_10,weak_ring,5,3,1,1,cand_04,True,True
+ring_11,weak_ring,5,4,1,1,cand_06,True,True
+ring_12,weak_ring,3,2,0,0,cand_13,True,True
+ring_13,weak_ring,3,2,0,0,cand_02,True,True
+ring_14,weak_ring,5,5,1,1,cand_08,True,True

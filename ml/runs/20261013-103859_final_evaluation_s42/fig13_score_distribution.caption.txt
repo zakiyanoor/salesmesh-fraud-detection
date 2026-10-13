@@ -1,0 +1,1 @@
+Figure: anomaly scores of the 150 test agents by true class. Bars are stacked (honest below, fraud above). Agents at or right of the dashed line (cutoff 1.445, chosen on validation) are flagged.

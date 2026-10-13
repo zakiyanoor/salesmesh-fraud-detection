@@ -171,33 +171,37 @@ Evidence for Steps 1 to 10 above refers to v3a runs, now archived in `ml/results
 - [x] MODEL_CARD.md sections Fit to SRS, Scope, Class imbalance handling; Limitations updated. Evidence: MODEL_CARD.md.
 - [x] Union of `lof_v3_4f` and `duplicate_activation_rule` pre-declared as a Step 11 secondary analysis, not a selection candidate. Evidence: `results/selection_notes.md`, hashed in `FREEZE.md`.
 - [x] Freeze rewritten and all ML tests pass. Evidence: `FREEZE.md` (16 hashes); 171 passed, 0 skipped.
-- [ ] Step 12 robustness (seeds 1 to 10): moved into the Step 11 task (author decision).
+- [x] Step 12 robustness (seeds 1 to 10): moved into the Step 11 task (author decision). Evidence: run `20261013-104305_stability` (seeds 101 to 110).
 
-## Step 11: final test (test set read once)
+## Step 11: final test (test set read once; done 2026-10-13, run `20261013-103859_final_evaluation_s42`, all hashes matched first)
 
-- [ ] Precision, recall, F1, ROC AUC and PR AUC.
-- [ ] Bootstrap 95% confidence intervals.
-- [ ] Confusion matrix.
-- [ ] ROC, PR and score distribution plots.
-- [ ] Error analysis and difficult cases.
-- [ ] Collusion ring evaluation and ring CSV export.
-- [ ] Subgroup results by the 8 former regions and by pattern, with counts.
-- [ ] A sentence saying county-level results are too small to interpret.
-- [ ] Timing and model file size.
-- [ ] Comparison with the acceptance criteria, stating pass or fail.
+- [x] Precision, recall, F1, ROC AUC and PR AUC. Evidence: run `20261013-103859_final_evaluation_s42`, `test_metrics.csv`; PR AUC 0.845, ROC AUC 0.953, precision 0.600, recall 0.789, F1 0.682.
+- [x] Bootstrap 95% confidence intervals. Evidence: 1000 agent-level resamples, seed 42, in `test_metrics.csv` (PR AUC 0.684 to 0.960).
+- [x] Confusion matrix. Evidence: `confusion_matrix.csv`, `fig14_confusion_matrix.png` (TN 121, FP 10, FN 4, TP 15).
+- [x] ROC, PR and score distribution plots. Evidence: `fig11_precision_recall.png`, `fig12_roc.png`, `fig13_score_distribution.png`, `fig15_recall_by_pattern.png`, each with a caption file.
+- [x] Error analysis and difficult cases. Evidence: `error_analysis.csv`; FINAL_TEST_RESULTS.md (4 missed weak agents, 10 false alarms, one line each).
+- [x] Collusion ring evaluation and ring CSV export. Evidence: `ring_candidates.csv`, `ring_comparison.csv`; 14 of 14 rings with at least half flagged; 14 candidates, each one true ring.
+- [x] Subgroup results by the 8 former regions and by pattern, with counts. Evidence: `subgroups_former_region.csv`, `subgroups_pattern.csv`.
+- [x] A sentence saying county-level results are too small to interpret. Evidence: FINAL_TEST_RESULTS.md, recall by region.
+- [x] Timing and model file size. Evidence: `timing.json` (0.060 ms per agent); model 0.35 MB, bundle 0.37 MB.
+- [x] Comparison with the acceptance criteria, stating pass or fail. Evidence: `acceptance_test.csv`; Q1 to Q6 and S1 to S4 all PASS.
+
+- [x] Read once, enforced: hashes checked before any test label, one unlock logged, then a marker that blocks a second run. Evidence: `results/test_read_once.json`, `results/test_read_attempts.log` (1 entry); tests `test_marker_blocks_a_second_run` and `test_real_marker_blocks_a_second_run`.
+- [x] Plain-language results with limitations and disclosures. Evidence: `results/FINAL_TEST_RESULTS.md`.
+- [x] Pre-declared secondary analysis (union with `duplicate_activation_rule`) reported, labelled secondary. Evidence: `test_metrics.csv`, `recall_by_pattern.csv`; recall 1.000, precision 0.655.
 
 ## Step 12: robustness
 
-- [ ] Seeds 1 to 10.
+- [x] Seeds 1 to 10. Done with data seeds 101 to 110 (author's choice, so no seed overlaps earlier runs). Evidence: run `20261013-104305_stability`; PR AUC 0.811 (SD 0.035).
 - [x] 5-fold stratified cross-validation at agent level (Step 12a; training and validation agents only, test excluded). Evidence: `cross_validation.py`, run `20261013-095040_cross_validation_s42`; `lof_v3_4f` PR AUC 0.844 (SD 0.029).
 - [x] Mean and spread reported (for the 5-fold CV; seeds 1 to 10 still open). Evidence: `cv_summary.csv`, `cv_pattern_recall.csv`; CHANGES.md.
 
 ## Step 13: artifacts and docs
 
-- [x] Model and scaler saved with joblib. Evidence: `runs/20261013-093050_selection_s42/chosen_model.joblib`, `runs/20261013-094740_explain/scoring_bundle.joblib` and `scaler.joblib`; hashes in `FREEZE.md`.
+- [x] Model and scaler saved with joblib. Evidence: `runs/20261013-093050_selection_s42/chosen_model.joblib`, `runs/20261013-100433_explain/scoring_bundle.joblib` and `scaler.joblib` (current; earlier explain runs superseded); hashes in `FREEZE.md`.
 - [x] A retrain command that writes a new versioned model, with `model_version` stored on every flag (periodic retraining). Evidence: `retrain.py` (cutoff from the validated alert rate, no labels); run `20261013-095135_retrain_s42`; `tests/test_retrain.py`.
-- [ ] pytest tests for each module.
-- [ ] `MODEL_CARD.md`, covering:
+- [x] pytest tests for each module. Evidence: every `ml/*.py` module is imported by at least one test; `tests/test_reporting_modules.py` covers cross_validation, eda, explainability, feature_analysis, freeze, redraw_score_figure, stability and union_reference.
+- [x] `MODEL_CARD.md`, covering: Evidence: MODEL_CARD.md (final, with test and stability results).
   - [x] no labels used in training; Evidence: MODEL_CARD.md, "Model".
   - [x] scores not calibrated; Evidence: MODEL_CARD.md, "Model" and "Limitations".
   - [x] results on synthetic data alone cannot prove real-world performance; Evidence: MODEL_CARD.md, "Limitations".
@@ -205,25 +209,38 @@ Evidence for Steps 1 to 10 above refers to v3a runs, now archived in `ml/results
   - [x] a section "Scope"; Evidence: MODEL_CARD.md.
   - [x] a section "Class imbalance handling": stratified agent-level split, PR AUC and F1 instead of accuracy, no oversampling or augmentation, and why. Evidence: MODEL_CARD.md.
 - [x] README with one command to reproduce everything. Evidence: `python run_pipeline.py` (Steps 1 to 10; `--seed`, `--skip-generation`, `--dry-run`) in `ml/README.md`; `tests/test_run_pipeline.py`.
-- [ ] `CHANGES.md`.
-- [ ] `DATA_CARD.md`.
-- [ ] `run_info.json` with Python, OS, CPU, RAM and git commit hash (read-only `git rev-parse HEAD`). (Implemented in `ml/run_utils.py`; to be confirmed for the final runs.)
+- [x] `CHANGES.md`. Evidence: `results/CHANGES.md`, final through Step 12 and the closing records.
+- [x] `DATA_CARD.md`. Evidence: `ml/DATA_CARD.md`, final (status, changes, known issues consistent with the test).
+- [x] `run_info.json` with Python, OS, CPU, RAM and git commit hash (read-only `git rev-parse HEAD`). Evidence: all 18 runs used in the results have it, with seed, commit, parameters and input hashes (CHANGES.md, "Closing records"); the stability run lists no input files because its datasets are generated in memory.
 - [ ] Backend feature parity: `backend/src/pipeline.py` computes the v3 feature definitions, including `time_of_day_entropy`, the 24-hour window, similarity of identifiers and `volume_vs_peers`.
 - [ ] Backend database reloaded with v3 data, and the backend tests that depend on it fixed. Today these are `test_agent_detail_context_lists_only_known_clients_and_categories` and the `A1104` API tests.
-- [ ] List of known limitations:
-  - [ ] strong rings are easy to separate;
-  - [ ] in v2, the model choice was made after seeing test results;
-  - [ ] the data is synthetic;
-  - [ ] the test set is small.
+- [x] List of known limitations: Evidence: FINAL_TEST_RESULTS.md, "Limitations" and "Disclosures".
+  - [x] strong rings are easy to separate;
+  - [x] in v2, the model choice was made after seeing test results;
+  - [x] the data is synthetic;
+  - [x] the test set is small.
 
 ## Disclosures for the documentation
 
 - [x] SMOTE from Chapter 3 was not used: it needs labels, and the models are unsupervised. Evidence: MODEL_CARD.md, "Class imbalance handling".
-- [ ] All data is synthetic, not SalesMesh data.
-- [ ] The features differ from Chapter 3.
-- [ ] The generator was changed after seeing labels.
-- [ ] The Streamlit dashboard became a React app.
+- [x] All data is synthetic, not SalesMesh data. Evidence: FINAL_TEST_RESULTS.md, Limitations.
+- [x] The features differ from Chapter 3. Evidence: `results/DEVIATIONS_FROM_PROPOSAL.md`, section 3.
+- [x] The generator was changed after seeing labels. Evidence: FINAL_TEST_RESULTS.md, Disclosures 3.
+- [x] The Streamlit dashboard became a React app. Evidence: `results/DEVIATIONS_FROM_PROPOSAL.md`, section 6.
+
+## Closing checks before the pull request (2026-10-13)
+
+- [x] Acceptance table with exact criterion text, thresholds, validation and test values. Evidence: `results/ACCEPTANCE_TABLE.md` (Q6 is defined on the test alert rate, 25% limit: PASS).
+- [x] Deviations from the proposal, with the disclosures in their correct form. Evidence: `results/DEVIATIONS_FROM_PROPOSAL.md`.
+- [x] Reproduction check outside the repository: data, split, features, model, cutoff and all validation tables identical; model behaviour identical. Evidence: CHANGES.md, "Closing records".
+- [x] `run_info.json` for every run used in the results. Evidence: CHANGES.md, "Closing records".
+- [x] Score figure redrawn from saved run files (presentation only). Evidence: `fig13b_score_distribution_clipped.png` and caption; `redraw_score_figure.py`.
+- [x] Root README, PR description. Evidence: `README.md`, `results/PR_DESCRIPTION.md`.
 
 ## Unticked items at Step 13
 
-To be filled in at Step 13.
+| Item | Reason it is unticked |
+|---|---|
+| `acceptance_criteria.md` agreed with the supervisor (Step 9 and the rerun section) | The supervisor was away; the review is pending. The criteria were applied exactly as hashed, and this is disclosed in FINAL_TEST_RESULTS.md. |
+| Backend feature parity (`backend/src/pipeline.py` on the v3 features) | Backend sprint work; the backend was not to be touched in this ML work. |
+| Backend database reloaded with v3 data, and the dependent backend tests fixed | Backend sprint work (the schema changes are listed in CHANGES.md, change 5). |

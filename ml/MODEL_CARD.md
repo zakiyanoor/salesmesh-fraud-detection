@@ -1,6 +1,31 @@
 # Model card: `lof_v3_4f`
 
-**Status:** validation results only (2026-10-13). The test set has not been read; Step 11 has not been run. The earlier draft for `if_v3_4f` (v3a data) is superseded; its numbers are in `results/CHANGES.md`.
+**Status:** final. The test set was read once on 2026-10-13 (Step 11, run `20261013-103859_final_evaluation_s42`), after every frozen hash had been checked. Stability across 10 other data seeds is Step 12 (run `20261013-104305_stability`). Full write-up: `results/FINAL_TEST_RESULTS.md`. The earlier draft for `if_v3_4f` (v3a data) is superseded; its numbers are in `results/CHANGES.md`.
+
+## Test results (Step 11; 150 agents, 19 fraud; 95% bootstrap CIs)
+
+| PR AUC | ROC AUC | Precision | Recall | F1 | Flagged |
+|---|---|---|---|---|---|
+| 0.845 (0.684 to 0.960) | 0.953 (0.897 to 0.992) | 0.600 (0.391 to 0.793) | 0.789 (0.583 to 0.957) | 0.682 (0.500 to 0.815) | 25 (16.7%) |
+
+- **Confusion matrix:** 15 fraud caught, 4 missed (all weak fraud), 10 false alarms and 121 honest agents correctly left unflagged.
+- **Recall by pattern:** ring 1.00 (6), weak_ring 1.00 (3), sequential 1.00 (3), duplicate 1.00 (3), weak 0.00 (4).
+- **Acceptance criteria Q1 to Q6 and S1 to S4: all PASS.** Q2 is judged against the best single feature on test (`customer_similarity`, 0.670).
+- **Baselines on test (PR AUC):** random 0.140, volume rule 0.346, `collusion_score` 0.565, `duplicate_activation_rule` 0.862 (precision 1.000; see below).
+- **Pre-declared secondary analysis**, the union with `duplicate_activation_rule`: recall 1.000, precision 0.655, 29 flagged. It is not a candidate; the primary result is the model alone.
+- **Collusion rings:** all 14 true rings have at least half their members flagged, and the 14 ring candidates map one to one onto them. Training and validation agents' flags here are in-sample.
+- **Size and speed:** the model is 0.35 MB (bundle 0.37 MB); scoring takes 0.060 ms per agent.
+
+## Stability across data seeds (Step 12)
+
+Ten other synthetic datasets (seeds 101 to 110), each with its own split and its own fit, with the cutoff set without labels at the validated alert rate (13.3%), evaluated on its own test split:
+
+| | PR AUC | ROC AUC | Precision | Recall | F1 |
+|---|---|---|---|---|---|
+| Mean (SD) | 0.811 (0.035) | 0.933 (0.019) | 0.748 (0.105) | 0.689 (0.058) | 0.713 (0.057) |
+| Min to max | 0.746 to 0.860 | 0.900 to 0.956 | 0.609 to 0.933 | 0.579 to 0.737 | 0.611 to 0.824 |
+
+Seed 42's test PR AUC and ROC AUC are about one SD above these means. Recall fell below 0.60 on 1 of 10 seeds.
 
 ## Model
 
@@ -89,11 +114,11 @@ Combined with the model (either flagging), validation recall is 1.00 at 25 flags
 ## Limitations
 
 - **Synthetic data only.** Every pattern and rate is an assumption by the author. These results cannot show performance on real SalesMesh agents.
-- **Weak fraud is missed by the model:** validation recall is 0.00 (0 of 4) and pooled CV recall 0.09. Weak fraud agents behave normally 75% to 90% of the time.
+- **Weak fraud is missed by the model:** test recall 0.00 (0 of 4), validation 0.00 (0 of 4) and pooled CV recall 0.09. Weak fraud agents behave normally 75% to 90% of the time.
 - **The duplicate_activation_rule is a reference ceiling, not a real-world estimate.** Its precision of 1.000 depends on the generator making R1 and R2 absolute for honest agents (no honest agent shares a (customer, client) pair or repeats one after a completed activation). Real records would contain honest errors and retries, so its precision there would be lower. It is not part of the model.
-- **Small evaluation set:** validation has 20 fraud agents (3 to 6 per pattern), so every figure has a wide CI (PR AUC 0.660 to 0.942).
+- **Small evaluation sets:** test has 19 fraud agents and validation 20 (3 to 6 per pattern), so every figure has a wide CI (test PR AUC 0.684 to 0.960).
 - **Some patterns are separable on one feature:** strong rings (`collusion_score`), and sequential and duplicate agents (`customer_similarity`). Results on those patterns mostly reflect these signatures.
-- **Honest false positives:** 5 of the 20 validation flags are honest, several of them low-volume agents (LOF also flags unusually quiet agents).
+- **Honest false positives:** 10 of the 25 test flags (and 5 of 20 on validation) are honest: busy agents, quiet agents with concentrated hours (LOF flags unusually quiet agents too), and honest shared customers.
 - **Platform-wide features:** `collusion_score` uses all agents' records, across splits, as in deployment; rings span splits (13 of 14).
-- **The data was changed five times after seeing labelled summaries** (DATA_CARD.md); change 5 came after validation results had been seen.
+- **The generator was changed after seeing labelled summaries: four label-aware changes, plus the integrity fix (change 5)** (DATA_CARD.md). The integrity fix came after validation results had been seen.
 - **Scores are not probabilities,** and the cutoff assumes a 5:1 cost ratio that is not measured.

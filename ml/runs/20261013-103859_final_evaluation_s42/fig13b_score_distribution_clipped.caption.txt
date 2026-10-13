@@ -1,0 +1,1 @@
+Figure: anomaly scores of the 150 test agents by true class, stacked (honest below, fraud above), with the score axis clipped at 5. 2 fraud agents score 8.8 to 9.8; shown in the >5 bin. Agents at or right of the dashed line (cutoff 1.445, chosen on validation) are flagged. Presentation only: redrawn from the saved run files, nothing recomputed.
