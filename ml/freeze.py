@@ -4,7 +4,10 @@ everything fixed before Step 11. labels.csv is not re-read here (it holds test
 labels); its hash recorded at generation time is quoted from run_info.json.
 ml/tests/test_freeze.py checks the hashes still match.
 
-Usage: python freeze.py
+--data RUN_ID writes the datagen freeze note instead (data files, generator
+code, generation run outputs and the rules), for data change #5.
+
+Usage: python freeze.py [--data RUN_ID]
 """
 
 import json
@@ -35,6 +38,44 @@ FILES = [
     ("Rules", "results/acceptance_criteria.md"),
     ("Rules", "results/selection_rule.md"),
 ]
+
+
+DATA_FILES = ["activation_records.csv", "agents.csv", "agent_identity.csv", "agent_categories.csv", "clients.csv"]
+
+
+def data_freeze(data_run):
+    info = json.loads((ML / "runs" / data_run / "run_info.json").read_text())
+    for name in DATA_FILES:
+        if file_sha256(ML / "data" / "synthetic" / name) != info["data_files"][name]:
+            raise SystemExit(f"{name} does not match generation run {data_run}")
+    files = [("Data", f"data/synthetic/{name}") for name in DATA_FILES] + [
+        ("Generator", "data_generation.py"),
+        ("Generator checks", "data_checks.py"),
+        ("Generation run", f"runs/{data_run}/run_info.json"),
+        ("Generation run", f"runs/{data_run}/data_checks.json"),
+        ("Rules (unchanged)", "results/acceptance_criteria.md"),
+        ("Rules (unchanged)", "results/selection_rule.md"),
+    ]
+    table = "\n".join(f"| {what} | `{path}` | `{file_sha256(ML / path)}` |" for what, path in files)
+    archived = ML / "data" / "archive_v3a" / "labels.csv"
+    same = archived.exists() and file_sha256(archived) == info["data_files"]["labels.csv"]
+    labels_note = "byte-identical to" if same else "different from"
+    text = f"""# Freeze record: data (change #5)
+
+Written {datetime.now():%Y-%m-%d %H:%M:%S} by `ml/freeze.py --data`. The sha256 hashes were computed in Python; no git command was used. `ml/tests/test_freeze.py` fails if any file below changes.
+
+The data is final after change #5 (integrity rules R1 to R6 and context fields; see `CHANGES.md`). Generation run: `runs/{data_run}` (seed {info['seed']}). The model freeze written before Step 11 on the earlier data is archived as `results/archive_v3a/FREEZE_v3a.md`. The split, features, models and selection have not been re-run on this data; a new model freeze follows those re-runs.
+
+**No test label has been loaded.** `labels.csv` and `rings.csv` were not re-read for this record. Their hashes, recorded when the data was generated, are `{info['data_files']['labels.csv']}` and `{info['data_files']['rings.csv']}` (`runs/{data_run}/run_info.json`). `labels.csv` is {labels_note} the archived v3a `labels.csv` (hashes compared, content not read).
+
+## Hashes
+
+| What | File (relative to `ml/`) | sha256 |
+|---|---|---|
+{table}
+"""
+    FREEZE_PATH.write_text(text, encoding="utf-8")
+    print(text)
 
 
 def main():
@@ -86,4 +127,9 @@ The data files `activation_records.csv`, `agents.csv` and `clients.csv` match th
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+
+    if len(sys.argv) == 3 and sys.argv[1] == "--data":
+        data_freeze(sys.argv[2])
+    else:
+        main()

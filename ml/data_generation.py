@@ -1,6 +1,7 @@
 """
 Synthetic activation data generator for the SalesMesh fraud detection system
-(U-CS 56, AI Fraud Detection). FROZEN after label-aware change #4 (Step 1C): see ml/DATA_CARD.md.
+(U-CS 56, AI Fraud Detection). Change #5 (integrity rules R1-R6 and context
+fields) is the final change: see ml/DATA_CARD.md.
 
 Fraud patterns (Concept Note; Proposal Sections 2.4.1 and 2.6):
 - ring: collusion rings of varied size, hour window and shared customer pool
@@ -10,8 +11,24 @@ Fraud patterns (Concept Note; Proposal Sections 2.4.1 and 2.6):
 - duplicate: the same customer resubmitted for the same client
 - weak: mostly normal agents with a small share of duplicate resubmissions
 
-Hard legitimate groups: legit_night, legit_repeat, legit_busy. Any agent may
-serve its county's popular customers, so honest agents can share customers.
+Hard legitimate groups: legit_night, legit_repeat (cross sell plus retries),
+legit_busy. Any agent may serve its county's popular customers, so honest agents
+share customers across different clients.
+
+Integrity rules (enforced while generating, not by filtering):
+R1 an honest (customer, client) pair is used by no other agent;
+R2 an honest agent repeats a pair only as a retry after a failed or pending
+   attempt, with at most one completed activation per pair;
+R3 popular pool customers are skipped when the pair is already taken;
+R4 only the planted fraud patterns break R1 and R2;
+R5 activations only in certified categories, after registration and certification;
+R6 pending only in the last PENDING_WINDOW_HOURS of the window.
+The normal (non-pattern) submissions of every agent, honest or fraud, follow
+R1-R3 through one code path.
+
+Context fields (account_status, identity, certifications, quality_score,
+commission) come from separate RNG streams spawned from the seed, with the same
+distributions for every agent, so they cannot change behaviour draws.
 
 region is one of Kenya's 47 counties (population weighted, at least
 COUNTY_MIN_AGENTS each). Each agent works with 1-3 clients from a fixed
@@ -22,8 +39,9 @@ Timestamps are naive local time in TIMEZONE. agents.csv holds only what the
 platform knows; ground truth goes to labels.csv and rings.csv (evaluation only).
 
 Usage: python data_generation.py [--n-agents N] [--fraud-rate R] [--seed N] [--out-dir DIR]
-Output: <out-dir>/agents.csv, activation_records.csv, clients.csv, labels.csv, rings.csv,
-        and ml/runs/<run_id>/ with run_info.json, generation_summary.csv and data_checks.json
+Output: <out-dir>/agents.csv, agent_identity.csv, agent_categories.csv, activation_records.csv,
+        clients.csv, labels.csv, rings.csv, and ml/runs/<run_id>/ with run_info.json,
+        generation_summary.csv and data_checks.json
 """
 
 import argparse
@@ -107,10 +125,17 @@ CLIENT_CATEGORY = {cid: c[1] for cid, c in CLIENTS.items()}
 AGENT_CLIENT_COUNT_WEIGHTS = {1: 0.45, 2: 0.40, 3: 0.15}
 EXTRA_CLIENT_SAME_CATEGORY_PROB = 0.6
 CLIENT_MIX_DIRICHLET_ALPHA = 2.0
-# Same customer for a different client of the same agent: allowed, but rare.
+# Cross sell: the same customer for a different client of the same agent; allowed, but rare.
 CROSS_CLIENT_REPEAT_PROB = 0.02
 
-STATUS_WEIGHTS = {"completed": 0.85, "pending": 0.10, "failed": 0.05}
+# R6: pending only in the last PENDING_WINDOW_HOURS; older records are completed or failed (17:1).
+RESOLVED_STATUS_WEIGHTS = {"completed": 0.85, "failed": 0.05}
+PENDING_WINDOW_HOURS = 72
+PENDING_PROB_IN_WINDOW = 0.30
+# R2: share of failed or pending normal attempts that the agent retries on a later active day.
+RETRY_PROB = 0.6
+POPULAR_PICK_TRIES = 30
+CROSS_SELL_TRIES = 20
 
 # Popular customers per county (e.g. shops, families served by several agents).
 POPULAR_POOL_PER_AGENT = 10
@@ -138,7 +163,8 @@ OFF_HOURS_SHARE_RANGE = (0.01, 0.06)
 LEGIT_DAILY_MEDIAN = 4.5
 LEGIT_BUSY_DAILY_MEDIAN = 10.0
 LEGIT_NIGHT_SHARE_RANGE = (0.10, 0.25)
-LEGIT_REPEAT_POOL_SIZE_RANGE = (4, 12)
+# legit_repeat: this share of normal submissions cross sells an earlier customer to another
+# client (a single-client agent gets one extra cross-sell client); due retries come first.
 LEGIT_REPEAT_SHARE_RANGE = (0.15, 0.50)
 
 # Per agent share of pattern submissions for ring, sequential and duplicate (mean 0.70).
@@ -161,6 +187,41 @@ WEAK_FRAUD_SHARE_RANGE = (0.10, 0.25)
 # Weak fraud: a random elevated rate, LEGIT_DAILY_MEDIAN x this multiplier.
 WEAK_FRAUD_RATE_MULTIPLIER_RANGE = (1.15, 1.6)
 
+# Context fields (illustrative values; same distributions for every agent).
+COMMISSION_PER_ACTIVATION_KES = {
+    "banking": 250, "mobile money": 60, "insurance": 300, "SACCO": 200, "e-commerce": 80, "fashion": 50,
+    "telecom": 40, "healthcare": 150, "education": 120, "logistics": 70, "agritech": 100, "real estate": 400,
+}
+ACCOUNT_STATUS_WEIGHTS = {"active": 0.94, "suspended": 0.06}
+EXPIRED_CATEGORY_PROB = 0.08
+QUALITY_AGENT_MEAN = 80.0
+QUALITY_AGENT_SD = 5.0
+QUALITY_RECORD_SD = 8.0
+QUALITY_FAILED_PENALTY = 15.0
+PHONE_PREFIX = "+2547"
+PHONE_DIGITS = 8
+NATIONAL_ID_DIGITS = 8
+CONTEXT_STREAMS = ["identity", "account_status", "certifications", "quality"]
+# Fictional identities: random combinations of common Kenyan names.
+FIRST_NAMES = [
+    "John", "Mary", "Peter", "Grace", "James", "Jane", "Joseph", "Faith", "David", "Mercy",
+    "Samuel", "Esther", "Daniel", "Ann", "Paul", "Lucy", "Stephen", "Joyce", "Michael", "Caroline",
+    "Brian", "Sharon", "Kevin", "Purity", "Dennis", "Winnie", "Collins", "Cynthia", "Victor", "Brenda",
+    "Kennedy", "Agnes", "Francis", "Eunice", "George", "Margaret", "Patrick", "Catherine", "Joshua", "Naomi",
+    "Moses", "Rose", "Wanjiru", "Wambui", "Njeri", "Muthoni", "Akinyi", "Atieno", "Achieng", "Chebet",
+    "Cherono", "Kibet", "Kiprotich", "Nafula", "Nekesa", "Halima", "Amina", "Fatuma", "Abdi", "Hassan",
+    "Zawadi", "Baraka", "Imani", "Neema", "Juma", "Rehema", "Mwende", "Kanini", "Wairimu", "Nyokabi",
+]
+LAST_NAMES = [
+    "Mwangi", "Kamau", "Otieno", "Odhiambo", "Ochieng", "Omondi", "Wanjiku", "Njoroge", "Kariuki", "Kiprop",
+    "Kipkemboi", "Cheruiyot", "Kimani", "Mutua", "Musyoka", "Wafula", "Wekesa", "Barasa", "Simiyu", "Nyongesa",
+    "Onyango", "Owino", "Okoth", "Ouma", "Odera", "Koech", "Rotich", "Langat", "Kiplagat", "Mutai",
+    "Chepkoech", "Maina", "Ndungu", "Githinji", "Gitau", "Macharia", "Waweru", "Kinyua", "Muriuki", "Mugo",
+    "Nyaga", "Njiru", "Kioko", "Mbugua", "Wambugu", "Ndirangu", "Ombati", "Nyamweya", "Moraa", "Momanyi",
+    "Abdullahi", "Mohamed", "Omar", "Mutiso", "Kilonzo", "Nzioka", "Muli", "Kahindi", "Charo", "Katana",
+    "Ekai", "Lokuruka", "Lemayian", "Sankale", "Kerubo", "Nyakundi", "Kibe", "Muthee", "Ngugi", "Chege",
+]
+
 fake = Faker()
 
 
@@ -170,6 +231,8 @@ class SyntheticDataset(NamedTuple):
     labels: pd.DataFrame
     rings: pd.DataFrame
     clients: pd.DataFrame
+    identity: pd.DataFrame
+    agent_categories: pd.DataFrame
 
 
 def seed_everything(seed):
@@ -335,16 +398,46 @@ def assign_profiles(agents_df):
     return profiles, rings
 
 
+def pending_window_start():
+    return ANALYSIS_END + pd.Timedelta(days=1) - pd.Timedelta(hours=PENDING_WINDOW_HOURS)
+
+
+def draw_status(timestamp):
+    if timestamp >= pending_window_start() and random.random() < PENDING_PROB_IN_WINDOW:
+        return "pending"
+    return random.choices(list(RESOLVED_STATUS_WEIGHTS), weights=list(RESOLVED_STATUS_WEIGHTS.values()))[0]
+
+
+def cross_sell_client(clients):
+    """One extra client for a single-client legit_repeat agent, from the same category if possible."""
+    others = [c for c in CLIENTS if c not in clients]
+    same = [c for c in others if CLIENT_CATEGORY[c] == CLIENT_CATEGORY[clients[0]]]
+    candidates = same or others
+    return random.choices(candidates, weights=[CLIENTS[c][2] for c in candidates])[0]
+
+
 def generate_activation_records(agents_df, profiles=None, rings=None):
     if "clients" not in agents_df:
         agents_df = agents_df.assign(clients=[draw_agent_clients() for _ in range(len(agents_df))])
     if profiles is None:
         profiles, rings = assign_profiles(agents_df)
 
+    taken_pairs = set()
+    used_customers = set()
+
+    def fresh_customer():
+        while True:
+            customer_id = random_customer_id()
+            if customer_id not in used_customers:
+                used_customers.add(customer_id)
+                return customer_id
+
     days = pd.date_range(ANALYSIS_START, ANALYSIS_END, freq="D")
     ring_pools = [non_consecutive_customer_ids(ring["pool_size"]) for ring in rings]
+    for pool in ring_pools:
+        used_customers.update(pool)
     county_counts = agents_df["region"].value_counts()
-    popular_pools = {county: [random_customer_id() for _ in range(max(POPULAR_POOL_MIN, POPULAR_POOL_PER_AGENT * n))]
+    popular_pools = {county: [fresh_customer() for _ in range(max(POPULAR_POOL_MIN, POPULAR_POOL_PER_AGENT * n))]
                      for county, n in sorted(county_counts.items())}
 
     records = []
@@ -359,6 +452,8 @@ def generate_activation_records(agents_df, profiles=None, rings=None):
         popular_share = random.uniform(*POPULAR_POOL_SHARE_RANGE) if random.random() < POPULAR_POOL_USER_PROB else 0.0
         active_prob = random.uniform(*ACTIVE_DAY_PROB_RANGE)
         off_hours_share = random.uniform(*OFF_HOURS_SHARE_RANGE)
+        repeat_share = 0.0
+        sell_clients = list(clients)
         if agent.is_fraud:
             config = rings[ring_index] if ring_index is not None else SOLO_FRAUD_CONFIGS[profile]
             if profile == "weak":
@@ -372,49 +467,83 @@ def generate_activation_records(agents_df, profiles=None, rings=None):
             else:
                 fraud_share = random.uniform(*FRAUD_PATTERN_SHARE_RANGE)
             pool_size = random.randint(*config["pool_size_range"]) if ring_index is None else 0
-            own_pool = [(random_customer_id(), pick_client()) for _ in range(pool_size)]
+            own_pool = [(fresh_customer(), pick_client()) for _ in range(pool_size)]
+            taken_pairs.update(own_pool)
             seq_next = random.randint(CUSTOMER_ID_MIN, CUSTOMER_ID_MAX - 2000)
         else:
             rate = agent_rate(LEGIT_BUSY_DAILY_MEDIAN if profile == "legit_busy" else LEGIT_DAILY_MEDIAN)
             fraud_share = 0.0
             night_share = random.uniform(*LEGIT_NIGHT_SHARE_RANGE)
-            repeat_share = random.uniform(*LEGIT_REPEAT_SHARE_RANGE)
-            regulars = [random_customer_id() for _ in range(random.randint(*LEGIT_REPEAT_POOL_SIZE_RANGE))]
+            if profile == "legit_repeat":
+                repeat_share = random.uniform(*LEGIT_REPEAT_SHARE_RANGE)
+                if len(clients) == 1:
+                    sell_clients.append(cross_sell_client(clients))
 
-        served = []
+        my_customers, my_customer_set, retry_queue = [], set(), []
+
+        def cross_sell(candidate_clients):
+            for _ in range(CROSS_SELL_TRIES if my_customers else 0):
+                customer_id = random.choice(my_customers)
+                free = [c for c in candidate_clients if (customer_id, c) not in taken_pairs]
+                if free:
+                    return customer_id, random.choice(free)
+            return None
+
+        def normal_pair(day, client_id):
+            if retry_queue and retry_queue[0][0] < day:
+                return retry_queue.pop(0)[1:]
+            if repeat_share and random.random() < repeat_share:
+                pair = cross_sell(sell_clients)
+                if pair:
+                    return pair
+            if len(clients) > 1 and random.random() < CROSS_CLIENT_REPEAT_PROB:
+                pair = cross_sell(clients)
+                if pair:
+                    return pair
+            if random.random() < popular_share:
+                pool = popular_pools[agent.region]
+                for _ in range(POPULAR_PICK_TRIES):
+                    customer_id = random.choice(pool)
+                    if (customer_id, client_id) not in taken_pairs:
+                        return customer_id, client_id
+            return fresh_customer(), client_id
+
         for day in days:
             if random.random() > active_prob:
                 continue
             for _ in range(daily_count(rate)):
                 client_id = pick_client()
-                if agent.is_fraud and random.random() < fraud_share:
+                pattern = agent.is_fraud and random.random() < fraud_share
+                if pattern:
                     hour = sample_hour(config["hours"])
                     if ring_index is not None:
                         customer_id = random.choice(ring_pools[ring_index])
                     elif profile == "sequential":
+                        while f"CUST{seq_next}" in used_customers:
+                            seq_next += 1
                         customer_id = f"CUST{seq_next}"
                         seq_next += 1
                     else:
                         customer_id, client_id = random.choice(own_pool)
                 else:
                     hour = sample_hour("normal", off_hours_share)
-                    customer_id = random_customer_id()
-                    if random.random() < popular_share:
-                        customer_id = random.choice(popular_pools[agent.region])
                     if profile == "legit_night" and random.random() < night_share:
                         hour = sample_hour("late_night")
-                    if profile == "legit_repeat" and random.random() < repeat_share:
-                        customer_id = random.choice(regulars)
-                    if len(clients) > 1 and served and random.random() < CROSS_CLIENT_REPEAT_PROB:
-                        previous_customer, previous_client = random.choice(served)
-                        customer_id = previous_customer
-                        client_id = random.choice([c for c in clients if c != previous_client])
-                    served.append((customer_id, client_id))
+                    customer_id, client_id = normal_pair(day, client_id)
+                timestamp = make_timestamp(day, hour)
+                status = draw_status(timestamp)
+                used_customers.add(customer_id)
+                taken_pairs.add((customer_id, client_id))
+                if customer_id not in my_customer_set:
+                    my_customer_set.add(customer_id)
+                    my_customers.append(customer_id)
+                if not pattern and status != "completed" and random.random() < RETRY_PROB:
+                    retry_queue.append((day, customer_id, client_id))
                 records.append({
                     "agent_id": agent.agent_id,
-                    "timestamp": make_timestamp(day, hour),
+                    "timestamp": timestamp,
                     "customer_id": customer_id,
-                    "activation_status": random.choices(list(STATUS_WEIGHTS), weights=list(STATUS_WEIGHTS.values()))[0],
+                    "activation_status": status,
                     "client_id": client_id,
                     "category": CLIENT_CATEGORY[client_id],
                 })
@@ -424,12 +553,78 @@ def generate_activation_records(agents_df, profiles=None, rings=None):
     return activations.reset_index(drop=True)
 
 
+def context_rngs(seed):
+    """Independent generators for the context fields, spawned from the seed."""
+    children = np.random.SeedSequence(seed).spawn(len(CONTEXT_STREAMS))
+    return {name: np.random.default_rng(child) for name, child in zip(CONTEXT_STREAMS, children)}
+
+
+def generate_identity(agent_ids, rng):
+    n, n_last = len(agent_ids), len(LAST_NAMES)
+    if n > len(FIRST_NAMES) * n_last:
+        raise ValueError("not enough name combinations for unique full names")
+    names = rng.choice(len(FIRST_NAMES) * n_last, n, replace=False)
+    phones = rng.choice(10 ** PHONE_DIGITS, n, replace=False)
+    low = 10 ** (NATIONAL_ID_DIGITS - 1)
+    national_ids = rng.choice(10 ** NATIONAL_ID_DIGITS - low, n, replace=False) + low
+    return pd.DataFrame({
+        "agent_id": list(agent_ids),
+        "full_name": [f"{FIRST_NAMES[i // n_last]} {LAST_NAMES[i % n_last]}" for i in names],
+        "phone_number": [f"{PHONE_PREFIX}{p:0{PHONE_DIGITS}d}" for p in phones],
+        "national_id_number": [f"{x:0{NATIONAL_ID_DIGITS}d}" for x in national_ids],
+    })
+
+
+def draw_account_status(n, rng):
+    """Snapshot after the window, for administrative reasons; exact shares, random agents."""
+    statuses = [status for status, k in allocate(n, ACCOUNT_STATUS_WEIGHTS).items() for _ in range(k)]
+    return rng.permutation(statuses)
+
+
+def generate_agent_categories(agents, activations, rng):
+    """A certified row per category worked in, certified between registration and the first
+    activity there; EXPIRED_CATEGORY_PROB of agents (random) also hold one expired category."""
+    registration = pd.to_datetime(agents.set_index("agent_id")["registration_timestamp"])
+    first = activations.assign(timestamp=pd.to_datetime(activations["timestamp"])).groupby(
+        ["agent_id", "category"])["timestamp"].min()
+    worked_by_agent = {a: s.droplevel(0) for a, s in first.groupby(level=0)}
+    n_expired = int(round(len(agents) * EXPIRED_CATEGORY_PROB))
+    with_expired = set(rng.choice(agents["agent_id"].to_numpy(), n_expired, replace=False))
+    rows = []
+    for agent_id in agents["agent_id"]:
+        registered = registration[agent_id]
+        worked = worked_by_agent.get(agent_id, pd.Series(dtype="datetime64[ns]"))
+        for category, first_activity in worked.items():
+            certified_at = registered + (first_activity - registered) * float(rng.random())
+            rows.append((agent_id, category, "certified", certified_at.floor("s")))
+        if agent_id in with_expired:
+            others = [c for c in CATEGORIES if c not in worked.index]
+            category = others[int(rng.integers(len(others)))]
+            certified_at = registered + (ANALYSIS_START - registered) * float(rng.random())
+            rows.append((agent_id, category, "expired", certified_at.floor("s")))
+    return pd.DataFrame(rows, columns=["agent_id", "category", "certification_status", "certified_at"])
+
+
+def add_activation_context(activations, agent_ids, rng):
+    """quality_score (0-100) and commission_kes (the client rate if completed, else 0)."""
+    agent_mean = dict(zip(agent_ids, rng.normal(QUALITY_AGENT_MEAN, QUALITY_AGENT_SD, len(agent_ids))))
+    noise = rng.normal(0.0, QUALITY_RECORD_SD, len(activations))
+    failed = activations["activation_status"].eq("failed")
+    quality = activations["agent_id"].map(agent_mean) + noise - QUALITY_FAILED_PENALTY * failed
+    rate = activations["category"].map(COMMISSION_PER_ACTIVATION_KES)
+    return activations.assign(
+        quality_score=np.clip(np.round(quality), 0, 100).astype(int),
+        commission_kes=np.where(activations["activation_status"].eq("completed"), rate, 0).astype(int),
+    )
+
+
 def ring_label(ring_index):
     return f"ring_{ring_index + 1:02d}"
 
 
 def clients_frame():
-    return pd.DataFrame([{"client_id": cid, "name": name, "category": category}
+    return pd.DataFrame([{"client_id": cid, "name": name, "category": category,
+                          "commission_per_activation_kes": COMMISSION_PER_ACTIVATION_KES[category]}
                          for cid, (name, category, _) in CLIENTS.items()])
 
 
@@ -441,6 +636,11 @@ def generate_dataset(seed=DEFAULT_SEED, n_agents=DEFAULT_N_AGENTS, fraud_rate=DE
     agents_df = generate_agents(n_agents - num_fraud, num_fraud)
     profiles, rings = assign_profiles(agents_df)
     activations_df = generate_activation_records(agents_df, profiles, rings)
+    rngs = context_rngs(seed)
+    agent_ids = agents_df["agent_id"].tolist()
+    identity_df = generate_identity(agent_ids, rngs["identity"])
+    agents_df["account_status"] = draw_account_status(len(agents_df), rngs["account_status"])
+    activations_df = add_activation_context(activations_df, agent_ids, rngs["quality"])
 
     labels_df = pd.DataFrame({
         "agent_id": agents_df["agent_id"],
@@ -453,8 +653,10 @@ def generate_dataset(seed=DEFAULT_SEED, n_agents=DEFAULT_N_AGENTS, fraud_rate=DE
         "hour_start": r["hours"][0], "hour_width": r["hours"][1],
         "daily_median": round(r["daily_median"], 2),
     } for i, r in enumerate(rings)], columns=["ring_id", "strength", "size", "pool_size", "hour_start", "hour_width", "daily_median"])
-    public_agents = agents_df[["agent_id", "registration_timestamp", "region"]]
-    return SyntheticDataset(public_agents, activations_df, labels_df, rings_df, clients_frame())
+    public_agents = agents_df[["agent_id", "registration_timestamp", "region", "account_status"]]
+    categories_df = generate_agent_categories(public_agents, activations_df, rngs["certifications"])
+    return SyntheticDataset(public_agents, activations_df, labels_df, rings_df, clients_frame(),
+                            identity_df, categories_df)
 
 
 def generator_parameters(n_agents, fraud_rate):
@@ -467,7 +669,9 @@ def generator_parameters(n_agents, fraud_rate):
         "agent_client_count_weights": AGENT_CLIENT_COUNT_WEIGHTS,
         "extra_client_same_category_prob": EXTRA_CLIENT_SAME_CATEGORY_PROB,
         "client_mix_dirichlet_alpha": CLIENT_MIX_DIRICHLET_ALPHA, "cross_client_repeat_prob": CROSS_CLIENT_REPEAT_PROB,
-        "status_weights": STATUS_WEIGHTS,
+        "resolved_status_weights": RESOLVED_STATUS_WEIGHTS, "pending_window_hours": PENDING_WINDOW_HOURS,
+        "pending_prob_in_window": PENDING_PROB_IN_WINDOW, "retry_prob": RETRY_PROB,
+        "popular_pick_tries": POPULAR_PICK_TRIES, "cross_sell_tries": CROSS_SELL_TRIES,
         "popular_pool_per_agent": POPULAR_POOL_PER_AGENT, "popular_pool_min": POPULAR_POOL_MIN,
         "popular_pool_user_prob": POPULAR_POOL_USER_PROB, "popular_pool_share_range": POPULAR_POOL_SHARE_RANGE,
         "fraud_pattern_shares": FRAUD_PATTERN_SHARES, "legit_pattern_shares": LEGIT_PATTERN_SHARES,
@@ -475,8 +679,7 @@ def generator_parameters(n_agents, fraud_rate):
         "agent_rate_sigma": AGENT_RATE_SIGMA, "normal_hour_mean": NORMAL_HOUR_MEAN, "normal_hour_sd": NORMAL_HOUR_SD,
         "off_hours_share_range": OFF_HOURS_SHARE_RANGE,
         "legit_daily_median": LEGIT_DAILY_MEDIAN, "legit_busy_daily_median": LEGIT_BUSY_DAILY_MEDIAN,
-        "legit_night_share_range": LEGIT_NIGHT_SHARE_RANGE, "legit_repeat_pool_size_range": LEGIT_REPEAT_POOL_SIZE_RANGE,
-        "legit_repeat_share_range": LEGIT_REPEAT_SHARE_RANGE,
+        "legit_night_share_range": LEGIT_NIGHT_SHARE_RANGE, "legit_repeat_share_range": LEGIT_REPEAT_SHARE_RANGE,
         "fraud_pattern_share_range": FRAUD_PATTERN_SHARE_RANGE,
         "ring_size_range": RING_SIZE_RANGE, "ring_pool_per_member_range": RING_POOL_PER_MEMBER_RANGE,
         "ring_hour_width_range": RING_HOUR_WIDTH_RANGE, "ring_daily_median_range": RING_DAILY_MEDIAN_RANGE,
@@ -485,6 +688,12 @@ def generator_parameters(n_agents, fraud_rate):
         "weak_ring_daily_median_range": WEAK_RING_DAILY_MEDIAN_RANGE,
         "solo_fraud_configs": SOLO_FRAUD_CONFIGS, "weak_fraud_share_range": WEAK_FRAUD_SHARE_RANGE,
         "weak_fraud_rate_multiplier_range": WEAK_FRAUD_RATE_MULTIPLIER_RANGE,
+        "context_streams": CONTEXT_STREAMS, "commission_per_activation_kes": COMMISSION_PER_ACTIVATION_KES,
+        "account_status_weights": ACCOUNT_STATUS_WEIGHTS, "expired_category_prob": EXPIRED_CATEGORY_PROB,
+        "quality_agent_mean": QUALITY_AGENT_MEAN, "quality_agent_sd": QUALITY_AGENT_SD,
+        "quality_record_sd": QUALITY_RECORD_SD, "quality_failed_penalty": QUALITY_FAILED_PENALTY,
+        "phone_prefix": PHONE_PREFIX, "phone_digits": PHONE_DIGITS, "national_id_digits": NATIONAL_ID_DIGITS,
+        "first_names": len(FIRST_NAMES), "last_names": len(LAST_NAMES),
     }
 
 
@@ -503,8 +712,9 @@ def generation_summary(dataset):
 
 def save_dataset(dataset, out_dir):
     out_dir.mkdir(parents=True, exist_ok=True)
-    frames = {"agents": dataset.agents, "activation_records": dataset.activations, "clients": dataset.clients,
-              "labels": dataset.labels, "rings": dataset.rings}
+    frames = {"agents": dataset.agents, "agent_identity": dataset.identity,
+              "agent_categories": dataset.agent_categories, "activation_records": dataset.activations,
+              "clients": dataset.clients, "labels": dataset.labels, "rings": dataset.rings}
     paths = {name: out_dir / f"{name}.csv" for name in frames}
     for name, frame in frames.items():
         frame.to_csv(paths[name], index=False)

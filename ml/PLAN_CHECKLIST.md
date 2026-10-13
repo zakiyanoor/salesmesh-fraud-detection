@@ -124,6 +124,19 @@ An item is ticked only when it has been done, with one line of evidence (a file,
 - [x] S1–S4 re-checked before Step 11 (features only, no labels). Evidence: run `20261011-032454_system_checks_s101/system_checks.json`, all PASS; S1 0.048 ms per agent; S4 10000 agents scored in 0.24 s, 56 s end-to-end.
 - [x] Freeze record with sha256 hashes and a matching test. Evidence: `ml/results/FREEZE.md` (12 files, plus the `labels.csv` hash quoted from generation); `ml/tests/test_freeze.py` (12 hash checks passing).
 
+## Data change 5: integrity rules and SalesMesh context (2026-10-13)
+
+Evidence for Steps 1 to 10 above refers to v3a runs, now archived in `ml/results/archive_v3a/runs/`. Steps 4 and 6 to 10 must be re-run on this data before Step 11 (split assignment unchanged: `labels.csv` is byte-identical).
+
+- [x] Archive v3a data, runs and results; nothing deleted. Evidence: `ml/data/archive_v3a/` (8 files) and `ml/results/archive_v3a/runs/` (26 runs, 148 files), sha256 identical after the move; `FREEZE_v3a.md`, `DATA_CARD_v3a.md` and the v3a code copied to `ml/results/archive_v3a/`; `selection_rule.md` and `acceptance_criteria.md` unchanged in place.
+- [x] Rules R1 to R6 enforced in the generator. Evidence: `data_checks.json` in run `20261013-091128_datagen_s42`: honest R1, R2, R5, R6 = 0; fraud R1 290, R2 4,887; honest pairs shared 33 to 0.
+- [x] `legit_repeat` redefined as cross sell plus retries, share range kept. Evidence: repeated customer share 0.367 (v3a 0.261); same-pair share 0.044 (retries).
+- [x] New fields and files from separate RNG streams. Evidence: `agent_identity.csv`, `agent_categories.csv`, `account_status`, `quality_score`, `commission_kes`, `commission_per_activation_kes`; test `test_context_fields_do_not_change_behaviour`.
+- [x] Checks a to e in `data_checks.py`, run inside the generator. Evidence: `referential_integrity`, `rule_checks`, `range_checks`, `identity_checks`, `independence_table`; all integrity, range and identity counts 0; 5 of 6 AUCs inside 0.35 to 0.65 (commission total 0.679, volume-driven).
+- [x] Tests per rule, model input list, identity columns. Evidence: `ml/tests/test_integrity_rules.py` (12 tests); ML suite 144 passed, 3 skipped.
+- [x] DATA_CARD.md, CHANGES.md (change 5, with backend and database list) and this checklist updated. Evidence: those files.
+- [x] Regenerated with seed 42, new run folder and datagen freeze note. Evidence: `ml/runs/20261013-091128_datagen_s42/run_info.json`; `ml/results/FREEZE.md` (11 hashes); `test_freeze.py` passing.
+
 ## Step 11: final test (test set read once)
 
 - [ ] Precision, recall, F1, ROC AUC and PR AUC.

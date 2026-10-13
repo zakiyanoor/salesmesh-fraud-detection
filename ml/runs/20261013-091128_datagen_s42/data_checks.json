@@ -1,0 +1,326 @@
+{
+  "agents": 1000,
+  "fraud_agents": 130,
+  "fraud_rate": 0.13,
+  "records": 135494,
+  "agents_by_pattern": {
+    "duplicate": 21,
+    "legit": 679,
+    "legit_busy": 52,
+    "legit_night": 70,
+    "legit_repeat": 69,
+    "ring": 41,
+    "sequential": 21,
+    "weak": 26,
+    "weak_ring": 21
+  },
+  "fraud_by_pattern": {
+    "duplicate": 21,
+    "ring": 41,
+    "sequential": 21,
+    "weak": 26,
+    "weak_ring": 21
+  },
+  "agents_per_county": {
+    "min": 5,
+    "median": 20.0,
+    "max": 89,
+    "counties_under_5": 0,
+    "smallest": {
+      "Taita-Taveta": 5,
+      "Lamu": 5,
+      "Tharaka-Nithi": 5,
+      "Elgeyo-Marakwet": 8,
+      "Samburu": 8,
+      "Wajir": 9,
+      "Isiolo": 9,
+      "Marsabit": 10
+    },
+    "largest": {
+      "Nairobi": 89,
+      "Kiambu": 56,
+      "Nakuru": 50,
+      "Kakamega": 43,
+      "Meru": 32,
+      "Bungoma": 32
+    }
+  },
+  "agents_per_former_region": {
+    "Central": 122,
+    "Coast": 87,
+    "Eastern": 148,
+    "Nairobi": 89,
+    "North Eastern": 51,
+    "Nyanza": 115,
+    "Rift Valley": 276,
+    "Western": 112
+  },
+  "agents_per_primary_category": {
+    "mobile money": 184,
+    "banking": 157,
+    "telecom": 154,
+    "e-commerce": 121,
+    "insurance": 93,
+    "SACCO": 92,
+    "agritech": 53,
+    "education": 50,
+    "fashion": 32,
+    "healthcare": 28,
+    "real estate": 19,
+    "logistics": 17
+  },
+  "fraud_by_primary_category": {
+    "banking": 27,
+    "mobile money": 19,
+    "e-commerce": 18,
+    "telecom": 14,
+    "insurance": 12,
+    "SACCO": 11,
+    "education": 8,
+    "fashion": 7,
+    "agritech": 5,
+    "healthcare": 4,
+    "real estate": 4,
+    "logistics": 1
+  },
+  "clients_per_agent": {
+    "1": 424,
+    "2": 439,
+    "3": 137
+  },
+  "categories_per_agent": {
+    "1": 671,
+    "2": 297,
+    "3": 32
+  },
+  "chi_square_p_fraud_vs": {
+    "county": 0.649,
+    "former_region": 0.403,
+    "primary_category": 0.421,
+    "primary_client": 0.652
+  },
+  "collusion_score": {
+    "legitimate": {
+      "agents": 870,
+      "min": 0.0,
+      "median": 0.0,
+      "max": 0.1,
+      "nonzero": 258
+    },
+    "strong_ring": {
+      "agents": 41,
+      "min": 0.288,
+      "median": 0.581,
+      "max": 0.814,
+      "nonzero": 41
+    },
+    "weak_ring": {
+      "agents": 21,
+      "min": 0.03,
+      "median": 0.09,
+      "max": 0.164,
+      "nonzero": 21
+    },
+    "other_fraud": {
+      "agents": 68,
+      "min": 0.0,
+      "median": 0.0,
+      "max": 0.045,
+      "nonzero": 18
+    }
+  },
+  "same_customer_same_client_repeats": {
+    "legitimate": 4572,
+    "strong_ring": 1410,
+    "weak_ring": 110,
+    "other_fraud": 4078
+  },
+  "same_customer_different_clients_pairs": 4361,
+  "referential_integrity": {
+    "unknown_agent_id": {
+      "activation_records": 0,
+      "agent_identity": 0,
+      "agent_categories": 0,
+      "labels": 0
+    },
+    "agents_missing_identity_row": 0,
+    "duplicate_identity_rows": 0,
+    "unknown_client_id": 0,
+    "category_not_client_category": 0,
+    "clients_category_mismatch": 0,
+    "duplicate_agent_category_rows": 0,
+    "activations_in_expired_category": 0,
+    "certified_after_first_activity_or_before_registration": 0
+  },
+  "rules": {
+    "R1_pairs_used_by_another_agent": {
+      "honest": 0,
+      "fraud": 290
+    },
+    "R2_repeat_after_completed": {
+      "honest": 0,
+      "fraud": 4887
+    },
+    "R3_honest_customers_shared_by_2plus_honest_agents": 356,
+    "R3_honest_pairs_shared_by_2plus_honest_agents": 0,
+    "R5_activation_without_certification_or_before_registration": {
+      "honest": 0,
+      "fraud": 0
+    },
+    "R5_agents_with_expired_category": 80,
+    "R6_pending_before_last_72h": {
+      "honest": 0,
+      "fraud": 0
+    }
+  },
+  "ranges": {
+    "quality_score_outside_0_100": 0,
+    "commission_nonzero_when_not_completed": 0,
+    "commission_not_client_rate_when_completed": 0,
+    "client_rate_outside_40_400": 0,
+    "account_status_values": {
+      "active": 940,
+      "suspended": 60
+    }
+  },
+  "identity": {
+    "rows": 1000,
+    "duplicate_full_name": 0,
+    "duplicate_phone_number": 0,
+    "duplicate_national_id_number": 0,
+    "malformed_full_name": 0,
+    "malformed_phone_number": 0,
+    "malformed_national_id_number": 0
+  },
+  "independence_auc": {
+    "account_status_suspended": {
+      "auc": 0.496,
+      "strength": 0.504,
+      "within_0.35_0.65": true
+    },
+    "n_categories": {
+      "auc": 0.515,
+      "strength": 0.515,
+      "within_0.35_0.65": true
+    },
+    "registration_age_days": {
+      "auc": 0.515,
+      "strength": 0.515,
+      "within_0.35_0.65": true
+    },
+    "mean_quality_score": {
+      "auc": 0.524,
+      "strength": 0.524,
+      "within_0.35_0.65": true
+    },
+    "completed_share": {
+      "auc": 0.516,
+      "strength": 0.516,
+      "within_0.35_0.65": true
+    },
+    "commission_total_kes": {
+      "auc": 0.679,
+      "strength": 0.679,
+      "within_0.35_0.65": false
+    },
+    "commission_mean_per_record_kes": {
+      "auc": 0.55,
+      "strength": 0.55,
+      "within_0.35_0.65": true
+    }
+  },
+  "behaviour": {
+    "fraud_by_pattern": {
+      "duplicate": 21,
+      "ring": 41,
+      "sequential": 21,
+      "weak": 26,
+      "weak_ring": 21
+    },
+    "honest_collusion_max": 0.1,
+    "honest_collusion_nonzero": 258,
+    "strong_ring_collusion_min_median_max": [
+      0.288,
+      0.581,
+      0.814
+    ],
+    "weak_ring_collusion_min_median_max": [
+      0.03,
+      0.09,
+      0.164
+    ],
+    "repeat_customer_share_by_profile": {
+      "duplicate": 0.6363,
+      "legit": 0.0519,
+      "legit_busy": 0.0581,
+      "legit_night": 0.0497,
+      "legit_repeat": 0.3666,
+      "ring": 0.2363,
+      "sequential": 0.0147,
+      "weak": 0.1637,
+      "weak_ring": 0.0684
+    },
+    "repeat_pair_share_by_profile": {
+      "duplicate": 0.6338,
+      "legit": 0.0412,
+      "legit_busy": 0.0437,
+      "legit_night": 0.0414,
+      "legit_repeat": 0.0439,
+      "ring": 0.1709,
+      "sequential": 0.0111,
+      "weak": 0.1577,
+      "weak_ring": 0.0534
+    },
+    "records_per_agent_by_profile": {
+      "duplicate": {
+        "mean": 253.9,
+        "min": 151.0,
+        "max": 409.0
+      },
+      "legit": {
+        "mean": 117.5,
+        "min": 32.0,
+        "max": 316.0
+      },
+      "legit_busy": {
+        "mean": 255.0,
+        "min": 116.0,
+        "max": 465.0
+      },
+      "legit_night": {
+        "mean": 113.9,
+        "min": 48.0,
+        "max": 200.0
+      },
+      "legit_repeat": {
+        "mean": 124.1,
+        "min": 52.0,
+        "max": 232.0
+      },
+      "ring": {
+        "mean": 201.3,
+        "min": 72.0,
+        "max": 481.0
+      },
+      "sequential": {
+        "mean": 300.3,
+        "min": 177.0,
+        "max": 448.0
+      },
+      "weak": {
+        "mean": 153.4,
+        "min": 86.0,
+        "max": 221.0
+      },
+      "weak_ring": {
+        "mean": 98.1,
+        "min": 43.0,
+        "max": 160.0
+      }
+    },
+    "customers_shared_by_2plus_honest_agents": 356,
+    "pairs_shared_by_2plus_honest_agents": 0,
+    "pairs_shared_by_2plus_fraud_agents": 290,
+    "pairs_shared_by_honest_and_fraud": 0
+  }
+}

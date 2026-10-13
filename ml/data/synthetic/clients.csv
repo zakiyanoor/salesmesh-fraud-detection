@@ -1,21 +1,21 @@
-client_id,name,category
-CL01,Client 01,banking
-CL02,Client 02,banking
-CL03,Client 03,mobile money
-CL04,Client 04,mobile money
-CL05,Client 05,insurance
-CL06,Client 06,insurance
-CL07,Client 07,SACCO
-CL08,Client 08,SACCO
-CL09,Client 09,e-commerce
-CL10,Client 10,e-commerce
-CL11,Client 11,fashion
-CL12,Client 12,telecom
-CL13,Client 13,telecom
-CL14,Client 14,healthcare
-CL15,Client 15,education
-CL16,Client 16,education
-CL17,Client 17,logistics
-CL18,Client 18,agritech
-CL19,Client 19,agritech
-CL20,Client 20,real estate
+client_id,name,category,commission_per_activation_kes
+CL01,Client 01,banking,250
+CL02,Client 02,banking,250
+CL03,Client 03,mobile money,60
+CL04,Client 04,mobile money,60
+CL05,Client 05,insurance,300
+CL06,Client 06,insurance,300
+CL07,Client 07,SACCO,200
+CL08,Client 08,SACCO,200
+CL09,Client 09,e-commerce,80
+CL10,Client 10,e-commerce,80
+CL11,Client 11,fashion,50
+CL12,Client 12,telecom,40
+CL13,Client 13,telecom,40
+CL14,Client 14,healthcare,150
+CL15,Client 15,education,120
+CL16,Client 16,education,120
+CL17,Client 17,logistics,70
+CL18,Client 18,agritech,100
+CL19,Client 19,agritech,100
+CL20,Client 20,real estate,400
