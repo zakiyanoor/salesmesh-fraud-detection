@@ -1,0 +1,6 @@
+,scaler_mean,train_mean,all_agents_mean,scaler_std,train_std_ddof0,all_agents_std_ddof0
+submission_frequency,15.7329,15.7329,15.685,6.7311,6.7311,6.7021
+time_of_day_entropy,0.78,0.78,0.7803,0.0564,0.0564,0.055
+customer_similarity,0.1097,0.1097,0.1095,0.0452,0.0452,0.0449
+collusion_score,0.0358,0.0358,0.0352,0.1193,0.1193,0.1177
+volume_vs_peers,1.1241,1.1241,1.1277,0.5299,0.5299,0.5507

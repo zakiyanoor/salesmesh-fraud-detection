@@ -1,0 +1,139 @@
+{
+  "agents": 1000,
+  "fraud_agents": 130,
+  "fraud_rate": 0.13,
+  "records": 136151,
+  "agents_by_pattern": {
+    "duplicate": 21,
+    "legit": 679,
+    "legit_busy": 52,
+    "legit_night": 70,
+    "legit_repeat": 69,
+    "ring": 41,
+    "sequential": 21,
+    "weak": 26,
+    "weak_ring": 21
+  },
+  "fraud_by_pattern": {
+    "duplicate": 21,
+    "ring": 41,
+    "sequential": 21,
+    "weak": 26,
+    "weak_ring": 21
+  },
+  "agents_per_county": {
+    "min": 5,
+    "median": 20.0,
+    "max": 89,
+    "counties_under_5": 0,
+    "smallest": {
+      "Taita-Taveta": 5,
+      "Lamu": 5,
+      "Tharaka-Nithi": 5,
+      "Elgeyo-Marakwet": 8,
+      "Samburu": 8,
+      "Wajir": 9,
+      "Isiolo": 9,
+      "Marsabit": 10
+    },
+    "largest": {
+      "Nairobi": 89,
+      "Kiambu": 56,
+      "Nakuru": 50,
+      "Kakamega": 43,
+      "Meru": 32,
+      "Bungoma": 32
+    }
+  },
+  "agents_per_former_region": {
+    "Central": 122,
+    "Coast": 87,
+    "Eastern": 148,
+    "Nairobi": 89,
+    "North Eastern": 51,
+    "Nyanza": 115,
+    "Rift Valley": 276,
+    "Western": 112
+  },
+  "agents_per_primary_category": {
+    "mobile money": 178,
+    "telecom": 159,
+    "banking": 156,
+    "e-commerce": 120,
+    "insurance": 95,
+    "SACCO": 89,
+    "agritech": 59,
+    "education": 49,
+    "fashion": 30,
+    "healthcare": 25,
+    "real estate": 21,
+    "logistics": 19
+  },
+  "fraud_by_primary_category": {
+    "banking": 27,
+    "telecom": 20,
+    "e-commerce": 19,
+    "mobile money": 18,
+    "insurance": 12,
+    "SACCO": 7,
+    "agritech": 6,
+    "fashion": 6,
+    "real estate": 5,
+    "education": 5,
+    "healthcare": 3,
+    "logistics": 2
+  },
+  "clients_per_agent": {
+    "1": 450,
+    "2": 412,
+    "3": 138
+  },
+  "categories_per_agent": {
+    "1": 674,
+    "2": 294,
+    "3": 32
+  },
+  "chi_square_p_fraud_vs": {
+    "county": 0.649,
+    "former_region": 0.403,
+    "primary_category": 0.428,
+    "primary_client": 0.747
+  },
+  "collusion_score": {
+    "legitimate": {
+      "agents": 870,
+      "min": 0.0,
+      "median": 0.0,
+      "max": 0.096,
+      "nonzero": 369
+    },
+    "strong_ring": {
+      "agents": 41,
+      "min": 0.27,
+      "median": 0.552,
+      "max": 0.674,
+      "nonzero": 41
+    },
+    "weak_ring": {
+      "agents": 21,
+      "min": 0.034,
+      "median": 0.078,
+      "max": 0.16,
+      "nonzero": 21
+    },
+    "other_fraud": {
+      "agents": 68,
+      "min": 0.0,
+      "median": 0.0,
+      "max": 0.034,
+      "nonzero": 24
+    }
+  },
+  "same_customer_same_client_repeats": {
+    "legitimate": 2054,
+    "strong_ring": 1252,
+    "weak_ring": 31,
+    "other_fraud": 4216
+  },
+  "same_customer_different_clients_pairs": 1856
+}

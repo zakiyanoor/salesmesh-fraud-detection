@@ -1,0 +1,15 @@
+candidate_id,size,true_rings,non_ring_members,honest_members
+cand_01,2,ring_09,0,0
+cand_02,2,ring_13,0,0
+cand_03,4,ring_02,0,0
+cand_04,2,ring_10,0,0
+cand_05,3,ring_03,0,0
+cand_06,4,ring_11,0,0
+cand_07,5,ring_01,0,0
+cand_08,5,ring_14,0,0
+cand_09,3,ring_08,0,0
+cand_10,6,ring_07,0,0
+cand_11,6,ring_04,0,0
+cand_12,6,ring_06,0,0
+cand_13,2,ring_12,0,0
+cand_14,6,ring_05,0,0

@@ -1,0 +1,21 @@
+agent_id,top_feature,top_features,profile,flag,score,expected,match
+A35443,customer_similarity,customer_similarity;submission_frequency;time_of_day_entropy,duplicate,True,0.5380741664214039,customer_similarity,1.0
+A47196,customer_similarity,customer_similarity;submission_frequency;time_of_day_entropy,duplicate,False,0.44059429738996264,customer_similarity,1.0
+A86099,customer_similarity,customer_similarity;time_of_day_entropy;submission_frequency,duplicate,True,0.6404865588398941,customer_similarity,1.0
+A26334,collusion_score,collusion_score;time_of_day_entropy;submission_frequency,ring,True,0.7052473994371158,collusion_score,1.0
+A55830,collusion_score,collusion_score;time_of_day_entropy;submission_frequency,ring,True,0.7048280031949706,collusion_score,1.0
+A62565,collusion_score,collusion_score;time_of_day_entropy;customer_similarity,ring,True,0.6751946884048007,collusion_score,1.0
+A65724,collusion_score,collusion_score;time_of_day_entropy;customer_similarity,ring,True,0.6181428042266629,collusion_score,1.0
+A67422,collusion_score,collusion_score;time_of_day_entropy;submission_frequency,ring,True,0.6541402975986399,collusion_score,1.0
+A95717,collusion_score,collusion_score;time_of_day_entropy;submission_frequency,ring,True,0.7268484938903644,collusion_score,1.0
+A45614,customer_similarity,customer_similarity;submission_frequency;time_of_day_entropy,sequential,True,0.7113814077788786,customer_similarity,1.0
+A66057,customer_similarity,customer_similarity;submission_frequency;collusion_score,sequential,True,0.6518153686441202,customer_similarity,1.0
+A80468,customer_similarity,customer_similarity;submission_frequency;time_of_day_entropy,sequential,True,0.6557036911841364,customer_similarity,1.0
+A30866,time_of_day_entropy,time_of_day_entropy;collusion_score;customer_similarity,weak,False,0.40788777188233544,(no expectation),
+A38864,time_of_day_entropy,time_of_day_entropy;collusion_score;submission_frequency,weak,False,0.3977409158471312,(no expectation),
+A48175,submission_frequency,submission_frequency;time_of_day_entropy;customer_similarity,weak,False,0.4724171022929001,(no expectation),
+A59672,customer_similarity,customer_similarity;time_of_day_entropy;submission_frequency,weak,False,0.4386609528688544,(no expectation),
+A24371,collusion_score,collusion_score;submission_frequency;time_of_day_entropy,weak_ring,True,0.565226457328807,collusion_score,1.0
+A33509,collusion_score,collusion_score;time_of_day_entropy;customer_similarity,weak_ring,False,0.4697813934593283,collusion_score,1.0
+A34356,collusion_score,collusion_score;submission_frequency;time_of_day_entropy,weak_ring,False,0.5082184725201919,collusion_score,1.0
+A65723,collusion_score,collusion_score;customer_similarity;submission_frequency,weak_ring,False,0.4108118993877519,collusion_score,1.0

@@ -1,0 +1,10 @@
+class,profile,agents,records,records_per_agent_mean,records_per_agent_min,records_per_agent_max
+fraud,duplicate,12,3180,265.0,236,306
+fraud,ring,25,5096,203.84,133,295
+fraud,sequential,12,4003,333.5833333333333,279,366
+fraud,weak,16,2341,146.3125,122,174
+fraud,weak_ring,13,1809,139.15384615384616,121,171
+legit,legit,407,46986,115.44471744471744,68,176
+legit,legit_busy,31,7756,250.19354838709677,201,308
+legit,legit_night,42,4784,113.9047619047619,80,149
+legit,legit_repeat,42,4818,114.71428571428571,82,147

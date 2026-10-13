@@ -1,0 +1,6 @@
+method,recall_ring,agents_ring,recall_weak_ring,agents_weak_ring,recall_sequential,agents_sequential,recall_duplicate,agents_duplicate,recall_weak,agents_weak,honest_flag_rate
+lof_v3_4f,1.0,6,1.0,3,1.0,3,1.0,3,0.0,4,0.07633587786259542
+rule: submission_frequency > training P90 (24.1),0.5,6,0.0,3,0.3333333333333333,3,0.3333333333333333,3,0.0,4,0.061068702290076333
+"best single feature: collusion_score (+, 15% budget)",1.0,6,1.0,3,0.0,3,0.0,3,0.25,4,0.09923664122137404
+duplicate_activation_rule (pairs > 0),1.0,6,1.0,3,0.0,3,1.0,3,1.0,4,0.0
+SECONDARY: union with duplicate rule,1.0,6,1.0,3,1.0,3,1.0,3,1.0,4,0.07633587786259542

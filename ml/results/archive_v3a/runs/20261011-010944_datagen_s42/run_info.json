@@ -1,0 +1,193 @@
+{
+  "run_id": "20261011-010944_datagen_s42",
+  "kind": "datagen",
+  "timestamp": "2026-10-11T01:09:44",
+  "seed": 42,
+  "parameters": {
+    "n_agents": 600,
+    "fraud_rate": 0.13,
+    "analysis_window": [
+      "2026-08-01",
+      "2026-08-30"
+    ],
+    "customer_id_digits": 8,
+    "fraud_pattern_shares": {
+      "ring": 0.32,
+      "weak_ring": 0.16,
+      "sequential": 0.16,
+      "duplicate": 0.16,
+      "weak": 0.2
+    },
+    "legit_pattern_shares": {
+      "legit_night": 0.08,
+      "legit_repeat": 0.08,
+      "legit_busy": 0.06
+    },
+    "legit_daily_range": [
+      1,
+      8
+    ],
+    "legit_active_day_prob": 0.85,
+    "legit_night_share_range": [
+      0.1,
+      0.25
+    ],
+    "legit_repeat_pool_size": 8,
+    "legit_repeat_share_range": [
+      0.15,
+      0.5
+    ],
+    "legit_busy_daily_range": [
+      6,
+      14
+    ],
+    "fraud_active_day_prob": 0.9,
+    "fraud_normal_activity_share": 0.3,
+    "ring_size_range": [
+      2,
+      6
+    ],
+    "ring_pool_per_member_range": [
+      20,
+      75
+    ],
+    "ring_hour_width_range": [
+      2,
+      5
+    ],
+    "ring_daily_low_range": [
+      3,
+      8
+    ],
+    "ring_daily_span_range": [
+      5,
+      12
+    ],
+    "solo_fraud_configs": {
+      "sequential": {
+        "hours": "late_night",
+        "daily_range": [
+          6,
+          18
+        ],
+        "pool_size": 0
+      },
+      "duplicate": {
+        "hours": "early_morning",
+        "daily_range": [
+          5,
+          15
+        ],
+        "pool_size": 25
+      },
+      "weak": {
+        "hours": "early_morning",
+        "daily_range": [
+          2,
+          9
+        ],
+        "pool_size": 10
+      }
+    },
+    "weak_fraud_share_range": [
+      0.1,
+      0.25
+    ],
+    "weak_ring_pool_per_member_range": [
+      5,
+      15
+    ],
+    "weak_ring_share_range": [
+      0.08,
+      0.2
+    ],
+    "weak_ring_daily_low_range": [
+      1,
+      3
+    ],
+    "weak_ring_daily_span_range": [
+      5,
+      8
+    ],
+    "county_population_thousands": {
+      "Mombasa": 1209,
+      "Kwale": 867,
+      "Kilifi": 1453,
+      "Tana River": 316,
+      "Lamu": 143,
+      "Taita-Taveta": 341,
+      "Garissa": 841,
+      "Wajir": 781,
+      "Mandera": 867,
+      "Marsabit": 459,
+      "Isiolo": 268,
+      "Meru": 1545,
+      "Tharaka-Nithi": 393,
+      "Embu": 608,
+      "Kitui": 1136,
+      "Machakos": 1422,
+      "Makueni": 987,
+      "Nyandarua": 638,
+      "Nyeri": 759,
+      "Kirinyaga": 610,
+      "Murang'a": 1056,
+      "Kiambu": 2417,
+      "Turkana": 926,
+      "West Pokot": 621,
+      "Samburu": 310,
+      "Trans Nzoia": 991,
+      "Uasin Gishu": 1163,
+      "Elgeyo-Marakwet": 454,
+      "Nandi": 886,
+      "Baringo": 667,
+      "Laikipia": 518,
+      "Nakuru": 2162,
+      "Narok": 1158,
+      "Kajiado": 1118,
+      "Kericho": 902,
+      "Bomet": 876,
+      "Kakamega": 1868,
+      "Vihiga": 591,
+      "Bungoma": 1671,
+      "Busia": 894,
+      "Siaya": 993,
+      "Kisumu": 1156,
+      "Homa Bay": 1132,
+      "Migori": 1116,
+      "Kisii": 1266,
+      "Nyamira": 605,
+      "Nairobi": 4397
+    },
+    "popular_pool_per_agent": 10,
+    "popular_pool_min": 20,
+    "popular_pool_user_prob": 0.35,
+    "popular_pool_share_range": [
+      0.03,
+      0.15
+    ]
+  },
+  "data_files": {
+    "agents.csv": "c0a8c29bc53f28b278eb4305032e5ceac16d3ff851931c01b6b88bfc2df31175",
+    "activation_records.csv": "5fb0b9180f907a738cbc2c16594a8f8c762de26494ace601aab55d75946c49e5",
+    "labels.csv": "785a4ac0e977179425dfef2e2a3b4b0024053ecab1524654f31c0e88873fdd3c",
+    "rings.csv": "7712078b5cd0d093e5e141c67c3bf3d25d7f1e391efe12595a3298110976bfae"
+  },
+  "system": {
+    "python": "3.14.0",
+    "os": "Windows-11-10.0.26200-SP0",
+    "cpu": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+    "cpu_count": 12,
+    "ram_gb": 15.7,
+    "git_commit": "812bb059873df75aea91dd3c7eddc7d7e52a5c65"
+  },
+  "library_versions": {
+    "python": "3.14.0",
+    "numpy": "2.5.2",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.0",
+    "faker": "40.37.0",
+    "matplotlib": "3.11.1",
+    "joblib": "1.6.0",
+    "shap": null
+  }
+}

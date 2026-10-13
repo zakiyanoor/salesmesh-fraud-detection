@@ -1,0 +1,246 @@
+# ML rework plan checklist
+
+An item is ticked only when it has been done, with one line of evidence (a file, a number or a test name). At Step 13, every unticked item is listed.
+
+- [x] **Scope: U-CS 56 only; other SalesMesh modules out of scope.** Evidence: DATA_CARD.md "Scope" section; the generator has no client management, task limits, payouts or reputation.
+- [x] **Test-set guard: test labels can be loaded only by the Step 11 final evaluation script.** Evidence: `ml/labels_guard.py` (`TestLabelsLocked`); 6 tests in `ml/tests/test_labels_guard.py`, including `test_step_7_and_8_run_without_any_test_label`.
+- [x] **Single-feature tables show direction-free strength max(AUC, 1 - AUC) next to raw AUC.** Evidence: DATA_CARD.md Step 4 table; `baselines.py` output (`val_auc_raw`, `val_strength`).
+- [x] **Rule: record, activation and agent ids are never model inputs.** Evidence: `ml/tests/test_no_id_inputs.py`, 3 tests passing (`test_feature_columns_contain_no_id_column`, `test_feature_matrix_ignores_id_columns`, `test_fitted_models_see_only_feature_columns`). To be re-run against the Step 4 feature matrix.
+
+## Step 0 and Step 1 (done)
+
+- [x] Archive v2 results and data. Evidence: `ml/results/archive_v2/` (6 files) and `ml/data/archive_v2/` (7 files), each checked byte-identical with `cmp` (CHANGES.md, header).
+- [x] Data generator rewritten. Evidence: `ml/data_generation.py` (parameters `--n-agents`, `--fraud-rate`, `--seed`); `ml/tests/test_data_generation.py`, 34 tests passing.
+- [x] Labels kept in `labels.csv` and `rings.csv`, not in `agents.csv`. Evidence: `agents.csv` columns are `agent_id`, `registration_timestamp` and `region`; test `test_agents_file_carries_no_labels`.
+- [x] Run folder with `run_info.json`. Evidence: `ml/runs/20261011-022249_datagen_s42/run_info.json`, holding the seed, parameters, data file hashes, library versions and system information.
+
+## Step 1B (data changes; re-ticked on the frozen Step 1C data)
+
+- [x] 47 counties, with a floor of 2 agents per county. Evidence: `COUNTY_MIN_AGENTS = 2`; agents per county min 5, median 20, max 89, 0 counties under 5; test `test_every_county_has_at_least_the_floor`.
+- [x] 1000 agents. Evidence: `DEFAULT_N_AGENTS = 1000`, giving 1000 agents with 130 fraud (0.130); test `test_default_counts_follow_n_agents_and_fraud_rate`.
+- [x] Shared popular customers per county. Evidence: 353 of 870 legitimate agents have a non-zero `collusion_score` (max 0.110); test `test_some_legit_agents_share_customers_mostly_within_their_county`.
+- [x] Weak rings. Evidence: 5 weak rings with 21 agents, `collusion_score` 0.032 / 0.074 / 0.149 (min / median / max), 15 of 21 inside the legitimate range; test `test_weak_rings_share_less_than_strong_rings`.
+- [x] Categories and clients. Evidence: `clients.csv` holds 20 clients across 12 categories; each agent has 1–3 clients (450 / 413 / 137 agents); tests `test_clients_reference_list`, `test_record_category_comes_from_its_client` and `test_agents_work_with_one_to_three_clients_mostly_in_one_or_two_categories`.
+- [x] Fraud independent of region, category and client, with chi-square p values. Evidence: county p = 0.649, former region p = 0.403, primary category p = 0.946, primary client p = 0.821 (`data_checks.json`, frozen run); test `test_fraud_is_independent_of_county_region_category_and_client`.
+- [x] Requirements traceability table (SRS). Evidence: DATA_CARD.md "Requirements traceability", covering 2.2.4, 7.5, 3.6, 3.1/8.4, 4.3/8.2, 5.1, 5.3 and the section 2 constraints, plus the Chapters 1–3 behaviours.
+- [x] Reason for using 1000 agents. Evidence: DATA_CARD.md "Why 1000 agents".
+- [x] Every label-aware change listed in order. Evidence: DATA_CARD.md "Label-aware changes, in order" lists 4 changes, marked final.
+- [x] Independent units are agents. Evidence: DATA_CARD.md "Independent units" (1000 agents and 130 fraud; the 135,509 records are not independent).
+- [x] Time zone, observation window and data dictionary. Evidence: DATA_CARD.md (Africa/Nairobi, 2026-08-01 to 2026-08-30; every column of the 5 files); test `test_timestamps_fall_in_the_observation_window`.
+- [x] Duplicate pattern is the same customer for the same client; the same customer for different clients is rare. Evidence: tests `test_duplicate_fraud_resubmits_the_same_customer_for_the_same_client` and `test_same_customer_for_different_clients_is_rare` (1,848 pairs, under 5%).
+- [x] The data has customer ids only, with no addresses, stated as a limitation. Evidence: DATA_CARD.md "Limits of this data".
+
+## Step 1C (label-aware change #4, then FROZEN for good)
+
+- [x] Legitimate hours have an off-hours tail, with no clipping. Evidence: `OFF_HOURS_SHARE_RANGE = (0.01, 0.06)`, with resampling instead of a clip; the hour rule now flags 120 fraud agents and 846 of 870 legitimate agents (before: 80 and 0); test `test_legit_agents_also_work_off_hours`.
+- [x] Heavy-tailed daily volume with no cap; weak fraud has a random elevated rate. Evidence: negative binomial (dispersion 3) for every group; legitimate busiest day ranges 5–48; weak fraud busiest day ranges 10–25 (12 distinct values); test `test_daily_volume_has_no_class_specific_cap`.
+- [x] Overlap audit of every raw descriptor, with every zero-overlap row classified. Evidence: `ml/runs/20261011-022249_datagen_s42/overlap_audit.csv` (13 descriptors × 6 groups) and DATA_CARD.md "Overlap audit"; 3 zero-overlap rows, all accepted signatures; test `test_only_accepted_signatures_have_zero_overlap_with_legit`.
+- [x] Constants, clips, caps and exact values that apply to only one class are checked and fixed. Evidence: DATA_CARD.md "Hard limits and exact values checked in the generator" (7 fixed, 2 kept with reasons).
+- [x] Step 1 and 1B checks and tests re-run. Evidence: 52 ML tests passing; backend 66 passed and 2 known failures; checks in `data_checks.json`.
+- [x] Generator declared FROZEN for good. Evidence: DATA_CARD.md header; the `data_generation.py` docstring says it is frozen after change #4.
+
+## Step 2: cleaning (re-run on the frozen data)
+
+- [x] Cleaning report. Evidence: `ml/results/data_cleaning_report.md` and run `ml/runs/20261011-022427_clean/`: 135,509 rows in and 135,509 out (0 removed); 63 agents flagged as IQR volume outliers and kept; 14 tests in `ml/tests/test_clean_data.py`. Run `20261011-020933_clean` is superseded.
+- [x] Near-duplicate check. Evidence: same customer and client within 10 minutes, 93 records from 47 agents; customer id one digit away, 541 records from 21 agents. All are flagged and kept, in `record_flags.csv`. Test `test_near_duplicates_by_hand`.
+
+## Step 3: exploratory analysis (re-run on the frozen data)
+
+- [x] Raw sample table. Evidence: `ml/runs/20261011-022430_eda_s0/raw_sample.md`, with 8 raw activation records, 5 agents and 5 clients (seed 0).
+- [x] Distributions by group. Evidence: same run, `fig03_distributions_by_group.png`, `descriptors_by_group.csv`, `fig02_volume_by_hour.png`, `fig01_class_balance.png`, `fig04_correlations.png` and `findings.md`, which includes a shortcut check confirming both are gone. Runs `20261011-021228_eda_s0` and `20261011-021303_eda_s0` are superseded.
+
+## Step 4: features (done after Step 5; label checks on training agents only)
+
+- [x] The four features: `submission_frequency`, `time_of_day_entropy`, `customer_similarity` and `collusion_score`. Evidence: `ml/feature_engineering.py`; `ml/runs/20261011-023639_features/feature_vectors.csv`, 1000 rows.
+- [x] Feature functions take `period_start` and `period_end`; output rows include `analysis_period_start` and `analysis_period_end`. Evidence: `compute_feature_vectors(..., period_start, period_end)`; test `test_period_filter_and_period_columns`.
+- [x] `submission_frequency` uses a sliding window (busiest 24 hours). Evidence: `SUBMISSION_WINDOW_HOURS = 24`; test `test_submission_frequency_by_hand`.
+- [x] `customer_similarity` is the mean similarity of identifiers over pairs. Evidence: `identifier_similarity`; test `test_identifier_similarity_by_hand`.
+- [x] Candidate `volume_vs_peers`, with the agreed peer rule and minimum group size 15. Evidence: `PEER_MIN_GROUP = 15`; 578 agents at category + region and 422 at category level; test `test_volume_vs_peers_by_hand`.
+- [x] Each feature defined exactly. Evidence: DATA_CARD.md "Feature definitions (Step 4)" gives formula, window and units.
+- [x] Single-feature AUC table, overall and per pattern, on training agents only. Evidence: `ml/runs/20261011-023802_feature_checks/single_feature_auc.csv` (700 training agents, 91 fraud); 7 feature-pattern pairs at separation 0.95 or above are listed as limitations in DATA_CARD.md.
+- [x] Decision rule for `volume_vs_peers` written before the table. Evidence: `decision_rule.md`, written by `feature_analysis.py` before any AUC; `decision.md` says KEEP (AUC 0.780 > 0.55; max correlation 0.807 <= 0.85).
+- [x] ID column test re-run against the feature matrix. Evidence: test `test_real_feature_matrix_contains_no_id_columns` passing.
+- [x] No label or agent-id information enters the features. Evidence: test `test_no_label_or_id_information_enters_the_features` (renaming every agent id changes no feature value).
+
+## Step 5: split (done first)
+
+- [x] 70/15/15 split, stratified at agent level by pattern (legit plus 5 fraud patterns). Evidence: `ml/runs/20261011-023607_split_s42/split.csv`; 700 / 150 / 150 agents; tests `test_split_sizes_are_70_15_15` and `test_every_pattern_is_in_every_split`.
+- [x] Fail if validation or test has fewer than 15 fraud agents. Evidence: `MIN_FRAUD_PER_EVAL_SPLIT = 15`; validation 20 and test 19; test `test_too_few_fraud_agents_fails`.
+- [x] Split saved, with its seed. Evidence: `SPLIT_SEED = 42`; `split.csv` and `run_info.json` in the run folder; test `test_split_is_deterministic`.
+- [x] No agent in two splits. Evidence: tests `test_no_agent_is_in_two_splits` and `test_duplicate_assignment_is_rejected`.
+- [x] Rings spanning splits, and platform-wide `collusion_score`, documented. Evidence: DATA_CARD.md "Split (Step 5)" (13 of 14 rings span splits; not label leakage; deployment behaviour).
+
+## Step 6: preprocessing
+
+- [x] Scaler fitted on train only, then applied to validation and test. Evidence: `ml/runs/20261011-023846_preprocess_s0/scaler.joblib` and `scaler_stats.csv` (scaler mean equals training mean, for example `submission_frequency` 15.7329 against 15.6850 over all agents); test `test_scaler_statistics_come_from_training_only`.
+- [x] Scaler saved. Evidence: `scaler.joblib` (scaler, feature list, `fitted_on="train"`, 700 agents); test `test_saved_scaler_round_trips`.
+- [x] Before-and-after scaling sample. Evidence: `scaling_sample.md`, 5 training and 5 validation agents.
+
+## Step 7: baselines (on validation)
+
+- [x] Operating point fixed before results: alert budget of the top 15% of agents. Evidence: `metrics.ALERT_BUDGET = 0.15` (23 of 150 validation agents); random PR AUC baseline 0.133 reported.
+- [x] Trivial baseline: random scores, mean of 20 seeds. Evidence: run `ml/runs/20261011-024811_baselines/`; ROC AUC 0.516 and PR AUC 0.157 (std 0.063 and 0.033).
+- [x] Rule baseline: `submission_frequency` above the training 90th percentile. Evidence: cap 24; validation ROC AUC 0.795, PR AUC 0.373, P / R / F1 0.462 / 0.300 / 0.364.
+- [x] Single-feature scores, with direction chosen on training. Evidence: `single_feature_directions.csv`; validation ROC AUC 0.614–0.813; recall by pattern reported in `baseline_metrics.csv`.
+
+## Step 8: models (fit on train, score validation, default settings)
+
+- [x] Isolation Forest (`n_estimators=200`, `contamination="auto"`, seed 42) and LOF (`novelty=True`, `n_neighbors=20`), each with 4 and 5 features. Evidence: run `ml/runs/20261011-024834_models_default_s42/`; `model_metrics.csv` and 4 `.joblib` files.
+- [x] Scores oriented so higher = more anomalous. Evidence: `detectors.Detector.score`; test `test_scores_are_higher_for_an_obvious_outlier`.
+- [x] Validation metrics, recall by pattern, training vs validation AUCs, fit time, scoring time per agent and model file size. Evidence: `model_metrics.csv` (for example, IF with 5 features: validation ROC AUC 0.891 against training 0.926; 0.112 ms per agent; 1,675,262 bytes).
+- [x] Best on validation stated, without a final choice. Evidence: run report; the choice is left to Step 9.
+
+## Step 9: selection on validation only
+
+- [x] Selection rule written before running. Evidence: `ml/results/selection_rule.md` (written 02:55; the grid run started 02:56, `20261011-025652_selection_s42`).
+- [x] Hyperparameter grid. Evidence: `grid.csv` (64 candidates) and `grid_per_seed.csv` (5 seeds each), all candidates kept.
+- [x] Contamination not equal to the true fraud rate. Evidence: `contamination="auto"` everywhere; the run report explains that it does not change scores or rankings.
+- [x] Threshold chosen on validation, saved as a value with the model version. Evidence: first under the original rule (cutoff 1.695, `lof_v3_4f`, run `…025652`), then re-done for the amended pick (cutoff 0.536, `if_v3_4f`, run `…031206`).
+- [x] Train vs validation gap check. Evidence: `if_v3_4f` ROC AUC 0.933 against 0.904 (gap 0.029), PR AUC 0.805 against 0.751. The original pick had a gap of 0.029 too.
+- [x] Models compared with and without `volume_vs_peers`, on validation only, with both reported. Evidence: best 4-feature 0.754 against best 5-feature 0.739, CIs overlapping about 97% (within noise).
+- [x] Bootstrap 95% CI of validation PR AUC per candidate. Evidence: `pr_auc_ci_low` and `pr_auc_ci_high` in `grid.csv` (1000 resamples); test `test_weighted_average_precision_matches_sklearn`.
+- [x] **Selection outcome confirmed by the author (option B: post hoc margin-only tie rule, on validation only).** Evidence: `selection_rule.md` amendment (03:11) and CHANGES.md; the original pick (LOF k=35, 0.682) is kept in run `20261011-025652_selection_s42`; the amended pick is `if_v3_4f` (IF, 100 trees, `max_samples` 64, `max_features` 1.0, 4 features; 0.742) in run `20261011-031206_selection_s42`; tests `test_amended_rule_simplicity_order` and `test_amended_rule_ignores_ci_overlap`.
+- [x] Operating point recomputed for the amended pick and saved with `model_version` `if_v3_4f`. Evidence: `operating_point.json`, cutoff 0.536 (5:1); `operating_points.csv` with 2:1, 10:1, max F1 and 15% budget.
+- [x] Acceptance checks Q1–Q6 re-evaluated on validation. Evidence: `acceptance_validation.csv`, all PASS (Q5 recall exactly 0.60).
+- [ ] `ml/results/acceptance_criteria.md`, agreed with the supervisor first. (The draft is written, with a disclosure at the top; agreement is pending.) It must include these SRS-based criteria, each measured at Step 11:
+  - [x] scoring time per agent and for the whole table. Evidence: criterion S1 in the draft.
+  - [x] the model can be replaced without changing the pipeline, and the threshold is a config value. Evidence: criterion S2 in the draft.
+  - [x] every score output includes `agent_id`, `analysis_period`, `score`, `flag`, `threshold`, `model_version` and `top_features`. Evidence: criterion S3 in the draft.
+  - [x] scoring time at 500, 1000, 5000 and 10000 synthetic agents (timing only, no accuracy claim). Evidence: criterion S4 in the draft.
+
+## Step 9B: learning curve
+
+- [x] Learning curve at 10%, 25%, 50%, 75% and 100% of the training data, stratified, 5 repeats each. Evidence: run `20261011-030156_learning_curve` (the rule's choice) and `20261011-030202_learning_curve` (the margin-only alternative), each with `learning_curve.png`; both are flat from about 25–50%.
+
+## Step 10: explainability (validation only)
+
+- [x] Permutation importance (20 repeats, as PR AUC drop). Evidence: run `20261011-031637_explain/permutation_importance.csv`; `collusion_score` 0.227, `customer_similarity` 0.198, entropy 0.052, frequency 0.037.
+- [x] Feature ablation (drop one at a time, `volume_vs_peers` in or out, seeds 1–5, bootstrap CI). Evidence: `ablation.csv`; without similarity −0.118, without collusion −0.106, without frequency +0.026 (within noise), with `volume_vs_peers` −0.002.
+- [x] Top contributing features for every agent (the author's decision, so S3 stays as written), with the method stated. Evidence: robust deviation, (value − training median) / training IQR (SHAP not installed); `runs/20261011-032400_explain/validation_scores.csv`, `top_features` on all 150 rows; test `test_output_schema_top_features_on_every_row_reason_only_when_flagged`.
+- [x] Explanation method changed from mean and SD to median and IQR, recorded as a principled change made on validation. Evidence: CHANGES.md; sanity check old → new: ring 4/6 → 6/6, sequential 3/3 → 3/3, duplicate 0/3 → 3/3, weak_ring 0/4 → 4/4; scores and flags unchanged (largest difference 0.0); test `test_explanations_do_not_change_scores_or_flags`.
+- [x] Plain-language reason per flagged agent only. Evidence: `validation_scores.csv` `reason` (13 flagged; others read "not flagged"); test `test_top_contribution_and_reason_by_hand`.
+- [x] Sanity check of the top feature by pattern. Evidence: `runs/20261011-032400_explain/pattern_sanity.csv`; ring 6/6, sequential 3/3, duplicate 3/3, weak_ring 4/4 (the earlier mean-and-SD run 4/6, 3/3, 0/3, 0/4 is kept).
+- [x] Validation scoring output with the agreed schema. Evidence: `runs/20261011-032400_explain/validation_scores.csv` (`agent_id`, `analysis_period_start`, `analysis_period_end`, `score`, `flag`, `threshold`, `model_version`, `top_features`, `reason`), with no empty field; test `test_threshold_comes_from_the_bundle_not_the_code`.
+- [x] S1–S4 re-checked before Step 11 (features only, no labels). Evidence: run `20261011-032454_system_checks_s101/system_checks.json`, all PASS; S1 0.048 ms per agent; S4 10000 agents scored in 0.24 s, 56 s end-to-end.
+- [x] Freeze record with sha256 hashes and a matching test. Evidence: `ml/results/FREEZE.md` (12 files, plus the `labels.csv` hash quoted from generation); `ml/tests/test_freeze.py` (12 hash checks passing).
+
+## Data change 5: integrity rules and SalesMesh context (2026-10-13)
+
+Evidence for Steps 1 to 10 above refers to v3a runs, now archived in `ml/results/archive_v3a/runs/`. Steps 4 and 6 to 10 must be re-run on this data before Step 11 (split assignment unchanged: `labels.csv` is byte-identical).
+
+- [x] Archive v3a data, runs and results; nothing deleted. Evidence: `ml/data/archive_v3a/` (8 files) and `ml/results/archive_v3a/runs/` (26 runs, 148 files), sha256 identical after the move; `FREEZE_v3a.md`, `DATA_CARD_v3a.md` and the v3a code copied to `ml/results/archive_v3a/`; `selection_rule.md` and `acceptance_criteria.md` unchanged in place.
+- [x] Rules R1 to R6 enforced in the generator. Evidence: `data_checks.json` in run `20261013-091128_datagen_s42`: honest R1, R2, R5, R6 = 0; fraud R1 290, R2 4,887; honest pairs shared 33 to 0.
+- [x] `legit_repeat` redefined as cross sell plus retries, share range kept. Evidence: repeated customer share 0.367 (v3a 0.261); same-pair share 0.044 (retries).
+- [x] New fields and files from separate RNG streams. Evidence: `agent_identity.csv`, `agent_categories.csv`, `account_status`, `quality_score`, `commission_kes`, `commission_per_activation_kes`; test `test_context_fields_do_not_change_behaviour`.
+- [x] Checks a to e in `data_checks.py`, run inside the generator. Evidence: `referential_integrity`, `rule_checks`, `range_checks`, `identity_checks`, `independence_table`; all integrity, range and identity counts 0; 5 of 6 AUCs inside 0.35 to 0.65 (commission total 0.679, volume-driven).
+- [x] Tests per rule, model input list, identity columns. Evidence: `ml/tests/test_integrity_rules.py` (12 tests); ML suite 144 passed, 3 skipped.
+- [x] DATA_CARD.md, CHANGES.md (change 5, with backend and database list) and this checklist updated. Evidence: those files.
+- [x] Regenerated with seed 42, new run folder and datagen freeze note. Evidence: `ml/runs/20261013-091128_datagen_s42/run_info.json`; `ml/results/FREEZE.md` (11 hashes); `test_freeze.py` passing.
+
+## Rerun of Steps 2 to 10 on the change 5 data (2026-10-13; settings unchanged)
+
+- [x] Step 2 cleaning. Evidence: run `20261013-092936_clean`; 135,494 in and out, 0 removed; near duplicates 77 same customer (33 agents) and 549 one digit away (21 agents).
+- [x] Step 5 split, same design. Evidence: run `20261013-092952_split_s42`; 700 / 150 / 150 agents, 91 / 20 / 19 fraud; `split.csv` byte-identical to v3a.
+- [x] Step 3 EDA without test agents (labels guard). Evidence: run `20261013-092959_eda_s0`, 850 agents; `labels_guard.load_labels`; test `test_load_labels_refuses_test_and_drops_test_rows`.
+- [x] Step 4 features and feature checks. Evidence: runs `20261013-093008_features` and `20261013-093024_feature_checks`; `volume_vs_peers` KEEP (0.760, 0.803).
+- [x] Step 6 preprocessing, scaler fitted on train only. Evidence: run `20261013-093031_preprocess_s0`.
+- [x] Step 7 baselines, plus `duplicate_activation_rule` (reported only, on training and validation). Evidence: run `20261013-093033_baselines`, `baselines_train_and_validation.csv`; tests in `ml/tests/test_duplicate_rule.py`, including `test_duplicate_activation_rule_uses_no_labels`.
+- [x] Step 8 default models. Evidence: run `20261013-093036_models_default_s42`.
+- [x] Step 9 selection with the amended rule, unchanged. Evidence: run `20261013-093050_selection_s42`; chosen `lof_v3_4f` (`n_neighbors` 50), PR AUC 0.813 (0.660 to 0.942); the v3a choice was `if_v3_4f`.
+- [x] Acceptance Q1 to Q6 on validation. Evidence: `acceptance_validation.csv`, all PASS (Q1/Q2 reference 0.574 from Step 7; also PASS against 0.541).
+- [x] Step 9B learning curve. Evidence: run `20261013-093222_learning_curve`; flat from about 75%.
+- [x] Step 10 explanations and scoring bundle. Evidence: run `20261013-093225_explain`; top feature matches 6/6, 4/4, 3/3, 3/3.
+- [x] S1 to S4. Evidence: run `20261013-093332_system_checks_s101`, all PASS (S4 behaviour-only generation).
+- [x] Model freeze. Evidence: `ml/results/FREEZE.md` (15 hashes; rule hashes equal v3a); `test_freeze.py` passing.
+- [x] All ML tests pass, none skipped. Evidence: 156 passed.
+- [ ] `acceptance_criteria.md` agreed with the supervisor (still a draft).
+
+## Records, reason fix, Step 12a, reference table, Step 13a (2026-10-13)
+
+- [x] `results/selection_notes.md` (LOF and Isolation Forest tie order) and its test. Evidence: `test_amended_rule_tie_order_puts_lof_first`; `selection_rule.md` hash unchanged.
+- [x] CHANGES.md records: EDA test labels, Q1/Q2 reference, `feature_analysis.py` string, S4 name limit, duplicate rule as a reference ceiling. Evidence: CHANGES.md, "Records, reason text fix...".
+- [x] Reason display rule (|d| >= 1 and at least 10% of the training P5 to P95 range). Evidence: `explain.shown_in_reason`; run `20261013-094740_explain`; `test_reason_display_rule_needs_iqr_and_range_size`; `FREEZE.md` rewritten, `test_freeze.py` passing.
+- [x] Reference table: model, duplicate rule and union by pattern (reported only). Evidence: run `20261013-095059_union_reference`.
+- [x] `ml/README.md` (reproduce, score, retrain) and `MODEL_CARD.md` for `lof_v3_4f`. Evidence: those files; the v3a draft is kept in `results/archive_v3a/MODEL_CARD_v3a_draft.md`.
+- [x] ML tests. Evidence: 165 passed, 0 skipped, 0 failed.
+
+## Reason wording, reproduce command, model card, pre-declaration (2026-10-13)
+
+- [x] Reason lines show the training percentile; display conditions unchanged; scores, flags and `top_features` identical. Evidence: run `20261013-100433_explain`; `test_reason_adds_training_percentile`.
+- [x] Reproduce command `run_pipeline.py`. Evidence: dry run lists 13 steps in order; `test_dry_run_lists_the_steps_in_order`.
+- [x] MODEL_CARD.md sections Fit to SRS, Scope, Class imbalance handling; Limitations updated. Evidence: MODEL_CARD.md.
+- [x] Union of `lof_v3_4f` and `duplicate_activation_rule` pre-declared as a Step 11 secondary analysis, not a selection candidate. Evidence: `results/selection_notes.md`, hashed in `FREEZE.md`.
+- [x] Freeze rewritten and all ML tests pass. Evidence: `FREEZE.md` (16 hashes); 171 passed, 0 skipped.
+- [x] Step 12 robustness (seeds 1 to 10): moved into the Step 11 task (author decision). Evidence: run `20261013-104305_stability` (seeds 101 to 110).
+
+## Step 11: final test (test set read once; done 2026-10-13, run `20261013-103859_final_evaluation_s42`, all hashes matched first)
+
+- [x] Precision, recall, F1, ROC AUC and PR AUC. Evidence: run `20261013-103859_final_evaluation_s42`, `test_metrics.csv`; PR AUC 0.845, ROC AUC 0.953, precision 0.600, recall 0.789, F1 0.682.
+- [x] Bootstrap 95% confidence intervals. Evidence: 1000 agent-level resamples, seed 42, in `test_metrics.csv` (PR AUC 0.684 to 0.960).
+- [x] Confusion matrix. Evidence: `confusion_matrix.csv`, `fig14_confusion_matrix.png` (TN 121, FP 10, FN 4, TP 15).
+- [x] ROC, PR and score distribution plots. Evidence: `fig11_precision_recall.png`, `fig12_roc.png`, `fig13_score_distribution.png`, `fig15_recall_by_pattern.png`, each with a caption file.
+- [x] Error analysis and difficult cases. Evidence: `error_analysis.csv`; FINAL_TEST_RESULTS.md (4 missed weak agents, 10 false alarms, one line each).
+- [x] Collusion ring evaluation and ring CSV export. Evidence: `ring_candidates.csv`, `ring_comparison.csv`; 14 of 14 rings with at least half flagged; 14 candidates, each one true ring.
+- [x] Subgroup results by the 8 former regions and by pattern, with counts. Evidence: `subgroups_former_region.csv`, `subgroups_pattern.csv`.
+- [x] A sentence saying county-level results are too small to interpret. Evidence: FINAL_TEST_RESULTS.md, recall by region.
+- [x] Timing and model file size. Evidence: `timing.json` (0.060 ms per agent); model 0.35 MB, bundle 0.37 MB.
+- [x] Comparison with the acceptance criteria, stating pass or fail. Evidence: `acceptance_test.csv`; Q1 to Q6 and S1 to S4 all PASS.
+
+- [x] Read once, enforced: hashes checked before any test label, one unlock logged, then a marker that blocks a second run. Evidence: `results/test_read_once.json`, `results/test_read_attempts.log` (1 entry); tests `test_marker_blocks_a_second_run` and `test_real_marker_blocks_a_second_run`.
+- [x] Plain-language results with limitations and disclosures. Evidence: `results/FINAL_TEST_RESULTS.md`.
+- [x] Pre-declared secondary analysis (union with `duplicate_activation_rule`) reported, labelled secondary. Evidence: `test_metrics.csv`, `recall_by_pattern.csv`; recall 1.000, precision 0.655.
+
+## Step 12: robustness
+
+- [x] Seeds 1 to 10. Done with data seeds 101 to 110 (author's choice, so no seed overlaps earlier runs). Evidence: run `20261013-104305_stability`; PR AUC 0.811 (SD 0.035).
+- [x] 5-fold stratified cross-validation at agent level (Step 12a; training and validation agents only, test excluded). Evidence: `cross_validation.py`, run `20261013-095040_cross_validation_s42`; `lof_v3_4f` PR AUC 0.844 (SD 0.029).
+- [x] Mean and spread reported (for the 5-fold CV; seeds 1 to 10 still open). Evidence: `cv_summary.csv`, `cv_pattern_recall.csv`; CHANGES.md.
+
+## Step 13: artifacts and docs
+
+- [x] Model and scaler saved with joblib. Evidence: `runs/20261013-093050_selection_s42/chosen_model.joblib`, `runs/20261013-100433_explain/scoring_bundle.joblib` and `scaler.joblib` (current; earlier explain runs superseded); hashes in `FREEZE.md`.
+- [x] A retrain command that writes a new versioned model, with `model_version` stored on every flag (periodic retraining). Evidence: `retrain.py` (cutoff from the validated alert rate, no labels); run `20261013-095135_retrain_s42`; `tests/test_retrain.py`.
+- [x] pytest tests for each module. Evidence: every `ml/*.py` module is imported by at least one test; `tests/test_reporting_modules.py` covers cross_validation, eda, explainability, feature_analysis, freeze, redraw_score_figure, stability and union_reference.
+- [x] `MODEL_CARD.md`, covering: Evidence: MODEL_CARD.md (final, with test and stability results).
+  - [x] no labels used in training; Evidence: MODEL_CARD.md, "Model".
+  - [x] scores not calibrated; Evidence: MODEL_CARD.md, "Model" and "Limitations".
+  - [x] results on synthetic data alone cannot prove real-world performance; Evidence: MODEL_CARD.md, "Limitations".
+  - [x] a section "Fit to SRS"; Evidence: MODEL_CARD.md.
+  - [x] a section "Scope"; Evidence: MODEL_CARD.md.
+  - [x] a section "Class imbalance handling": stratified agent-level split, PR AUC and F1 instead of accuracy, no oversampling or augmentation, and why. Evidence: MODEL_CARD.md.
+- [x] README with one command to reproduce everything. Evidence: `python run_pipeline.py` (Steps 1 to 10; `--seed`, `--skip-generation`, `--dry-run`) in `ml/README.md`; `tests/test_run_pipeline.py`.
+- [x] `CHANGES.md`. Evidence: `results/CHANGES.md`, final through Step 12 and the closing records.
+- [x] `DATA_CARD.md`. Evidence: `ml/DATA_CARD.md`, final (status, changes, known issues consistent with the test).
+- [x] `run_info.json` with Python, OS, CPU, RAM and git commit hash (read-only `git rev-parse HEAD`). Evidence: all 18 runs used in the results have it, with seed, commit, parameters and input hashes (CHANGES.md, "Closing records"); the stability run lists no input files because its datasets are generated in memory.
+- [ ] Backend feature parity: `backend/src/pipeline.py` computes the v3 feature definitions, including `time_of_day_entropy`, the 24-hour window, similarity of identifiers and `volume_vs_peers`.
+- [ ] Backend database reloaded with v3 data, and the backend tests that depend on it fixed. Today these are `test_agent_detail_context_lists_only_known_clients_and_categories` and the `A1104` API tests.
+- [x] List of known limitations: Evidence: FINAL_TEST_RESULTS.md, "Limitations" and "Disclosures".
+  - [x] strong rings are easy to separate;
+  - [x] in v2, the model choice was made after seeing test results;
+  - [x] the data is synthetic;
+  - [x] the test set is small.
+
+## Disclosures for the documentation
+
+- [x] SMOTE from Chapter 3 was not used: it needs labels, and the models are unsupervised. Evidence: MODEL_CARD.md, "Class imbalance handling".
+- [x] All data is synthetic, not SalesMesh data. Evidence: FINAL_TEST_RESULTS.md, Limitations.
+- [x] The features differ from Chapter 3. Evidence: `results/DEVIATIONS_FROM_PROPOSAL.md`, section 3.
+- [x] The generator was changed after seeing labels. Evidence: FINAL_TEST_RESULTS.md, Disclosures 3.
+- [x] The Streamlit dashboard became a React app. Evidence: `results/DEVIATIONS_FROM_PROPOSAL.md`, section 6.
+
+## Closing checks before the pull request (2026-10-13)
+
+- [x] Acceptance table with exact criterion text, thresholds, validation and test values. Evidence: `results/ACCEPTANCE_TABLE.md` (Q6 is defined on the test alert rate, 25% limit: PASS).
+- [x] Deviations from the proposal, with the disclosures in their correct form. Evidence: `results/DEVIATIONS_FROM_PROPOSAL.md`.
+- [x] Reproduction check outside the repository: data, split, features, model, cutoff and all validation tables identical; model behaviour identical. Evidence: CHANGES.md, "Closing records".
+- [x] `run_info.json` for every run used in the results. Evidence: CHANGES.md, "Closing records".
+- [x] Score figure redrawn from saved run files (presentation only). Evidence: `fig13b_score_distribution_clipped.png` and caption; `redraw_score_figure.py`.
+- [x] Root README, PR description. Evidence: `README.md`, `results/PR_DESCRIPTION.md`.
+
+## Unticked items at Step 13
+
+| Item | Reason it is unticked |
+|---|---|
+| `acceptance_criteria.md` agreed with the supervisor (Step 9 and the rerun section) | The supervisor was away; the review is pending. The criteria were applied exactly as hashed, and this is disclosed in FINAL_TEST_RESULTS.md. |
+| Backend feature parity (`backend/src/pipeline.py` on the v3 features) | Backend sprint work; the backend was not to be touched in this ML work. |
+| Backend database reloaded with v3 data, and the dependent backend tests fixed | Backend sprint work (the schema changes are listed in CHANGES.md, change 5). |

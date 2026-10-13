@@ -1,0 +1,13 @@
+,train,validation,test
+agents,700.0,150.0,150.0
+fraud,91.0,20.0,19.0
+fraud_share,0.13,0.133,0.127
+duplicate,15.0,3.0,3.0
+legit,475.0,107.0,97.0
+legit_busy,33.0,8.0,11.0
+legit_night,50.0,7.0,13.0
+legit_repeat,51.0,8.0,10.0
+ring,29.0,6.0,6.0
+sequential,15.0,3.0,3.0
+weak,18.0,4.0,4.0
+weak_ring,14.0,4.0,3.0

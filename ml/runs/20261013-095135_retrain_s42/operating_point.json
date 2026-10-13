@@ -1,0 +1,24 @@
+{
+  "model_version": "lof_v3_4f_r20261013-095135",
+  "model": "lof",
+  "params": {
+    "n_neighbors": 50
+  },
+  "feature_columns": [
+    "submission_frequency",
+    "time_of_day_entropy",
+    "customer_similarity",
+    "collusion_score"
+  ],
+  "model_seed": 42,
+  "contamination": "auto",
+  "threshold": 1.4764131262113664,
+  "threshold_rule": "score quantile for alert rate 0.1333 (no labels)",
+  "score_direction": "higher = more anomalous",
+  "flag_if": "score >= threshold",
+  "chosen_on": "validation",
+  "selection_run": "20261013-093050_selection_s42",
+  "base_model_version": "lof_v3_4f",
+  "alert_rate_target": 0.1333333333333333,
+  "retrained_on_agents": 850
+}

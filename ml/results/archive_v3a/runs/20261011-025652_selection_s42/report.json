@@ -1,0 +1,49 @@
+{
+  "top": {
+    "model": "isolation_forest",
+    "features": "4 features",
+    "n_estimators": 500,
+    "max_samples": 64,
+    "max_features": 0.8,
+    "n_neighbors": "",
+    "pr_auc_mean": 0.7536860195208337,
+    "pr_auc_std": 0.003931609298868927,
+    "pr_auc_ci_low": 0.579584097676357,
+    "pr_auc_ci_high": 0.9095574361511979,
+    "roc_auc_mean": 0.9089230769230768,
+    "train_roc_auc_mean": 0.9420379292300474,
+    "model_bytes": 1824014
+  },
+  "chosen": {
+    "model": "lof",
+    "features": "4 features",
+    "n_estimators": "",
+    "max_samples": "",
+    "max_features": "",
+    "n_neighbors": 35,
+    "pr_auc_mean": 0.6821050414956369,
+    "pr_auc_std": 0.0,
+    "pr_auc_ci_low": 0.49500540805092336,
+    "pr_auc_ci_high": 0.8542134941679905,
+    "roc_auc_mean": 0.8773076923076923,
+    "train_roc_auc_mean": 0.9058445659430883,
+    "model_bytes": 262692
+  },
+  "tie_set_size": 60,
+  "best_other_feature_set": {
+    "model": "isolation_forest",
+    "features": "5 features",
+    "n_estimators": 100,
+    "max_samples": 64,
+    "max_features": 1.0,
+    "n_neighbors": "",
+    "pr_auc_mean": 0.739395570016981,
+    "pr_auc_std": 0.0056928860710143735,
+    "pr_auc_ci_low": 0.5719023579734017,
+    "pr_auc_ci_high": 0.8907194996288522,
+    "roc_auc_mean": 0.907076923076923,
+    "train_roc_auc_mean": 0.9327270430718706,
+    "model_bytes": 365518
+  },
+  "four_vs_five_ci_overlap": 0.9391669432519887
+}

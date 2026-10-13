@@ -1,0 +1,151 @@
+agent_id,analysis_period_start,analysis_period_end,score,flag,threshold,model_version,top_features,reason
+A10772,2026-08-01,2026-08-31,0.9799450055600006,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A12671,2026-08-01,2026-08-31,0.9730676026552668,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A12719,2026-08-01,2026-08-31,1.1139854300198881,False,1.4447993633890617,lof_v3_4f,collusion_score;customer_similarity;time_of_day_entropy,not flagged
+A13905,2026-08-01,2026-08-31,1.0578278724499384,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A14067,2026-08-01,2026-08-31,1.0019492982183502,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A15014,2026-08-01,2026-08-31,1.2431871443409965,False,1.4447993633890617,lof_v3_4f,collusion_score;customer_similarity;submission_frequency,not flagged
+A16057,2026-08-01,2026-08-31,0.9756781296891998,False,1.4447993633890617,lof_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A16658,2026-08-01,2026-08-31,1.0856423805292166,False,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A17331,2026-08-01,2026-08-31,1.067990131498825,False,1.4447993633890617,lof_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A18907,2026-08-01,2026-08-31,1.0068431130454505,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A19545,2026-08-01,2026-08-31,1.0160769395819842,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A20458,2026-08-01,2026-08-31,1.0692012584811414,False,1.4447993633890617,lof_v3_4f,collusion_score;customer_similarity;submission_frequency,not flagged
+A21003,2026-08-01,2026-08-31,0.9845902930901248,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A22224,2026-08-01,2026-08-31,1.0189118767170375,False,1.4447993633890617,lof_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A22704,2026-08-01,2026-08-31,1.082927448727399,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A22833,2026-08-01,2026-08-31,1.2763559498564157,False,1.4447993633890617,lof_v3_4f,collusion_score;customer_similarity;submission_frequency,not flagged
+A22899,2026-08-01,2026-08-31,1.002682692942444,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A23473,2026-08-01,2026-08-31,1.8033349226323478,True,1.4447993633890617,lof_v3_4f,collusion_score;customer_similarity;time_of_day_entropy,10% of customers also used by other agents vs typical 0% (higher than 95 percent of training agents); customer IDs look alike: similarity 0.111 vs typical 0.102 (higher than 93 percent of training agents)
+A24371,2026-08-01,2026-08-31,1.7946467333202052,True,1.4447993633890617,lof_v3_4f,collusion_score;submission_frequency;customer_similarity,10% of customers also used by other agents vs typical 0% (higher than 95 percent of training agents)
+A24592,2026-08-01,2026-08-31,1.3860844991437795,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;collusion_score;submission_frequency,not flagged
+A24993,2026-08-01,2026-08-31,0.9898028068117533,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A25814,2026-08-01,2026-08-31,1.1002359281967549,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A26334,2026-08-01,2026-08-31,2.9303130451756036,True,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,53% of customers also used by other agents vs typical 0% (higher than 97 percent of training agents); submission times concentrated in few hours: entropy 0.62 vs typical 0.78 (lower than 97 percent of training agents); busiest 24 hours: 26 submissions vs typical 14 (higher than 91 percent of training agents)
+A26544,2026-08-01,2026-08-31,0.9639297520176909,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A29313,2026-08-01,2026-08-31,1.0311134426099686,False,1.4447993633890617,lof_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A29342,2026-08-01,2026-08-31,1.0231108094369146,False,1.4447993633890617,lof_v3_4f,submission_frequency;collusion_score;time_of_day_entropy,not flagged
+A30585,2026-08-01,2026-08-31,1.0999653194829921,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A30866,2026-08-01,2026-08-31,1.0381882220424046,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A31798,2026-08-01,2026-08-31,0.9676346679960101,False,1.4447993633890617,lof_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A31992,2026-08-01,2026-08-31,1.207157027741486,False,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A33509,2026-08-01,2026-08-31,1.8274042335667722,True,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;customer_similarity,9% of customers also used by other agents vs typical 0% (higher than 94 percent of training agents); submission times spread over unusual hours: entropy 0.83 vs typical 0.78 (higher than 91 percent of training agents)
+A34356,2026-08-01,2026-08-31,1.1640941959429656,False,1.4447993633890617,lof_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,not flagged
+A34914,2026-08-01,2026-08-31,1.090218699117875,False,1.4447993633890617,lof_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A35443,2026-08-01,2026-08-31,4.2910342075593455,True,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,customer IDs look alike: similarity 0.135 vs typical 0.102 (higher than 97 percent of training agents); submission times concentrated in few hours: entropy 0.59 vs typical 0.78 (lower than 98 percent of training agents); busiest 24 hours: 28 submissions vs typical 14 (higher than 93 percent of training agents)
+A35928,2026-08-01,2026-08-31,1.0425475069002679,False,1.4447993633890617,lof_v3_4f,collusion_score;submission_frequency;customer_similarity,not flagged
+A36071,2026-08-01,2026-08-31,0.9967756164664603,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A36772,2026-08-01,2026-08-31,1.05627383137022,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A37110,2026-08-01,2026-08-31,1.0646640927685178,False,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A37235,2026-08-01,2026-08-31,0.9990050954255536,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A38534,2026-08-01,2026-08-31,1.1994793751658637,False,1.4447993633890617,lof_v3_4f,collusion_score;submission_frequency;customer_similarity,not flagged
+A38785,2026-08-01,2026-08-31,1.0514593749444017,False,1.4447993633890617,lof_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,not flagged
+A38864,2026-08-01,2026-08-31,1.2091353652980983,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A39256,2026-08-01,2026-08-31,0.9995175551732003,False,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A39466,2026-08-01,2026-08-31,1.1766099315009064,False,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A40007,2026-08-01,2026-08-31,1.0899981942176709,False,1.4447993633890617,lof_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A40495,2026-08-01,2026-08-31,1.0060469990388172,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A41439,2026-08-01,2026-08-31,0.9891257833436097,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A42271,2026-08-01,2026-08-31,0.9750893233658221,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A42411,2026-08-01,2026-08-31,1.0997247155676333,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A42816,2026-08-01,2026-08-31,1.0034303106504299,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A44687,2026-08-01,2026-08-31,0.9760428811829374,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A44816,2026-08-01,2026-08-31,1.0301830425128267,False,1.4447993633890617,lof_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A44970,2026-08-01,2026-08-31,0.9985487047429998,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A45614,2026-08-01,2026-08-31,3.8843962152774427,True,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;collusion_score,customer IDs look alike: similarity 0.366 vs typical 0.102 (higher than 98 percent of training agents); busiest 24 hours: 44 submissions vs typical 14 (higher than 99 percent of training agents)
+A46434,2026-08-01,2026-08-31,1.1886309186178967,False,1.4447993633890617,lof_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A46585,2026-08-01,2026-08-31,1.01683717214311,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A47056,2026-08-01,2026-08-31,1.1629012650429535,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A47196,2026-08-01,2026-08-31,1.7083243267572215,True,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;collusion_score,customer IDs look alike: similarity 0.117 vs typical 0.102 (higher than 96 percent of training agents); busiest 24 hours: 36 submissions vs typical 14 (higher than 98 percent of training agents); 4% of customers also used by other agents vs typical 0% (higher than 88 percent of training agents)
+A47930,2026-08-01,2026-08-31,0.9850952711188674,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A48175,2026-08-01,2026-08-31,1.305924509677316,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A48829,2026-08-01,2026-08-31,1.0804338617665517,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A49117,2026-08-01,2026-08-31,1.7381209074846935,True,1.4447993633890617,lof_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,busiest 24 hours: 38 submissions vs typical 14 (higher than 98 percent of training agents); submission times spread over unusual hours: entropy 0.83 vs typical 0.78 (higher than 89 percent of training agents)
+A49824,2026-08-01,2026-08-31,0.9989895666835709,False,1.4447993633890617,lof_v3_4f,collusion_score;submission_frequency;customer_similarity,not flagged
+A49829,2026-08-01,2026-08-31,1.2572166074877849,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A50001,2026-08-01,2026-08-31,1.3595404126765032,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A50306,2026-08-01,2026-08-31,1.1884269508097642,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A50687,2026-08-01,2026-08-31,1.006213757038072,False,1.4447993633890617,lof_v3_4f,customer_similarity;collusion_score;time_of_day_entropy,not flagged
+A51145,2026-08-01,2026-08-31,1.104338970008767,False,1.4447993633890617,lof_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,not flagged
+A51180,2026-08-01,2026-08-31,1.0205809615885577,False,1.4447993633890617,lof_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A51441,2026-08-01,2026-08-31,1.2527473669344686,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A52504,2026-08-01,2026-08-31,1.407931233773829,False,1.4447993633890617,lof_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A53540,2026-08-01,2026-08-31,1.2615416515186701,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A54020,2026-08-01,2026-08-31,0.9938348619955978,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A55830,2026-08-01,2026-08-31,3.9134956309524087,True,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;customer_similarity,81% of customers also used by other agents vs typical 0% (higher than 100 percent of training agents); submission times concentrated in few hours: entropy 0.52 vs typical 0.78 (lower than 99 percent of training agents); customer IDs look alike: similarity 0.106 vs typical 0.102 (higher than 88 percent of training agents)
+A56025,2026-08-01,2026-08-31,1.0364191943625394,False,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A56105,2026-08-01,2026-08-31,1.3332137229523828,False,1.4447993633890617,lof_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,not flagged
+A56112,2026-08-01,2026-08-31,0.9679463769221521,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A56507,2026-08-01,2026-08-31,0.9807872716493519,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A58393,2026-08-01,2026-08-31,1.008806442971655,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A59672,2026-08-01,2026-08-31,1.0994600318157899,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A60140,2026-08-01,2026-08-31,0.9823369114930023,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A60488,2026-08-01,2026-08-31,1.3840576407543208,False,1.4447993633890617,lof_v3_4f,submission_frequency;collusion_score;customer_similarity,not flagged
+A61990,2026-08-01,2026-08-31,1.0329423786122391,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A62296,2026-08-01,2026-08-31,1.4417612722575697,False,1.4447993633890617,lof_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A62383,2026-08-01,2026-08-31,1.2310292100305265,False,1.4447993633890617,lof_v3_4f,collusion_score;customer_similarity;submission_frequency,not flagged
+A62565,2026-08-01,2026-08-31,3.4848790949449255,True,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;customer_similarity,57% of customers also used by other agents vs typical 0% (higher than 97 percent of training agents); submission times concentrated in few hours: entropy 0.57 vs typical 0.78 (lower than 98 percent of training agents)
+A62581,2026-08-01,2026-08-31,1.035700179491659,False,1.4447993633890617,lof_v3_4f,customer_similarity;collusion_score;time_of_day_entropy,not flagged
+A62743,2026-08-01,2026-08-31,0.9695458648085258,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A62772,2026-08-01,2026-08-31,1.3160506972236539,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A64377,2026-08-01,2026-08-31,1.3603192885093722,False,1.4447993633890617,lof_v3_4f,collusion_score;customer_similarity;time_of_day_entropy,not flagged
+A65518,2026-08-01,2026-08-31,1.0358166638665702,False,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;customer_similarity,not flagged
+A65723,2026-08-01,2026-08-31,2.0400811603721354,True,1.4447993633890617,lof_v3_4f,collusion_score;customer_similarity;submission_frequency,10% of customers also used by other agents vs typical 0% (higher than 95 percent of training agents); customer IDs look alike: similarity 0.109 vs typical 0.102 (higher than 92 percent of training agents); busiest 24 hours: 7 submissions vs typical 14 (lower than 98 percent of training agents)
+A65724,2026-08-01,2026-08-31,3.30635132820883,True,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;customer_similarity,55% of customers also used by other agents vs typical 0% (higher than 97 percent of training agents); submission times concentrated in few hours: entropy 0.56 vs typical 0.78 (lower than 98 percent of training agents)
+A66057,2026-08-01,2026-08-31,4.160447289025352,True,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;collusion_score,customer IDs look alike: similarity 0.332 vs typical 0.102 (higher than 98 percent of training agents); busiest 24 hours: 30 submissions vs typical 14 (higher than 94 percent of training agents)
+A66207,2026-08-01,2026-08-31,1.0363035735682724,False,1.4447993633890617,lof_v3_4f,submission_frequency;collusion_score;customer_similarity,not flagged
+A67422,2026-08-01,2026-08-31,2.844698567400299,True,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,74% of customers also used by other agents vs typical 0% (higher than 99 percent of training agents); submission times concentrated in few hours: entropy 0.56 vs typical 0.78 (lower than 98 percent of training agents); busiest 24 hours: 31 submissions vs typical 14 (higher than 95 percent of training agents)
+A67560,2026-08-01,2026-08-31,1.0036641607865606,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A67654,2026-08-01,2026-08-31,0.9758773663744339,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A67954,2026-08-01,2026-08-31,1.2994811683020353,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A68008,2026-08-01,2026-08-31,1.0799700739565825,False,1.4447993633890617,lof_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A69049,2026-08-01,2026-08-31,1.0353934887385023,False,1.4447993633890617,lof_v3_4f,collusion_score;submission_frequency;customer_similarity,not flagged
+A70258,2026-08-01,2026-08-31,1.0675173392109862,False,1.4447993633890617,lof_v3_4f,collusion_score;customer_similarity;time_of_day_entropy,not flagged
+A72031,2026-08-01,2026-08-31,0.9876941848746077,False,1.4447993633890617,lof_v3_4f,customer_similarity;collusion_score;submission_frequency,not flagged
+A72402,2026-08-01,2026-08-31,1.537400236301301,True,1.4447993633890617,lof_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,submission times spread over unusual hours: entropy 0.90 vs typical 0.78 (higher than 99 percent of training agents)
+A73699,2026-08-01,2026-08-31,1.2683822907259745,False,1.4447993633890617,lof_v3_4f,customer_similarity;collusion_score;time_of_day_entropy,not flagged
+A74032,2026-08-01,2026-08-31,0.9860217043027274,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A76162,2026-08-01,2026-08-31,1.0649283302709613,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A76307,2026-08-01,2026-08-31,1.0403710170545188,False,1.4447993633890617,lof_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A76469,2026-08-01,2026-08-31,1.1632299130156398,False,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A76540,2026-08-01,2026-08-31,1.1038820012953163,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A76768,2026-08-01,2026-08-31,1.2124822917797093,False,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;customer_similarity,not flagged
+A76784,2026-08-01,2026-08-31,1.02916036422862,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A77000,2026-08-01,2026-08-31,0.9855993136754749,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A77033,2026-08-01,2026-08-31,1.0900893800344884,False,1.4447993633890617,lof_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A77889,2026-08-01,2026-08-31,1.0869340777580783,False,1.4447993633890617,lof_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A80282,2026-08-01,2026-08-31,0.9877157471052088,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A80468,2026-08-01,2026-08-31,5.399269168272562,True,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,customer IDs look alike: similarity 0.448 vs typical 0.102 (higher than 99 percent of training agents); busiest 24 hours: 30 submissions vs typical 14 (higher than 94 percent of training agents); submission times concentrated in few hours: entropy 0.74 vs typical 0.78 (lower than 87 percent of training agents)
+A80686,2026-08-01,2026-08-31,1.0254480397268717,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A80798,2026-08-01,2026-08-31,1.0322863154761215,False,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A81066,2026-08-01,2026-08-31,1.032660786366083,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A81376,2026-08-01,2026-08-31,1.0464924707072432,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A81582,2026-08-01,2026-08-31,0.9676346679960097,False,1.4447993633890617,lof_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A82309,2026-08-01,2026-08-31,1.3967047342745895,False,1.4447993633890617,lof_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A82529,2026-08-01,2026-08-31,1.0683907765411438,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A83259,2026-08-01,2026-08-31,0.9878129917855272,False,1.4447993633890617,lof_v3_4f,collusion_score;customer_similarity;submission_frequency,not flagged
+A84847,2026-08-01,2026-08-31,0.9832377767420035,False,1.4447993633890617,lof_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A85243,2026-08-01,2026-08-31,1.0797142392473995,False,1.4447993633890617,lof_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,not flagged
+A85392,2026-08-01,2026-08-31,1.0578409152572255,False,1.4447993633890617,lof_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A85454,2026-08-01,2026-08-31,1.0215506067467155,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A85880,2026-08-01,2026-08-31,0.9687184158396157,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A86099,2026-08-01,2026-08-31,1.4478374545205535,True,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,customer IDs look alike: similarity 0.108 vs typical 0.102 (higher than 91 percent of training agents); busiest 24 hours: 23 submissions vs typical 14 (higher than 86 percent of training agents)
+A86484,2026-08-01,2026-08-31,1.1059058553617174,False,1.4447993633890617,lof_v3_4f,collusion_score;customer_similarity;submission_frequency,not flagged
+A88907,2026-08-01,2026-08-31,1.0290705982997796,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A89129,2026-08-01,2026-08-31,1.4170221102199159,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A89276,2026-08-01,2026-08-31,1.0042141841779917,False,1.4447993633890617,lof_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A89415,2026-08-01,2026-08-31,1.1927324737623979,False,1.4447993633890617,lof_v3_4f,collusion_score;customer_similarity;submission_frequency,not flagged
+A89593,2026-08-01,2026-08-31,1.0745074573583815,False,1.4447993633890617,lof_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,not flagged
+A90301,2026-08-01,2026-08-31,1.0756330503643021,False,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A91399,2026-08-01,2026-08-31,1.2818661012568138,False,1.4447993633890617,lof_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A91959,2026-08-01,2026-08-31,0.9895387922609185,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A92240,2026-08-01,2026-08-31,1.3434918255789585,False,1.4447993633890617,lof_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A95477,2026-08-01,2026-08-31,1.0215145052991994,False,1.4447993633890617,lof_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A95717,2026-08-01,2026-08-31,3.3584161302921416,True,1.4447993633890617,lof_v3_4f,collusion_score;time_of_day_entropy;customer_similarity,49% of customers also used by other agents vs typical 0% (higher than 96 percent of training agents); submission times concentrated in few hours: entropy 0.51 vs typical 0.78 (lower than 99 percent of training agents)
+A96511,2026-08-01,2026-08-31,1.1551387828086257,False,1.4447993633890617,lof_v3_4f,collusion_score;customer_similarity;time_of_day_entropy,not flagged
+A97012,2026-08-01,2026-08-31,1.0148627079671524,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A97153,2026-08-01,2026-08-31,1.0601369185780336,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A97580,2026-08-01,2026-08-31,1.454534676911777,True,1.4447993633890617,lof_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,busiest 24 hours: 7 submissions vs typical 14 (lower than 98 percent of training agents)
+A97900,2026-08-01,2026-08-31,1.721322369706722,True,1.4447993633890617,lof_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,busiest 24 hours: 7 submissions vs typical 14 (lower than 98 percent of training agents)
+A98039,2026-08-01,2026-08-31,1.4337688977381546,False,1.4447993633890617,lof_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A98696,2026-08-01,2026-08-31,1.0142612579523362,False,1.4447993633890617,lof_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged

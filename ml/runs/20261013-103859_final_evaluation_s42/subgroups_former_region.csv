@@ -1,0 +1,9 @@
+former_region,agents,fraud,flagged,true_positives,false_alarms,recall
+Central,16.0,1.0,3.0,1.0,2.0,1.0
+Coast,12.0,1.0,2.0,1.0,1.0,1.0
+Eastern,29.0,6.0,5.0,4.0,1.0,0.6666666666666666
+Nairobi,17.0,4.0,5.0,4.0,1.0,1.0
+North Eastern,6.0,0.0,0.0,0.0,0.0,
+Nyanza,15.0,0.0,1.0,0.0,1.0,
+Rift Valley,39.0,4.0,5.0,2.0,3.0,0.5
+Western,16.0,3.0,4.0,3.0,1.0,1.0

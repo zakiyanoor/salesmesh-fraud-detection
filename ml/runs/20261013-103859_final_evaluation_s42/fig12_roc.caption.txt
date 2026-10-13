@@ -1,0 +1,1 @@
+Figure: ROC curves on the 150 test agents for lof_v3_4f and the frozen baselines. The dashed diagonal is a random score.

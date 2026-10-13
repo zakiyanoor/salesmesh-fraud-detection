@@ -1,0 +1,325 @@
+{
+  "run_id": "20261011-015537_datagen_s42",
+  "kind": "datagen",
+  "timestamp": "2026-10-11T01:55:37",
+  "seed": 42,
+  "parameters": {
+    "n_agents": 1000,
+    "fraud_rate": 0.13,
+    "timezone": "Africa/Nairobi",
+    "analysis_window": [
+      "2026-08-01",
+      "2026-08-30"
+    ],
+    "customer_id_digits": 8,
+    "county_population_thousands": {
+      "Mombasa": 1209,
+      "Kwale": 867,
+      "Kilifi": 1453,
+      "Tana River": 316,
+      "Lamu": 143,
+      "Taita-Taveta": 341,
+      "Garissa": 841,
+      "Wajir": 781,
+      "Mandera": 867,
+      "Marsabit": 459,
+      "Isiolo": 268,
+      "Meru": 1545,
+      "Tharaka-Nithi": 393,
+      "Embu": 608,
+      "Kitui": 1136,
+      "Machakos": 1422,
+      "Makueni": 987,
+      "Nyandarua": 638,
+      "Nyeri": 759,
+      "Kirinyaga": 610,
+      "Murang'a": 1056,
+      "Kiambu": 2417,
+      "Turkana": 926,
+      "West Pokot": 621,
+      "Samburu": 310,
+      "Trans Nzoia": 991,
+      "Uasin Gishu": 1163,
+      "Elgeyo-Marakwet": 454,
+      "Nandi": 886,
+      "Baringo": 667,
+      "Laikipia": 518,
+      "Nakuru": 2162,
+      "Narok": 1158,
+      "Kajiado": 1118,
+      "Kericho": 902,
+      "Bomet": 876,
+      "Kakamega": 1868,
+      "Vihiga": 591,
+      "Bungoma": 1671,
+      "Busia": 894,
+      "Siaya": 993,
+      "Kisumu": 1156,
+      "Homa Bay": 1132,
+      "Migori": 1116,
+      "Kisii": 1266,
+      "Nyamira": 605,
+      "Nairobi": 4397
+    },
+    "county_min_agents": 2,
+    "categories": [
+      "banking",
+      "mobile money",
+      "insurance",
+      "SACCO",
+      "e-commerce",
+      "fashion",
+      "telecom",
+      "healthcare",
+      "education",
+      "logistics",
+      "agritech",
+      "real estate"
+    ],
+    "clients": {
+      "CL01": [
+        "Client 01",
+        "banking",
+        8
+      ],
+      "CL02": [
+        "Client 02",
+        "banking",
+        6
+      ],
+      "CL03": [
+        "Client 03",
+        "mobile money",
+        10
+      ],
+      "CL04": [
+        "Client 04",
+        "mobile money",
+        8
+      ],
+      "CL05": [
+        "Client 05",
+        "insurance",
+        5
+      ],
+      "CL06": [
+        "Client 06",
+        "insurance",
+        3
+      ],
+      "CL07": [
+        "Client 07",
+        "SACCO",
+        5
+      ],
+      "CL08": [
+        "Client 08",
+        "SACCO",
+        3
+      ],
+      "CL09": [
+        "Client 09",
+        "e-commerce",
+        6
+      ],
+      "CL10": [
+        "Client 10",
+        "e-commerce",
+        4
+      ],
+      "CL11": [
+        "Client 11",
+        "fashion",
+        3
+      ],
+      "CL12": [
+        "Client 12",
+        "telecom",
+        9
+      ],
+      "CL13": [
+        "Client 13",
+        "telecom",
+        6
+      ],
+      "CL14": [
+        "Client 14",
+        "healthcare",
+        4
+      ],
+      "CL15": [
+        "Client 15",
+        "education",
+        3
+      ],
+      "CL16": [
+        "Client 16",
+        "education",
+        2
+      ],
+      "CL17": [
+        "Client 17",
+        "logistics",
+        3
+      ],
+      "CL18": [
+        "Client 18",
+        "agritech",
+        4
+      ],
+      "CL19": [
+        "Client 19",
+        "agritech",
+        2
+      ],
+      "CL20": [
+        "Client 20",
+        "real estate",
+        2
+      ]
+    },
+    "agent_client_count_weights": {
+      "1": 0.45,
+      "2": 0.4,
+      "3": 0.15
+    },
+    "extra_client_same_category_prob": 0.6,
+    "client_mix_dirichlet_alpha": 2.0,
+    "cross_client_repeat_prob": 0.02,
+    "status_weights": {
+      "completed": 0.85,
+      "pending": 0.1,
+      "failed": 0.05
+    },
+    "popular_pool_per_agent": 10,
+    "popular_pool_min": 20,
+    "popular_pool_user_prob": 0.35,
+    "popular_pool_share_range": [
+      0.03,
+      0.15
+    ],
+    "fraud_pattern_shares": {
+      "ring": 0.32,
+      "weak_ring": 0.16,
+      "sequential": 0.16,
+      "duplicate": 0.16,
+      "weak": 0.2
+    },
+    "legit_pattern_shares": {
+      "legit_night": 0.08,
+      "legit_repeat": 0.08,
+      "legit_busy": 0.06
+    },
+    "legit_daily_range": [
+      1,
+      8
+    ],
+    "legit_active_day_prob": 0.85,
+    "legit_night_share_range": [
+      0.1,
+      0.25
+    ],
+    "legit_repeat_pool_size": 8,
+    "legit_repeat_share_range": [
+      0.15,
+      0.5
+    ],
+    "legit_busy_daily_range": [
+      6,
+      14
+    ],
+    "fraud_active_day_prob": 0.9,
+    "fraud_normal_activity_share": 0.3,
+    "ring_size_range": [
+      2,
+      6
+    ],
+    "ring_pool_per_member_range": [
+      20,
+      75
+    ],
+    "ring_hour_width_range": [
+      2,
+      5
+    ],
+    "ring_daily_low_range": [
+      3,
+      8
+    ],
+    "ring_daily_span_range": [
+      5,
+      12
+    ],
+    "weak_ring_pool_per_member_range": [
+      5,
+      15
+    ],
+    "weak_ring_share_range": [
+      0.08,
+      0.2
+    ],
+    "weak_ring_daily_low_range": [
+      1,
+      3
+    ],
+    "weak_ring_daily_span_range": [
+      5,
+      8
+    ],
+    "solo_fraud_configs": {
+      "sequential": {
+        "hours": "late_night",
+        "daily_range": [
+          6,
+          18
+        ],
+        "pool_size": 0
+      },
+      "duplicate": {
+        "hours": "early_morning",
+        "daily_range": [
+          5,
+          15
+        ],
+        "pool_size": 25
+      },
+      "weak": {
+        "hours": "early_morning",
+        "daily_range": [
+          2,
+          9
+        ],
+        "pool_size": 10
+      }
+    },
+    "weak_fraud_share_range": [
+      0.1,
+      0.25
+    ]
+  },
+  "data_files": {
+    "agents.csv": "af76abfe830ee449c7e9ce87bf90694233ce2482da710129170e5274480d40b8",
+    "activation_records.csv": "b0c3088cf1ffd6cd9b6ec139fa0358bf8ac805659db4a84e7b29c4f1821f5425",
+    "clients.csv": "9b2e5fd7c1b3f881e828e7ec405935b7810b915bea9b9f2a8881bbdea2827e87",
+    "labels.csv": "db42e4dd58894bf0dbaded7dbf56c039f1263c87291382b595e239d7ac6b13b3",
+    "rings.csv": "cc5490b4086c374fc82ec28ab60cdb93ead7195826dca76c2b485a1fa62628af"
+  },
+  "system": {
+    "python": "3.14.0",
+    "os": "Windows-11-10.0.26200-SP0",
+    "cpu": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+    "cpu_count": 12,
+    "ram_gb": 15.7,
+    "git_commit": "79237e1b1f16646423ee064b88327d954d43ac87"
+  },
+  "library_versions": {
+    "python": "3.14.0",
+    "numpy": "2.5.2",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.0",
+    "faker": "40.37.0",
+    "matplotlib": "3.11.1",
+    "joblib": "1.6.0",
+    "shap": null
+  }
+}

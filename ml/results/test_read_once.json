@@ -1,0 +1,48 @@
+{
+  "timestamp": "2026-10-13T10:42:12",
+  "run_id": "20261013-103859_final_evaluation_s42",
+  "hashes": {
+    "data/synthetic/activation_records.csv": "efcc0131a21c75718f79802a721aca845f95aba04b1790f38225bf00713bf0aa",
+    "data/synthetic/agents.csv": "f10364e58a046a9df0cb878aae0a37c1a43e0fbfde05ca176de90d1704a94b0e",
+    "data/synthetic/clients.csv": "2530e16542870a7c5652bd44c1ba23b2cc93a0997bc2217283e85512980a418a",
+    "data/synthetic/agent_identity.csv": "1783bb27b493e768aee5db98ec47fa4c00b3759b4753525c6d1eceeb68b4adaa",
+    "data/synthetic/agent_categories.csv": "59e6f99976b32350efbb1fa45d5d23ad3eeee2388fd191b14b3128b71e876d5c",
+    "data_generation.py": "7ad03d6e694ae5f0b54f58cfd3bba5111d1024bb46c87b40a31b2c85908f4521",
+    "data/synthetic/feature_vectors.csv": "7d7afa399d0f56c2d0961ed731bb39c8426a958914c92df3e8565263ef40714d",
+    "data/synthetic/split.csv": "d58aef9124317b8228c8db816bc694729132333fbb7a6df73efa5684c17ffc10",
+    "runs/20261013-092952_split_s42/split.csv": "d58aef9124317b8228c8db816bc694729132333fbb7a6df73efa5684c17ffc10",
+    "runs/20261013-100433_explain/scaler.joblib": "70cbb1453f270e43a02ad05ad3deca70c350eaeea11f9f9a107fb4e43e52a756",
+    "runs/20261013-093050_selection_s42/chosen_model.joblib": "1e97fffafba4b7905e916c376216195740b9795d0b08968a7b3334c80d4a4a2e",
+    "runs/20261013-093050_selection_s42/operating_point.json": "855ac0ed29baca79534de50f7930be125c57165cb361095f65c18a552f6e6d44",
+    "runs/20261013-100433_explain/scoring_bundle.joblib": "5cdd9d277c68a464b36ea7934d45276207f39ca03c95226cd6441919e695d67f",
+    "results/acceptance_criteria.md": "c6b9c035bfcbd1df19547fec1f2cccc4e2a65e71cf55487e0001a9df75d47158",
+    "results/selection_rule.md": "e3aa8afd1324388dc5a9a51644b945ddc7aeb3f5fea061bc7a8ba3aff38fe8af",
+    "results/selection_notes.md": "9816dad2fd13f032e781569f4d35ea88e4d6d82cb8440cd27e3c6b562799dae5",
+    "data/synthetic/labels.csv": "102db7224eaecf0cad54aaf721e7e94a18ba580ea383ec0db1b52e33b491b34c"
+  },
+  "summary": {
+    "model_version": "lof_v3_4f",
+    "cutoff": 1.4447993633890617,
+    "test_agents": 150,
+    "test_fraud": 19,
+    "fraud_rate": 0.12666666666666668,
+    "train_minus_test_roc_auc": -0.013266101045433465,
+    "rings_with_a_flagged_member": 14,
+    "rings_at_least_half_flagged": 14,
+    "rings": 14,
+    "ring_candidates": 14,
+    "errors": 14,
+    "acceptance": {
+      "Q1": "PASS",
+      "Q2": "PASS",
+      "Q3": "PASS",
+      "Q4": "PASS",
+      "Q5": "PASS",
+      "Q6": "PASS",
+      "S1": "PASS",
+      "S2": "PASS",
+      "S3": "PASS",
+      "S4": "PASS"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+criterion,condition,value,result,measured_on
+Q1,mean validation PR AUC over seeds 1-5 > best single feature (0.541),0.7415276387045017,PASS,"validation (final check: Step 11, test)"
+Q2,PR AUC (seed 42 model) > best single feature (0.541),0.7511637236938129,PASS,"validation (final check: Step 11, test)"
+Q3,PR AUC >= 3 x fraud rate (0.133) and CI low > fraud rate,0.751 (CI 0.579-0.907),PASS,"validation (final check: Step 11, test)"
+Q4,train ROC AUC - validation ROC AUC <= 0.10,0.02907730200833636,PASS,"validation (final check: Step 11, test)"
+Q5,recall at the cutoff >= 0.60,0.6,PASS,"validation (final check: Step 11, test)"
+Q6,alert rate at the cutoff <= 25%,0.08666666666666667,PASS,"validation (final check: Step 11, test)"

@@ -1,0 +1,6 @@
+{
+  "score_only_ms_per_agent": 0.020065333337697666,
+  "score_and_explain_all_rows_ms_per_agent": 0.0797453333325393,
+  "agents": 150,
+  "flagged": 20
+}

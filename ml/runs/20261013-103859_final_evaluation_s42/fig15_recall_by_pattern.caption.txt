@@ -1,0 +1,1 @@
+Figure: recall by fraud pattern on the test set for lof_v3_4f (primary result) and, as a pre-declared secondary analysis, the union with duplicate_activation_rule. Each pattern has 3 to 6 test agents, so each bar is very uncertain.

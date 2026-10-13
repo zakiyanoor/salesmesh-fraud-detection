@@ -1,0 +1,151 @@
+agent_id,analysis_period_start,analysis_period_end,score,flag,threshold,model_version,top_features,reason
+A10772,2026-08-01,2026-08-31,0.38942663778041936,False,0.5363938419616214,if_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,not flagged
+A12671,2026-08-01,2026-08-31,0.5524075648929904,True,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;customer_similarity,9% of customers also used by other agents vs typical 0%; submission times spread over unusual hours: entropy 0.85 vs typical 0.79; customer IDs look alike: similarity 0.104 vs typical 0.102
+A12719,2026-08-01,2026-08-31,0.35424468890898864,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A13905,2026-08-01,2026-08-31,0.3723735356151083,False,0.5363938419616214,if_v3_4f,collusion_score;submission_frequency;customer_similarity,not flagged
+A14067,2026-08-01,2026-08-31,0.473326482695478,False,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A15014,2026-08-01,2026-08-31,0.38661306125589495,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A16057,2026-08-01,2026-08-31,0.3942123575378286,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A16658,2026-08-01,2026-08-31,0.4737104710959557,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;collusion_score;customer_similarity,not flagged
+A17331,2026-08-01,2026-08-31,0.3943584594448625,False,0.5363938419616214,if_v3_4f,submission_frequency;collusion_score;customer_similarity,not flagged
+A18907,2026-08-01,2026-08-31,0.3898994535679081,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A19545,2026-08-01,2026-08-31,0.4022484112311527,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A20458,2026-08-01,2026-08-31,0.35806192152222155,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A21003,2026-08-01,2026-08-31,0.46277343717444697,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A22224,2026-08-01,2026-08-31,0.3867323079153897,False,0.5363938419616214,if_v3_4f,submission_frequency;collusion_score;customer_similarity,not flagged
+A22704,2026-08-01,2026-08-31,0.40946063750651324,False,0.5363938419616214,if_v3_4f,collusion_score;customer_similarity;time_of_day_entropy,not flagged
+A22833,2026-08-01,2026-08-31,0.36543362827439935,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A22899,2026-08-01,2026-08-31,0.4137589520492066,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;collusion_score,not flagged
+A23473,2026-08-01,2026-08-31,0.44042111796936245,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A24371,2026-08-01,2026-08-31,0.565226457328807,True,0.5363938419616214,if_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,12% of customers also used by other agents vs typical 0%; busiest 24 hours: 26 submissions vs typical 14; submission times concentrated in few hours: entropy 0.74 vs typical 0.79
+A24592,2026-08-01,2026-08-31,0.4708869996388222,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A24993,2026-08-01,2026-08-31,0.3710632497229002,False,0.5363938419616214,if_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A25814,2026-08-01,2026-08-31,0.4072140752814012,False,0.5363938419616214,if_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,not flagged
+A26334,2026-08-01,2026-08-31,0.7052473994371158,True,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,66% of customers also used by other agents vs typical 0%; submission times concentrated in few hours: entropy 0.58 vs typical 0.79; busiest 24 hours: 25 submissions vs typical 14
+A26544,2026-08-01,2026-08-31,0.3818598112313106,False,0.5363938419616214,if_v3_4f,customer_similarity;collusion_score;submission_frequency,not flagged
+A29313,2026-08-01,2026-08-31,0.4277836042701268,False,0.5363938419616214,if_v3_4f,collusion_score;submission_frequency;customer_similarity,not flagged
+A29342,2026-08-01,2026-08-31,0.5323680703298135,False,0.5363938419616214,if_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A30585,2026-08-01,2026-08-31,0.5231706279765468,False,0.5363938419616214,if_v3_4f,collusion_score;submission_frequency;customer_similarity,not flagged
+A30866,2026-08-01,2026-08-31,0.40788777188233544,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;collusion_score;customer_similarity,not flagged
+A31798,2026-08-01,2026-08-31,0.3538529956072848,False,0.5363938419616214,if_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A31992,2026-08-01,2026-08-31,0.359898260051759,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A33509,2026-08-01,2026-08-31,0.4697813934593283,False,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;customer_similarity,not flagged
+A34356,2026-08-01,2026-08-31,0.5082184725201919,False,0.5363938419616214,if_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,not flagged
+A34914,2026-08-01,2026-08-31,0.39938377683753484,False,0.5363938419616214,if_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A35443,2026-08-01,2026-08-31,0.5380741664214039,True,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,customer IDs look alike: similarity 0.118 vs typical 0.102; busiest 24 hours: 24 submissions vs typical 14; submission times concentrated in few hours: entropy 0.74 vs typical 0.79
+A35928,2026-08-01,2026-08-31,0.3712095337022407,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A36071,2026-08-01,2026-08-31,0.4397980287473066,False,0.5363938419616214,if_v3_4f,collusion_score;submission_frequency;customer_similarity,not flagged
+A36772,2026-08-01,2026-08-31,0.3531551712701779,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A37110,2026-08-01,2026-08-31,0.47968341269962206,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A37235,2026-08-01,2026-08-31,0.3724794332011638,False,0.5363938419616214,if_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,not flagged
+A38534,2026-08-01,2026-08-31,0.42644344521909905,False,0.5363938419616214,if_v3_4f,submission_frequency;collusion_score;time_of_day_entropy,not flagged
+A38785,2026-08-01,2026-08-31,0.3842745980742014,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A38864,2026-08-01,2026-08-31,0.3977409158471312,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;collusion_score;submission_frequency,not flagged
+A39256,2026-08-01,2026-08-31,0.4269878343505183,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;collusion_score;submission_frequency,not flagged
+A39466,2026-08-01,2026-08-31,0.3586802545518822,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A40007,2026-08-01,2026-08-31,0.3558255960121218,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A40495,2026-08-01,2026-08-31,0.3894728760312311,False,0.5363938419616214,if_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A41439,2026-08-01,2026-08-31,0.35424468890898864,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A42271,2026-08-01,2026-08-31,0.35644445723660306,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A42411,2026-08-01,2026-08-31,0.3803601598886716,False,0.5363938419616214,if_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A42816,2026-08-01,2026-08-31,0.392610901641202,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A44687,2026-08-01,2026-08-31,0.3512082468595039,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A44816,2026-08-01,2026-08-31,0.3612898916655597,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;collusion_score;submission_frequency,not flagged
+A44970,2026-08-01,2026-08-31,0.3986858046520674,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A45614,2026-08-01,2026-08-31,0.7113814077788786,True,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,customer IDs look alike: similarity 0.406 vs typical 0.102; busiest 24 hours: 54 submissions vs typical 14
+A46434,2026-08-01,2026-08-31,0.4785787750625307,False,0.5363938419616214,if_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A46585,2026-08-01,2026-08-31,0.3672799060704686,False,0.5363938419616214,if_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A47056,2026-08-01,2026-08-31,0.41182950313387157,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;collusion_score;submission_frequency,not flagged
+A47196,2026-08-01,2026-08-31,0.44059429738996264,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A47930,2026-08-01,2026-08-31,0.40785187258648253,False,0.5363938419616214,if_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A48175,2026-08-01,2026-08-31,0.4724171022929001,False,0.5363938419616214,if_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A48829,2026-08-01,2026-08-31,0.47812040968322406,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A49117,2026-08-01,2026-08-31,0.5207721373623834,False,0.5363938419616214,if_v3_4f,submission_frequency;time_of_day_entropy;collusion_score,not flagged
+A49824,2026-08-01,2026-08-31,0.4095532641824554,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A49829,2026-08-01,2026-08-31,0.45813665882654064,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A50001,2026-08-01,2026-08-31,0.49685523688070243,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A50306,2026-08-01,2026-08-31,0.423272075312429,False,0.5363938419616214,if_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A50687,2026-08-01,2026-08-31,0.45345152401504707,False,0.5363938419616214,if_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,not flagged
+A51145,2026-08-01,2026-08-31,0.35393200881037984,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A51180,2026-08-01,2026-08-31,0.40593431423785103,False,0.5363938419616214,if_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A51441,2026-08-01,2026-08-31,0.5165126266936004,False,0.5363938419616214,if_v3_4f,customer_similarity;collusion_score;submission_frequency,not flagged
+A52504,2026-08-01,2026-08-31,0.3592217155353543,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A53540,2026-08-01,2026-08-31,0.5273410453700316,False,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A54020,2026-08-01,2026-08-31,0.35040634663220444,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A55830,2026-08-01,2026-08-31,0.7048280031949706,True,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,73% of customers also used by other agents vs typical 0%; submission times concentrated in few hours: entropy 0.62 vs typical 0.79; busiest 24 hours: 26 submissions vs typical 14
+A56025,2026-08-01,2026-08-31,0.3616697200496983,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A56105,2026-08-01,2026-08-31,0.4323389710723441,False,0.5363938419616214,if_v3_4f,submission_frequency;customer_similarity;collusion_score,not flagged
+A56112,2026-08-01,2026-08-31,0.38749403975074914,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A56507,2026-08-01,2026-08-31,0.35323942829866006,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A58393,2026-08-01,2026-08-31,0.35417910757900856,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A59672,2026-08-01,2026-08-31,0.4386609528688544,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A60140,2026-08-01,2026-08-31,0.47732961388545675,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A60488,2026-08-01,2026-08-31,0.5169265871844436,False,0.5363938419616214,if_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A61990,2026-08-01,2026-08-31,0.36341006084020183,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A62296,2026-08-01,2026-08-31,0.3614108672056366,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;collusion_score,not flagged
+A62383,2026-08-01,2026-08-31,0.4044781921325402,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;collusion_score;customer_similarity,not flagged
+A62565,2026-08-01,2026-08-31,0.6751946884048007,True,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;customer_similarity,43% of customers also used by other agents vs typical 0%; submission times concentrated in few hours: entropy 0.58 vs typical 0.79
+A62581,2026-08-01,2026-08-31,0.42489254258269354,False,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A62743,2026-08-01,2026-08-31,0.37998308137680964,False,0.5363938419616214,if_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A62772,2026-08-01,2026-08-31,0.4626486851216146,False,0.5363938419616214,if_v3_4f,collusion_score;customer_similarity;submission_frequency,not flagged
+A64377,2026-08-01,2026-08-31,0.4551168221662823,False,0.5363938419616214,if_v3_4f,customer_similarity;collusion_score;time_of_day_entropy,not flagged
+A65518,2026-08-01,2026-08-31,0.3575115803997663,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A65723,2026-08-01,2026-08-31,0.4108118993877519,False,0.5363938419616214,if_v3_4f,collusion_score;customer_similarity;submission_frequency,not flagged
+A65724,2026-08-01,2026-08-31,0.6181428042266629,True,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;customer_similarity,41% of customers also used by other agents vs typical 0%; submission times concentrated in few hours: entropy 0.69 vs typical 0.79; customer IDs look alike: similarity 0.104 vs typical 0.102
+A66057,2026-08-01,2026-08-31,0.6518153686441202,True,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;collusion_score,customer IDs look alike: similarity 0.375 vs typical 0.102; busiest 24 hours: 22 submissions vs typical 14
+A66207,2026-08-01,2026-08-31,0.36121460261710514,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A67422,2026-08-01,2026-08-31,0.6541402975986399,True,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,49% of customers also used by other agents vs typical 0%; submission times concentrated in few hours: entropy 0.65 vs typical 0.79; busiest 24 hours: 21 submissions vs typical 14
+A67560,2026-08-01,2026-08-31,0.4044325790263911,False,0.5363938419616214,if_v3_4f,customer_similarity;collusion_score;time_of_day_entropy,not flagged
+A67654,2026-08-01,2026-08-31,0.35506709949661625,False,0.5363938419616214,if_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A67954,2026-08-01,2026-08-31,0.4631198646829721,False,0.5363938419616214,if_v3_4f,customer_similarity;collusion_score;submission_frequency,not flagged
+A68008,2026-08-01,2026-08-31,0.393006960110605,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A69049,2026-08-01,2026-08-31,0.35267969635328744,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A70258,2026-08-01,2026-08-31,0.37634659502683854,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A72031,2026-08-01,2026-08-31,0.4316592311548756,False,0.5363938419616214,if_v3_4f,customer_similarity;collusion_score;submission_frequency,not flagged
+A72402,2026-08-01,2026-08-31,0.44203034977969696,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A73699,2026-08-01,2026-08-31,0.48363048608175807,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;collusion_score,not flagged
+A74032,2026-08-01,2026-08-31,0.3695310570976728,False,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A76162,2026-08-01,2026-08-31,0.39548809720228695,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;collusion_score,not flagged
+A76307,2026-08-01,2026-08-31,0.35332715289030414,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A76469,2026-08-01,2026-08-31,0.3983047876594215,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;collusion_score,not flagged
+A76540,2026-08-01,2026-08-31,0.37189717632124986,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,not flagged
+A76768,2026-08-01,2026-08-31,0.38134513765672307,False,0.5363938419616214,if_v3_4f,collusion_score;customer_similarity;time_of_day_entropy,not flagged
+A76784,2026-08-01,2026-08-31,0.41623300876147,False,0.5363938419616214,if_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A77000,2026-08-01,2026-08-31,0.3809696871916946,False,0.5363938419616214,if_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A77033,2026-08-01,2026-08-31,0.39407809309908054,False,0.5363938419616214,if_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A77889,2026-08-01,2026-08-31,0.36226004495995784,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A80282,2026-08-01,2026-08-31,0.41905728626056604,False,0.5363938419616214,if_v3_4f,submission_frequency;collusion_score;time_of_day_entropy,not flagged
+A80468,2026-08-01,2026-08-31,0.6557036911841364,True,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,customer IDs look alike: similarity 0.404 vs typical 0.102; busiest 24 hours: 21 submissions vs typical 14
+A80686,2026-08-01,2026-08-31,0.3617771836497755,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A80798,2026-08-01,2026-08-31,0.41285702375361,False,0.5363938419616214,if_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,not flagged
+A81066,2026-08-01,2026-08-31,0.35552626920768443,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A81376,2026-08-01,2026-08-31,0.4755444186542087,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A81582,2026-08-01,2026-08-31,0.380321871151194,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A82309,2026-08-01,2026-08-31,0.36553943431641966,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A82529,2026-08-01,2026-08-31,0.37878834275009315,False,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;customer_similarity,not flagged
+A83259,2026-08-01,2026-08-31,0.3846989097660808,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A84847,2026-08-01,2026-08-31,0.3892827264414057,False,0.5363938419616214,if_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,not flagged
+A85243,2026-08-01,2026-08-31,0.4628668110762281,False,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A85392,2026-08-01,2026-08-31,0.36684591435610625,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;customer_similarity,not flagged
+A85454,2026-08-01,2026-08-31,0.3548207539861867,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A85880,2026-08-01,2026-08-31,0.3806753591691127,False,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,not flagged
+A86099,2026-08-01,2026-08-31,0.6404865588398941,True,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;submission_frequency,customer IDs look alike: similarity 0.134 vs typical 0.102; submission times concentrated in few hours: entropy 0.62 vs typical 0.79; busiest 24 hours: 26 submissions vs typical 14
+A86484,2026-08-01,2026-08-31,0.4253443162418497,False,0.5363938419616214,if_v3_4f,collusion_score;submission_frequency;time_of_day_entropy,not flagged
+A88907,2026-08-01,2026-08-31,0.40073907611468745,False,0.5363938419616214,if_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A89129,2026-08-01,2026-08-31,0.4180043004492095,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;submission_frequency;collusion_score,not flagged
+A89276,2026-08-01,2026-08-31,0.3934368304605888,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A89415,2026-08-01,2026-08-31,0.37300741435055484,False,0.5363938419616214,if_v3_4f,customer_similarity;collusion_score;submission_frequency,not flagged
+A89593,2026-08-01,2026-08-31,0.3955574406887061,False,0.5363938419616214,if_v3_4f,submission_frequency;time_of_day_entropy;customer_similarity,not flagged
+A90301,2026-08-01,2026-08-31,0.37957064874513147,False,0.5363938419616214,if_v3_4f,collusion_score;customer_similarity;submission_frequency,not flagged
+A91399,2026-08-01,2026-08-31,0.35617145199076866,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A91959,2026-08-01,2026-08-31,0.41311411839653495,False,0.5363938419616214,if_v3_4f,submission_frequency;collusion_score;time_of_day_entropy,not flagged
+A92240,2026-08-01,2026-08-31,0.4460320416870884,False,0.5363938419616214,if_v3_4f,customer_similarity;time_of_day_entropy;collusion_score,not flagged
+A95477,2026-08-01,2026-08-31,0.3909720654821024,False,0.5363938419616214,if_v3_4f,submission_frequency;customer_similarity;time_of_day_entropy,not flagged
+A95717,2026-08-01,2026-08-31,0.7268484938903644,True,0.5363938419616214,if_v3_4f,collusion_score;time_of_day_entropy;submission_frequency,67% of customers also used by other agents vs typical 0%; submission times concentrated in few hours: entropy 0.42 vs typical 0.79; busiest 24 hours: 23 submissions vs typical 14
+A96511,2026-08-01,2026-08-31,0.36259802732716323,False,0.5363938419616214,if_v3_4f,customer_similarity;submission_frequency;time_of_day_entropy,not flagged
+A97012,2026-08-01,2026-08-31,0.5347135175018389,False,0.5363938419616214,if_v3_4f,submission_frequency;collusion_score;customer_similarity,not flagged
+A97153,2026-08-01,2026-08-31,0.4202037803489256,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A97580,2026-08-01,2026-08-31,0.37306504046625444,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A97900,2026-08-01,2026-08-31,0.3531539146667651,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A98039,2026-08-01,2026-08-31,0.38508495197450365,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
+A98696,2026-08-01,2026-08-31,0.353413745386287,False,0.5363938419616214,if_v3_4f,time_of_day_entropy;customer_similarity;submission_frequency,not flagged
