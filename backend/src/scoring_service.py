@@ -28,7 +28,7 @@ from datetime import datetime
 import pandas as pd
 from sqlalchemy import insert, select
 
-from src import ml_bridge
+from src import audit, ml_bridge
 from src.db import (
     ActivationRecord, Agent, AgentScore, DetectionRun, DuplicateEvidence, FeatureVector, FraudFlag, get_session,
     migrate_schema,
@@ -132,6 +132,52 @@ def update_vectors_and_flags(session, scores, features, label):
         flag.model_version = row.model_version
 
 
+def system_actor(model_version=None):
+    return f"system:{model_version or ml_bridge.MODEL_VERSION}"
+
+
+def run_details(run):
+    return {"run_id": run.run_id, "status": run.status, "trigger": run.trigger, "model_version": run.model_version,
+            "threshold": run.threshold, "agents_scored": run.agents_scored, "flagged_count": run.flagged_count,
+            "rule_flagged_count": run.rule_flagged_count, "both_count": run.both_count}
+
+
+def previous_flag_sources(session, current_run_id):
+    """agent_id -> flag_source in the newest successful run before this one ({} if there is none)."""
+    previous = (session.query(DetectionRun)
+                .filter(DetectionRun.status == "succeeded", DetectionRun.run_id != current_run_id)
+                .order_by(DetectionRun.finished_at.desc()).first())
+    if previous is None:
+        return {}
+    return dict(session.query(AgentScore.agent_id, AgentScore.flag_source).filter(AgentScore.run_id == previous.run_id))
+
+
+def flag_changes(previous, scores):
+    """
+    One entry per agent whose flag_source differs from the previous run, or that
+    is flagged (ML, Rule or Both) with no previous score.
+    """
+    changes = []
+    for row in scores.itertuples():
+        before = previous.get(row.agent_id)
+        if before == row.flag_source or (before is None and row.flag_source == "None"):
+            continue
+        if before in (None, "None"):
+            change = "newly flagged"
+        elif row.flag_source == "None":
+            change = "cleared"
+        else:
+            change = "flag source changed"
+        changes.append({
+            "agent_id": row.agent_id, "change": change,
+            "previous_flag_source": before, "flag_source": row.flag_source,
+            "anomaly_score": float(row.anomaly_score), "threshold": float(row.threshold),
+            "top_features": row.top_features.split(";") if row.top_features else [],
+            "reasons": row.reasons, "model_version": row.model_version,
+        })
+    return changes
+
+
 def run_detection_cycle(trigger="manual"):
     """Scores every agent; returns a summary dict. Failures are recorded on the run and re-raised."""
     migrate_schema()
@@ -163,6 +209,13 @@ def run_detection_cycle(trigger="manual"):
         run.agents_scored, run.flagged_count = len(scores), int(scores["flagged"].sum())
         run.rule_flagged_count = int(scores["rule_flagged"].sum())
         run.both_count = int((scores["flag_source"] == "Both").sum())
+        changes = flag_changes(previous_flag_sources(session, run.run_id), scores)
+        actor = system_actor(run.model_version)
+        for change in changes:
+            audit.record(session, actor, "ai_flag", "ai_decision", actor_type="system",
+                         target_agent_id=change["agent_id"], details={"run_id": run.run_id, **change})
+        audit.record(session, actor, "ai_detection_run", "ai_decision", actor_type="system",
+                     details={**run_details(run), "flag_changes": len(changes)})
         session.commit()
         return {"run_id": run.run_id, "status": run.status, "analysis_period": period_label(start, end),
                 "model_version": run.model_version, "threshold": run.threshold, "agents_scored": run.agents_scored,
@@ -172,6 +225,9 @@ def run_detection_cycle(trigger="manual"):
         failed = session.get(DetectionRun, run.run_id)
         failed.status, failed.finished_at = "failed", datetime.utcnow()
         failed.error = traceback.format_exc(limit=5)[-4000:]
+        audit.record(session, system_actor(failed.model_version), "ai_detection_run", "ai_decision",
+                     actor_type="system",
+                     details={**run_details(failed), "error": failed.error.strip().splitlines()[-1]})
         session.commit()
         raise
     finally:
