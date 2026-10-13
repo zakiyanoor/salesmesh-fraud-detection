@@ -15,7 +15,13 @@ if not os.environ["DB_NAME"].endswith("_test"):
 # imports them through src.ml_bridge; some tests also use them directly.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "ml"))
 
-from tests.helpers import ADMIN, ANALYST, COMPLIANCE, TEST_ADMIN_IDS  # noqa: E402
+from tests.helpers import ADMIN, ANALYST, COMPLIANCE, TEST_ADMIN_IDS, recreate_test_database  # noqa: E402
+
+
+def pytest_sessionstart(session):
+    # KEEP_TEST_DB=1 skips the recreation (for quick local reruns).
+    if os.environ.get("KEEP_TEST_DB") != "1":
+        recreate_test_database(os.environ["DB_NAME"])
 
 TEST_ROLES = {ANALYST["admin_id"]: "fraud_analyst", COMPLIANCE["admin_id"]: "compliance_officer",
               ADMIN["admin_id"]: "admin"}
