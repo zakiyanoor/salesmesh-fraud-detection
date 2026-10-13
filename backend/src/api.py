@@ -36,7 +36,7 @@ action are recorded in the admin_action_log table.
 import os
 import uuid
 from datetime import datetime
-from flask import Flask, jsonify, request, session
+from flask import Flask, g, jsonify, request, session
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -49,6 +49,7 @@ from src.db import (
 from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER,
 )
+from src import audit
 from src.pipeline import compute_client_category_breakdown
 
 app = Flask(__name__)
@@ -65,20 +66,29 @@ app.secret_key = FLASK_SECRET_KEY
 limiter = Limiter(get_remote_address, app=app, storage_uri="memory://")
 
 
-def log_admin_action(db_session, admin_id, action, target_agent_id=None):
+def log_admin_action(db_session, admin_id, action, target_agent_id=None, category="review", details=None):
     """
-    Adds an AdminActionLog row to db_session without committing.
+    Adds an audit entry to db_session without committing.
 
     The caller commits, so an action and its audit entry are saved (or rolled
     back) together.
     """
-    db_session.add(AdminActionLog(
-        log_id=f"AL{uuid.uuid4().hex}",
-        admin_id=admin_id,
-        action=action,
-        target_agent_id=target_agent_id,
-        timestamp=datetime.utcnow(),
-    ))
+    return audit.record(db_session, admin_id, action, category, target_agent_id=target_agent_id, details=details,
+                        request_ip=request.remote_addr)
+
+
+@app.after_request
+def audit_denied_requests(response):
+    """Every 401 and 403 becomes an access_denied entry (route, role, reason), unless the route recorded it."""
+    if response.status_code in (401, 403) and not g.get("audit_recorded"):
+        body = response.get_json(silent=True) or {}
+        audit.record_now(
+            session.get("admin_id", audit.ANONYMOUS), "access_denied", "authorization",
+            details={"route": request.path, "method": request.method, "role": session.get("role"),
+                     "status": response.status_code, "reason": body.get("error")},
+            request_ip=request.remote_addr,
+        )
+    return response
 
 
 def agent_id_for_flag(db_session, flag_id):
@@ -195,6 +205,11 @@ def login():
 
     admin = verify_login(data["username"], data["password"])
     if not admin:
+        # The actor is unknown until a login succeeds, so failures are "anonymous".
+        audit.record_now(audit.ANONYMOUS, "login_failure", "authentication",
+                         details={"username": str(data["username"])[:100], "reason": "invalid credentials"},
+                         request_ip=request.remote_addr)
+        g.audit_recorded = True
         return jsonify({"error": "Invalid username or password"}), 401
 
     session["admin_id"] = admin["admin_id"]
@@ -203,7 +218,8 @@ def login():
 
     db_session = get_session()
     try:
-        log_admin_action(db_session, admin["admin_id"], "login")
+        log_admin_action(db_session, admin["admin_id"], "login", category="authentication",
+                         details={"username": admin["username"], "role": admin["role"]})
         db_session.commit()
     finally:
         db_session.close()
@@ -217,7 +233,7 @@ def logout():
     if admin_id:
         db_session = get_session()
         try:
-            log_admin_action(db_session, admin_id, "logout")
+            log_admin_action(db_session, admin_id, "logout", category="authentication")
             db_session.commit()
         finally:
             db_session.close()
@@ -424,6 +440,8 @@ def submit_review_decision():
         log_admin_action(
             db_session, session["admin_id"], "propose_decision",
             target_agent_id=agent_id_for_flag(db_session, data["flag_id"]),
+            details={"decision_id": decision.decision_id, "flag_id": data["flag_id"],
+                     "decision_outcome": data["decision_outcome"]},
         )
         db_session.commit()
 
@@ -463,6 +481,8 @@ def confirm_review_decision(decision_id):
         log_admin_action(
             db_session, session["admin_id"], "confirm_decision",
             target_agent_id=agent_id_for_flag(db_session, decision.flag_id),
+            details={"decision_id": decision.decision_id, "flag_id": decision.flag_id,
+                     "proposed_by": decision.reviewer_id},
         )
         db_session.commit()
 
@@ -513,21 +533,23 @@ def list_review_decisions():
 @app.route("/api/audit-log", methods=["GET"])
 @login_required
 def get_audit_log():
+    """Newest first. Filters: category, actor, agent_id, date_from, date_to; paging: limit (max 1000), offset."""
+    try:
+        limit = min(int(request.args.get("limit", 100)), audit.MAX_LIMIT)
+        offset = max(int(request.args.get("offset", 0)), 0)
+    except ValueError:
+        return jsonify({"error": "limit and offset must be integers"}), 400
     db_session = get_session()
     try:
-        entries = (
-            db_session.query(AdminActionLog)
-            .order_by(AdminActionLog.timestamp.desc(), AdminActionLog.log_id)
-            .all()
-        )
-        results = [{
-            "log_id": e.log_id,
-            "admin_id": e.admin_id,
-            "action": e.action,
-            "target_agent_id": e.target_agent_id,
-            "timestamp": e.timestamp.isoformat(),
-        } for e in entries]
-        return jsonify({"count": len(results), "entries": results})
+        try:
+            query = audit.filtered_query(db_session, request.args)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        total = query.count()
+        entries = query.offset(offset).limit(limit).all()
+        return jsonify({"total": total, "count": len(entries), "offset": offset, "limit": limit,
+                        "filters": audit.active_filters(request.args),
+                        "entries": [audit.entry_payload(e) for e in entries]})
     finally:
         db_session.close()
 

@@ -139,11 +139,16 @@ class AdminActionLog(Base):
     __tablename__ = "admin_action_log"
 
     log_id = Column(String, primary_key=True)
+    # The actor: an admin_id, "anonymous" (not logged in) or "system:<model_version>".
     admin_id = Column(String, nullable=False)
-    # e.g. "login", "logout", "propose_decision", "confirm_decision"
+    # e.g. "login", "login_failure", "access_denied", "propose_decision", "ai_flag"
     action = Column(String, nullable=False)
     target_agent_id = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    category = Column(String)
+    actor_type = Column(String, default="user")
+    details = Column(Text)
+    request_ip = Column(String)
 
 
 # --- v3 reference and context tables (loaded from ml/data/synthetic) ---
@@ -250,6 +255,20 @@ class DataLoad(Base):
     row_counts = Column(JSON, nullable=False)
 
 
+AUDIT_CATEGORIES = ("authentication", "authorization", "ai_decision", "review", "report", "admin")
+AUDIT_COLUMNS = {"category": "VARCHAR", "actor_type": "VARCHAR", "details": "TEXT", "request_ip": "VARCHAR"}
+APPEND_ONLY_FUNCTION = """
+CREATE OR REPLACE FUNCTION admin_action_log_append_only() RETURNS trigger AS $fn$
+BEGIN
+    IF current_setting('salesmesh.audit_maintenance', true) = 'on' THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+    RAISE EXCEPTION 'admin_action_log is append only: % is not allowed', TG_OP;
+END
+$fn$ LANGUAGE plpgsql
+"""
+
+
 def migrate_schema():
     """
     Adds columns introduced after a table was first created.
@@ -287,6 +306,29 @@ def migrate_schema():
         conn.execute(text("ALTER TABLE activation_records ADD COLUMN IF NOT EXISTS commission_kes INTEGER"))
         conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_activation_records_agent_id ON activation_records (agent_id)"
+        ))
+        # Issue #18: audit log columns, a backfill for older rows, and the
+        # append-only guard. The guard lets only a transaction that sets
+        # salesmesh.audit_maintenance (this migration) change existing rows.
+        for column, kind in AUDIT_COLUMNS.items():
+            conn.execute(text(f"ALTER TABLE admin_action_log ADD COLUMN IF NOT EXISTS {column} {kind}"))
+        conn.execute(text("SET LOCAL salesmesh.audit_maintenance = 'on'"))
+        conn.execute(text(
+            "UPDATE admin_action_log SET actor_type = COALESCE(actor_type, 'user'), category = CASE "
+            "WHEN action IN ('login', 'logout', 'login_failure') THEN 'authentication' "
+            "WHEN action IN ('propose_decision', 'confirm_decision') THEN 'review' "
+            "WHEN action = 'access_denied' THEN 'authorization' ELSE 'admin' END "
+            "WHERE category IS NULL OR actor_type IS NULL"
+        ))
+        conn.execute(text(APPEND_ONLY_FUNCTION))
+        for name, timing in (("admin_action_log_append_only", "BEFORE UPDATE OR DELETE ON admin_action_log FOR EACH ROW"),
+                             ("admin_action_log_no_truncate", "BEFORE TRUNCATE ON admin_action_log FOR EACH STATEMENT")):
+            conn.execute(text(
+                f"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = '{name}') THEN "
+                f"CREATE TRIGGER {name} {timing} EXECUTE FUNCTION admin_action_log_append_only(); END IF; END $$"
+            ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_admin_action_log_timestamp ON admin_action_log (timestamp)"
         ))
 
 
