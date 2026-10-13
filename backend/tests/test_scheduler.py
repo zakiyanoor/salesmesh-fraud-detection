@@ -96,7 +96,8 @@ def test_failed_run_reports_its_error_and_the_scheduler_survives(client, monkeyp
 
     login(client, ANALYST)
     body = client.get("/api/detection-runs/latest").get_json()["run"]
-    assert body["status"] == "failed" and "bundle unavailable (test)" in body["error"]
+    assert body["status"] == "failed" and body["error"] == "RuntimeError: bundle unavailable (test)"
+    assert "Traceback" not in body["error"] and "\\" not in body["error"]
 
 
 def test_status_endpoint_requires_login(client) -> None:

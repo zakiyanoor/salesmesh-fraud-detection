@@ -144,6 +144,13 @@ def identity_payload(identity):
     }
 
 
+def error_summary(error):
+    if not error:
+        return None
+    lines = [line.strip() for line in error.strip().splitlines() if line.strip()]
+    return lines[-1] if lines else None
+
+
 def latest_run(db_session):
     """The newest successful detection run, or None."""
     return (
@@ -639,7 +646,8 @@ def latest_detection_run():
             "flagged_count": run.flagged_count,
             "rule_flagged_count": run.rule_flagged_count,
             "both_count": run.both_count,
-            "error": run.error,
+            # Only the final "Type: message" line; the traceback (server paths) stays in the database.
+            "error": error_summary(run.error),
         }})
     finally:
         db_session.close()
