@@ -49,7 +49,7 @@ from src.db import (
 from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER, ROLE_ADMIN, DEACTIVATED,
 )
-from src import accounts, threat_intel
+from src import accounts, reports, threat_intel
 from src import audit
 from src.pipeline import compute_client_category_breakdown
 
@@ -716,6 +716,68 @@ def _threat_view(name, compute):
 # Read only, any authenticated role (issue #18).
 for _name, _compute in threat_intel.VIEWS.items():
     app.add_url_rule(f"/api/threat-intelligence/{_name}", view_func=_threat_view(_name, _compute), methods=["GET"])
+
+
+def _download(name, extension, mimetype, build):
+    """Builds a report, audits the download (category report) and sends it as an attachment."""
+    db_session = get_session()
+    try:
+        try:
+            content, row_count, extra = build(db_session)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        except LookupError as e:
+            return jsonify({"error": str(e)}), 404
+        filename = f"{name}_{datetime.utcnow():%Y-%m-%d}.{extension}"
+        log_admin_action(db_session, session["admin_id"], "report_download", category="report", details={
+            "report": f"{name}.{extension}", "filename": filename, "filters": audit.active_filters(request.args),
+            "row_count": row_count, "sha256": reports.sha256(content), "bytes": len(content), **extra})
+        db_session.commit()
+        response = app.response_class(content, mimetype=mimetype)
+        response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response.headers["Cache-Control"] = "no-store"
+        return response
+    finally:
+        db_session.close()
+
+
+def _latest_run_or_fail(db_session):
+    run = latest_run(db_session)
+    if run is None:
+        raise LookupError("No successful detection run yet")
+    return run
+
+
+@app.route("/api/reports/flagged-agents.csv", methods=["GET"])
+@role_required(ROLE_ADMIN)
+def report_flagged_agents():
+    def build(db_session):
+        run = _latest_run_or_fail(db_session)
+        content, rows = reports.flagged_agents_csv(db_session, run)
+        return content, rows, {"run_id": run.run_id}
+
+    return _download("flagged-agents", "csv", "text/csv; charset=utf-8", build)
+
+
+@app.route("/api/reports/audit-log.csv", methods=["GET"])
+@role_required(ROLE_ADMIN)
+def report_audit_log():
+    def build(db_session):
+        content, rows = reports.audit_log_csv(db_session, request.args)
+        return content, rows, {"cap": reports.AUDIT_CSV_CAP}
+
+    return _download("audit-log", "csv", "text/csv; charset=utf-8", build)
+
+
+@app.route("/api/reports/detection-summary.pdf", methods=["GET"])
+@role_required(ROLE_ADMIN)
+def report_detection_summary():
+    def build(db_session):
+        run = _latest_run_or_fail(db_session)
+        content, rows, extra = reports.detection_summary_pdf(db_session, run, session["admin_id"])
+        return content, rows, {"run_id": run.run_id, **extra}
+
+    return _download("detection-summary", "pdf", "application/pdf", build)
 
 
 @app.route("/api/admin/accounts", methods=["GET"])
