@@ -172,3 +172,31 @@ def test_admin_cannot_propose_or_confirm_review_decisions(client) -> None:
 def test_admin_can_view_detection_run_status(client) -> None:
     login(client, ADMIN)
     assert client.get("/api/detection-runs/latest").status_code == 200
+
+
+def test_account_with_unknown_role_gets_no_access(client) -> None:
+    """A legacy role (for example "administrator") is refused at login and on every request."""
+    from sqlalchemy import text
+    from werkzeug.security import generate_password_hash
+
+    from src.db import engine
+
+    admin_id = f"ADM_LEGACY_{uuid.uuid4().hex[:6]}"
+    with engine.begin() as conn:
+        conn.execute(text("INSERT INTO administrators (admin_id, username, password_hash, role, is_active) "
+                          "VALUES (:i, :u, :p, 'administrator', true)"),
+                     {"i": admin_id, "u": admin_id.lower(), "p": generate_password_hash(PASSWORD)})
+    try:
+        response = client.post("/api/login", json={"username": admin_id.lower(), "password": PASSWORD})
+        assert response.status_code == 401
+        with client.session_transaction() as forged:
+            forged["admin_id"], forged["role"] = admin_id, "administrator"
+        assert client.get("/api/flagged-agents").status_code == 403
+        assert client.get("/api/threat-intelligence/summary").status_code == 403
+        login(client, ADMIN)
+        failures = client.get("/api/audit-log?category=authentication&actor=anonymous&limit=20").get_json()["entries"]
+        assert any(e["details"].get("username") == admin_id.lower() and e["details"]["reason"] == "unknown role"
+                   for e in failures)
+    finally:
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM administrators WHERE admin_id = :i"), {"i": admin_id})

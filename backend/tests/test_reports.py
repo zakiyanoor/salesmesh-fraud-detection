@@ -61,7 +61,7 @@ def test_every_download_is_audited_with_hash_and_row_count(client, url) -> None:
 def test_flagged_agents_csv_content_and_masking(client) -> None:
     login(client, ADMIN)
     response = client.get("/api/reports/flagged-agents.csv")
-    assert response.mimetype == "text/csv"
+    assert response.headers["Content-Type"] == "text/csv; charset=utf-8"
     rows = rows_of(response)
     assert list(rows[0]) == reports.FLAGGED_COLUMNS
     with engine.connect() as conn:
