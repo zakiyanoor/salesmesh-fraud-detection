@@ -66,7 +66,16 @@ Read only, for any authenticated role, from the latest successful run: `/api/thr
 ### Known issues
 
 - **The test database's audit log only grows** (append only), so the audit-log CSV and the masking sweep slow down slowly over many runs. The masking sweep takes about 2.5 minutes now. Recreating the test database resets it.
-- **Legacy account in the development database:** `ADM001` (role `administrator`) is now refused. An admin should assign it a valid role or deactivate it.
+- **Legacy account in the development database (resolved 2026-10-13):** `ADM001` (role `administrator`) was deactivated by `admin_01` with `python -m src.manage_accounts deactivate ADM001 --as admin_01`.
+  - The change went through the accounts service and was audited (`account_deactivated`, category `admin`, `"channel": "cli"`).
+  - A before-and-after fingerprint of every table showed that nothing else changed: only `administrators.is_active` for `ADM001`, plus that one new audit entry. The 16 earlier audit rows are unchanged.
+- **Test database:** recreated at the start of every test session (`pytest_sessionstart`; refuses any name not ending in `_test`; `KEEP_TEST_DB=1` skips it), so the append-only audit log no longer slows the suite over time.
+
+### Command-line account administration (`src/manage_accounts.py`)
+
+`python -m src.manage_accounts deactivate|reactivate|role <admin_id> [new_role] --as <admin username>` applies the same rules as the API and audits the change with `"channel": "cli"`.
+- The acting account must be an active admin and gives its password, by prompt or through `--password-env`.
+- It cannot change itself, and it cannot remove the last active admin.
 
 ## Sprint 3: v3 database, frozen model and scheduler (issue #4, closes #12)
 
