@@ -114,3 +114,11 @@ def test_reload_is_idempotent_and_reports_counts():
             assert conn.execute(text("SELECT count(*) FROM agents WHERE length(agent_id) <> 6")).scalar() == 0
     finally:
         engine.dispose()
+
+
+def test_only_a_test_database_may_be_recreated() -> None:
+    from tests.helpers import recreate_test_database
+
+    for name in ("salesmesh_fraud_detection", "salesmesh_fraud_detection_test_copy", "postgres"):
+        with pytest.raises(pytest.UsageError, match="only a \*_test database"):
+            recreate_test_database(name)

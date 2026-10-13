@@ -36,7 +36,7 @@ action are recorded in the admin_action_log table.
 import os
 import uuid
 from datetime import datetime
-from flask import Flask, jsonify, request, session
+from flask import Flask, g, jsonify, request, session
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -47,8 +47,11 @@ from src.db import (
     DetectionRun, DuplicateEvidence, FLAG_SOURCES,
 )
 from src.auth import (
-    verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER,
+    verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER, ROLE_ADMIN, DEACTIVATED,
+    VALID_ROLES,
 )
+from src import accounts, reports, threat_intel
+from src import audit
 from src.pipeline import compute_client_category_breakdown
 
 app = Flask(__name__)
@@ -65,20 +68,30 @@ app.secret_key = FLASK_SECRET_KEY
 limiter = Limiter(get_remote_address, app=app, storage_uri="memory://")
 
 
-def log_admin_action(db_session, admin_id, action, target_agent_id=None):
+def log_admin_action(db_session, admin_id, action, target_agent_id=None, category="review", details=None):
     """
-    Adds an AdminActionLog row to db_session without committing.
+    Adds an audit entry to db_session without committing.
 
     The caller commits, so an action and its audit entry are saved (or rolled
     back) together.
     """
-    db_session.add(AdminActionLog(
-        log_id=f"AL{uuid.uuid4().hex}",
-        admin_id=admin_id,
-        action=action,
-        target_agent_id=target_agent_id,
-        timestamp=datetime.utcnow(),
-    ))
+    return audit.record(db_session, admin_id, action, category, target_agent_id=target_agent_id, details=details,
+                        request_ip=request.remote_addr)
+
+
+@app.after_request
+def audit_denied_requests(response):
+    """Every 401 and 403 becomes an access_denied entry (route, role, reason), unless the route recorded it."""
+    if response.status_code in (401, 403) and not g.get("audit_recorded"):
+        body = response.get_json(silent=True) or {}
+        audit.record_now(
+            g.get("denied_admin_id") or session.get("admin_id", audit.ANONYMOUS), "access_denied", "authorization",
+            details={"route": request.path, "method": request.method,
+                     "role": g.get("denied_role") or session.get("role"),
+                     "status": response.status_code, "reason": body.get("error")},
+            request_ip=request.remote_addr,
+        )
+    return response
 
 
 def agent_id_for_flag(db_session, flag_id):
@@ -123,6 +136,7 @@ def round_or_none(value, digits: int = 3):
 MASK_VISIBLE = 3
 SCORE_EDGES = (1.1, 1.3, 2.0)
 MAX_PAGE = 1000
+from src.risk import REVIEW_SCORE, RISK_BANDS, risk_band  # noqa: E402,F401
 
 
 def mask_tail(value, visible: int = MASK_VISIBLE):
@@ -180,6 +194,7 @@ def score_payload(score):
         "rule_flagged": score.rule_flagged,
         "duplicate_pairs": score.duplicate_pairs,
         "flag_source": score.flag_source,
+        "risk_band": risk_band(score.flag_source, score.anomaly_score, score.threshold),
         "top_features": score.top_features.split(";") if score.top_features else [],
         "reasons": score.reasons,
         "scored_at": score.created_at.isoformat(),
@@ -194,8 +209,17 @@ def login():
         return jsonify({"error": "Username and password are required"}), 400
 
     admin = verify_login(data["username"], data["password"])
-    if not admin:
-        return jsonify({"error": "Invalid username or password"}), 401
+    if not admin or not admin["is_active"] or admin["role"] not in VALID_ROLES:
+        # The actor is unknown until a login succeeds, so failures are "anonymous".
+        reason = ("invalid credentials" if not admin else "account deactivated" if not admin["is_active"]
+                  else "unknown role")
+        audit.record_now(audit.ANONYMOUS, "login_failure", "authentication",
+                         details={"username": str(data["username"])[:100], "reason": reason},
+                         request_ip=request.remote_addr)
+        g.audit_recorded = True
+        message = ("Invalid username or password" if not admin else DEACTIVATED if not admin["is_active"]
+                   else "This account has no valid role; an admin must assign one")
+        return jsonify({"error": message}), 401
 
     session["admin_id"] = admin["admin_id"]
     session["username"] = admin["username"]
@@ -203,7 +227,8 @@ def login():
 
     db_session = get_session()
     try:
-        log_admin_action(db_session, admin["admin_id"], "login")
+        log_admin_action(db_session, admin["admin_id"], "login", category="authentication",
+                         details={"username": admin["username"], "role": admin["role"]})
         db_session.commit()
     finally:
         db_session.close()
@@ -217,7 +242,7 @@ def logout():
     if admin_id:
         db_session = get_session()
         try:
-            log_admin_action(db_session, admin_id, "logout")
+            log_admin_action(db_session, admin_id, "logout", category="authentication")
             db_session.commit()
         finally:
             db_session.close()
@@ -253,6 +278,7 @@ def get_flagged_agents():
                 "flag_status": flag.flag_status,
                 "model_version": flag.model_version,
                 "flag_source": score.flag_source if score else None,
+                "risk_band": risk_band(score.flag_source, score.anomaly_score, score.threshold) if score else None,
                 "threshold": round_or_none(score.threshold, 6) if score else None,
             })
 
@@ -292,6 +318,7 @@ def get_all_agents():
                 "status": "flagged" if flag and flag.flag_status == "flagged" else "clear",
                 "suspicion_score": round_or_none(flag.suspicion_score) if flag else None,
                 "flag_source": score.flag_source if score else None,
+                "risk_band": risk_band(score.flag_source, score.anomaly_score, score.threshold) if score else None,
                 "submission_frequency": vector.submission_frequency if vector else None,
                 "time_of_day_dist": round_or_none(vector.time_of_day_dist) if vector else None,
                 "customer_similarity": round_or_none(vector.customer_similarity) if vector else None,
@@ -355,6 +382,7 @@ def get_agent_detail(agent_id):
             "agent_id": agent.agent_id,
             "region": agent.region,
             "account_status": agent.account_status,
+            "risk_band": risk_band(score.flag_source, score.anomaly_score, score.threshold) if score else None,
             # Fictional identity; phone and national ID masked (last 3 digits only).
             "identity": identity_payload(identity),
             "certifications": [{
@@ -424,6 +452,8 @@ def submit_review_decision():
         log_admin_action(
             db_session, session["admin_id"], "propose_decision",
             target_agent_id=agent_id_for_flag(db_session, data["flag_id"]),
+            details={"decision_id": decision.decision_id, "flag_id": data["flag_id"],
+                     "decision_outcome": data["decision_outcome"]},
         )
         db_session.commit()
 
@@ -463,6 +493,8 @@ def confirm_review_decision(decision_id):
         log_admin_action(
             db_session, session["admin_id"], "confirm_decision",
             target_agent_id=agent_id_for_flag(db_session, decision.flag_id),
+            details={"decision_id": decision.decision_id, "flag_id": decision.flag_id,
+                     "proposed_by": decision.reviewer_id},
         )
         db_session.commit()
 
@@ -511,23 +543,25 @@ def list_review_decisions():
 
 
 @app.route("/api/audit-log", methods=["GET"])
-@login_required
+@role_required(ROLE_ADMIN, ROLE_COMPLIANCE_OFFICER)
 def get_audit_log():
+    """Newest first. Filters: category, actor, agent_id, date_from, date_to; paging: limit (max 1000), offset."""
+    try:
+        limit = min(int(request.args.get("limit", 100)), audit.MAX_LIMIT)
+        offset = max(int(request.args.get("offset", 0)), 0)
+    except ValueError:
+        return jsonify({"error": "limit and offset must be integers"}), 400
     db_session = get_session()
     try:
-        entries = (
-            db_session.query(AdminActionLog)
-            .order_by(AdminActionLog.timestamp.desc(), AdminActionLog.log_id)
-            .all()
-        )
-        results = [{
-            "log_id": e.log_id,
-            "admin_id": e.admin_id,
-            "action": e.action,
-            "target_agent_id": e.target_agent_id,
-            "timestamp": e.timestamp.isoformat(),
-        } for e in entries]
-        return jsonify({"count": len(results), "entries": results})
+        try:
+            query = audit.filtered_query(db_session, request.args)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        total = query.count()
+        entries = query.offset(offset).limit(limit).all()
+        return jsonify({"total": total, "count": len(entries), "offset": offset, "limit": limit,
+                        "filters": audit.active_filters(request.args),
+                        "entries": [audit.entry_payload(e) for e in entries]})
     finally:
         db_session.close()
 
@@ -665,6 +699,154 @@ def list_clients():
         } for c in clients]})
     finally:
         db_session.close()
+
+
+def _threat_view(name, compute):
+    def view():
+        db_session = get_session()
+        try:
+            run = threat_intel.latest_run(db_session)
+            if run is None:
+                return jsonify({"error": "No successful detection run yet"}), 404
+            return jsonify(compute(db_session, run))
+        finally:
+            db_session.close()
+
+    view.__name__ = f"threat_intelligence_{name.replace('-', '_')}"
+    return login_required(view)
+
+
+# Read only, any authenticated role (issue #18).
+for _name, _compute in threat_intel.VIEWS.items():
+    app.add_url_rule(f"/api/threat-intelligence/{_name}", view_func=_threat_view(_name, _compute), methods=["GET"])
+
+
+def _download(name, extension, mimetype, build):
+    """Builds a report, audits the download (category report) and sends it as an attachment."""
+    db_session = get_session()
+    try:
+        try:
+            content, row_count, extra = build(db_session)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        except LookupError as e:
+            return jsonify({"error": str(e)}), 404
+        filename = f"{name}_{datetime.utcnow():%Y-%m-%d}.{extension}"
+        log_admin_action(db_session, session["admin_id"], "report_download", category="report", details={
+            "report": f"{name}.{extension}", "filename": filename, "filters": audit.active_filters(request.args),
+            "row_count": row_count, "sha256": reports.sha256(content), "bytes": len(content), **extra})
+        db_session.commit()
+        response = app.response_class(content, mimetype=mimetype)
+        response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response.headers["Cache-Control"] = "no-store"
+        return response
+    finally:
+        db_session.close()
+
+
+def _latest_run_or_fail(db_session):
+    run = latest_run(db_session)
+    if run is None:
+        raise LookupError("No successful detection run yet")
+    return run
+
+
+@app.route("/api/reports/flagged-agents.csv", methods=["GET"])
+@role_required(ROLE_ADMIN)
+def report_flagged_agents():
+    def build(db_session):
+        run = _latest_run_or_fail(db_session)
+        content, rows = reports.flagged_agents_csv(db_session, run)
+        return content, rows, {"run_id": run.run_id}
+
+    return _download("flagged-agents", "csv", "text/csv", build)
+
+
+@app.route("/api/reports/audit-log.csv", methods=["GET"])
+@role_required(ROLE_ADMIN)
+def report_audit_log():
+    def build(db_session):
+        content, rows = reports.audit_log_csv(db_session, request.args)
+        return content, rows, {"cap": reports.AUDIT_CSV_CAP}
+
+    return _download("audit-log", "csv", "text/csv", build)
+
+
+@app.route("/api/reports/detection-summary.pdf", methods=["GET"])
+@role_required(ROLE_ADMIN)
+def report_detection_summary():
+    def build(db_session):
+        run = _latest_run_or_fail(db_session)
+        content, rows, extra = reports.detection_summary_pdf(db_session, run, session["admin_id"])
+        return content, rows, {"run_id": run.run_id, **extra}
+
+    return _download("detection-summary", "pdf", "application/pdf", build)
+
+
+@app.route("/api/admin/accounts", methods=["GET"])
+@role_required(ROLE_ADMIN)
+def list_admin_accounts():
+    db_session = get_session()
+    try:
+        found = accounts.list_accounts(db_session)
+        return jsonify({"count": len(found), "accounts": found})
+    finally:
+        db_session.close()
+
+
+def _account_change(apply, action, details):
+    """Runs one account change; audits it (category admin) only when something changed."""
+    db_session = get_session()
+    try:
+        try:
+            account, changed_details = apply(db_session)
+        except accounts.AccountError as e:
+            db_session.rollback()
+            return jsonify({"error": str(e)}), e.status
+        if changed_details is None:
+            db_session.rollback()
+            return jsonify({"message": "No change", "changed": False, "account": accounts.account_payload(account)})
+        log_admin_action(db_session, session["admin_id"], action, category="admin",
+                         details={"target_admin_id": account.admin_id, "target_username": account.username,
+                                  **details, **changed_details})
+        db_session.commit()
+        return jsonify({"message": "Account updated", "changed": True, "account": accounts.account_payload(account)})
+    finally:
+        db_session.close()
+
+
+@app.route("/api/admin/accounts/<admin_id>/role", methods=["PATCH"])
+@role_required(ROLE_ADMIN)
+def change_account_role(admin_id):
+    data = request.get_json(silent=True) or {}
+    if "role" not in data:
+        return jsonify({"error": "Missing field: role"}), 400
+
+    def apply(db_session):
+        account, old_role = accounts.change_role(db_session, session["admin_id"], admin_id, data["role"])
+        return account, (None if old_role == account.role else {"old_role": old_role, "new_role": account.role})
+
+    return _account_change(apply, "role_change", {})
+
+
+@app.route("/api/admin/accounts/<admin_id>/deactivate", methods=["POST"])
+@role_required(ROLE_ADMIN)
+def deactivate_account(admin_id):
+    def apply(db_session):
+        account, was_active = accounts.set_active(db_session, session["admin_id"], admin_id, False)
+        return account, ({"role": account.role} if was_active else None)
+
+    return _account_change(apply, "account_deactivated", {})
+
+
+@app.route("/api/admin/accounts/<admin_id>/reactivate", methods=["POST"])
+@role_required(ROLE_ADMIN)
+def reactivate_account(admin_id):
+    def apply(db_session):
+        account, was_active = accounts.set_active(db_session, session["admin_id"], admin_id, True)
+        return account, (None if was_active else {"role": account.role})
+
+    return _account_change(apply, "account_reactivated", {})
 
 
 @app.route("/api/health", methods=["GET"])
