@@ -137,6 +137,24 @@ Evidence for Steps 1 to 10 above refers to v3a runs, now archived in `ml/results
 - [x] DATA_CARD.md, CHANGES.md (change 5, with backend and database list) and this checklist updated. Evidence: those files.
 - [x] Regenerated with seed 42, new run folder and datagen freeze note. Evidence: `ml/runs/20261013-091128_datagen_s42/run_info.json`; `ml/results/FREEZE.md` (11 hashes); `test_freeze.py` passing.
 
+## Rerun of Steps 2 to 10 on the change 5 data (2026-10-13; settings unchanged)
+
+- [x] Step 2 cleaning. Evidence: run `20261013-092936_clean`; 135,494 in and out, 0 removed; near duplicates 77 same customer (33 agents) and 549 one digit away (21 agents).
+- [x] Step 5 split, same design. Evidence: run `20261013-092952_split_s42`; 700 / 150 / 150 agents, 91 / 20 / 19 fraud; `split.csv` byte-identical to v3a.
+- [x] Step 3 EDA without test agents (labels guard). Evidence: run `20261013-092959_eda_s0`, 850 agents; `labels_guard.load_labels`; test `test_load_labels_refuses_test_and_drops_test_rows`.
+- [x] Step 4 features and feature checks. Evidence: runs `20261013-093008_features` and `20261013-093024_feature_checks`; `volume_vs_peers` KEEP (0.760, 0.803).
+- [x] Step 6 preprocessing, scaler fitted on train only. Evidence: run `20261013-093031_preprocess_s0`.
+- [x] Step 7 baselines, plus `duplicate_activation_rule` (reported only, on training and validation). Evidence: run `20261013-093033_baselines`, `baselines_train_and_validation.csv`; tests in `ml/tests/test_duplicate_rule.py`, including `test_duplicate_activation_rule_uses_no_labels`.
+- [x] Step 8 default models. Evidence: run `20261013-093036_models_default_s42`.
+- [x] Step 9 selection with the amended rule, unchanged. Evidence: run `20261013-093050_selection_s42`; chosen `lof_v3_4f` (`n_neighbors` 50), PR AUC 0.813 (0.660 to 0.942); the v3a choice was `if_v3_4f`.
+- [x] Acceptance Q1 to Q6 on validation. Evidence: `acceptance_validation.csv`, all PASS (Q1/Q2 reference 0.574 from Step 7; also PASS against 0.541).
+- [x] Step 9B learning curve. Evidence: run `20261013-093222_learning_curve`; flat from about 75%.
+- [x] Step 10 explanations and scoring bundle. Evidence: run `20261013-093225_explain`; top feature matches 6/6, 4/4, 3/3, 3/3.
+- [x] S1 to S4. Evidence: run `20261013-093332_system_checks_s101`, all PASS (S4 behaviour-only generation).
+- [x] Model freeze. Evidence: `ml/results/FREEZE.md` (15 hashes; rule hashes equal v3a); `test_freeze.py` passing.
+- [x] All ML tests pass, none skipped. Evidence: 156 passed.
+- [ ] `acceptance_criteria.md` agreed with the supervisor (still a draft).
+
 ## Step 11: final test (test set read once)
 
 - [ ] Precision, recall, F1, ROC AUC and PR AUC.

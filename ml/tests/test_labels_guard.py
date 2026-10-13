@@ -21,6 +21,17 @@ def test_test_labels_are_locked_by_default(tmp_path):
         labels_guard.load_labelled(tmp_path, ["train", "test"])
 
 
+def test_load_labels_refuses_test_and_drops_test_rows(tmp_path):
+    pd.DataFrame({"agent_id": ["A1", "A2", "A3"], "split": ["train", "validation", "test"]}).to_csv(
+        tmp_path / "split.csv", index=False)
+    pd.DataFrame({"agent_id": ["A1", "A2", "A3"], "is_fraud": [False, True, True],
+                  "profile": ["legit", "ring", "ring"], "ring_id": ["", "ring_01", "ring_01"]}).to_csv(
+        tmp_path / "labels.csv", index=False)
+    with pytest.raises(labels_guard.TestLabelsLocked):
+        labels_guard.load_labels(tmp_path, ["validation", "test"])
+    assert set(labels_guard.load_labels(tmp_path)["agent_id"]) == {"A1", "A2"}
+
+
 def test_only_the_final_evaluation_script_unlocks_test_labels():
     callers = [p.name for p in ML_DIR.glob("*.py")
                if p.name != "labels_guard.py" and "unlock_test_labels(" in p.read_text(encoding="utf-8")]
@@ -37,7 +48,7 @@ def test_step_7_to_10_code_never_reads_labels_directly_or_asks_for_test(module):
 
 @have_pipeline_data
 def test_step_7_and_8_run_without_any_test_label(tmp_path, monkeypatch):
-    for name in ["feature_vectors.csv", "split.csv"]:
+    for name in ["feature_vectors.csv", "split.csv", "activation_records_clean.csv"]:
         shutil.copy(DATA_DIR / name, tmp_path / name)
     split = pd.read_csv(DATA_DIR / "split.csv")
     labels = pd.read_csv(DATA_DIR / "labels.csv", keep_default_na=False)

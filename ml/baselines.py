@@ -5,11 +5,16 @@ Baselines (Step 7): fitted on TRAINING agents, evaluated on VALIDATION agents.
 (b) rule (Chapter 1, fixed volume cap): flag submission_frequency above the
     RULE_PERCENTILE of training agents; its score is submission_frequency;
 (c) each feature alone as an anomaly score, in the direction with the higher
-    TRAINING AUC (decided on training only).
+    TRAINING AUC (decided on training only);
+(d) duplicate_activation_rule (reported, never a selection candidate): from the
+    unlabelled activation records only, the number of the agent's (customer,
+    client) pairs that another agent also used, or that the agent repeated after
+    a completed activation; flagged when the count is above 0.
 Test labels are never loaded (labels_guard).
 
 Usage: python baselines.py [--data-dir DIR]
-Output: ml/runs/<run_id>/ with run_info.json, baseline_metrics.csv, single_feature_directions.csv
+Output: ml/runs/<run_id>/ with run_info.json, baseline_metrics.csv, single_feature_directions.csv,
+        baselines_train_and_validation.csv
 """
 
 import argparse
@@ -27,6 +32,18 @@ from metrics import ALERT_BUDGET, FRAUD_PATTERNS, direction_free, evaluate
 RANDOM_SEEDS = range(20)
 RULE_FEATURE = "submission_frequency"
 RULE_PERCENTILE = 0.90
+DUPLICATE_RULE = "duplicate_activation_rule"
+PAIR = ["customer_id", "client_id"]
+
+
+def duplicate_activation_counts(activations):
+    """Per agent: pairs used by another agent or repeated after a completed activation (no labels)."""
+    acts = activations[["agent_id", "timestamp", *PAIR, "activation_status"]]
+    acts = acts.assign(timestamp=pd.to_datetime(acts["timestamp"])).sort_values("timestamp", kind="mergesort")
+    shared = acts.groupby(PAIR)["agent_id"].transform("nunique") > 1
+    after_completed = acts.groupby(["agent_id", *PAIR])["activation_status"].shift().eq("completed")
+    pairs = acts[shared | after_completed].drop_duplicates(["agent_id", *PAIR])
+    return pairs.groupby("agent_id").size().reindex(acts["agent_id"].unique(), fill_value=0).rename(DUPLICATE_RULE)
 
 
 def feature_directions(train):
@@ -62,7 +79,36 @@ def run_baselines(data_dir=DEFAULT_OUT_DIR):
         raw_auc = roc_auc_score(y, val[feature].values)
         rows.append({"baseline": f"single feature: {feature} ({'+' if d['direction'] > 0 else '-'})", **result,
                      "val_auc_raw": raw_auc, "val_strength": direction_free(raw_auc)})
-    return pd.DataFrame(rows), directions, len(train), len(val), int(val["is_fraud"].sum())
+
+    counts = duplicate_activation_counts(pd.read_csv(Path(data_dir) / "activation_records_clean.csv"))
+    dup_val = val["agent_id"].map(counts).fillna(0).values
+    rows.append({"baseline": f"rule: {DUPLICATE_RULE} (pairs > 0)", **evaluate(y, dup_val, profiles, flags=dup_val > 0)})
+    table = pd.DataFrame(rows)
+    return table, directions, len(train), len(val), int(val["is_fraud"].sum()), \
+        train_and_validation(train, val, table, directions, cap, counts)
+
+
+def train_and_validation(train, val, table, directions, cap, counts):
+    """Random, volume rule, best single feature (by validation PR AUC) and the duplicate rule on both splits."""
+    single = table[table["baseline"].str.startswith("single feature")]
+    best = single.sort_values("pr_auc", ascending=False).iloc[0]["baseline"]
+    feature = best.split(": ")[1].split(" ")[0]
+    rows = []
+    for name, part in [("train", train), ("validation", val)]:
+        y, profiles = part["is_fraud"].values, part["profile"].values
+        random_runs = pd.DataFrame([evaluate(y, np.random.default_rng(seed).random(len(part)), profiles)
+                                    for seed in RANDOM_SEEDS])
+        dup = part["agent_id"].map(counts).fillna(0).values
+        for baseline, result in [
+            (f"random scores (mean of {len(RANDOM_SEEDS)} seeds)", random_runs.mean().to_dict()),
+            (f"rule: {RULE_FEATURE} > training P{int(RULE_PERCENTILE * 100)} ({cap:g})",
+             evaluate(y, part[RULE_FEATURE].values, profiles, flags=part[RULE_FEATURE].values > cap)),
+            (f"best single feature: {best.split(': ')[1]}",
+             evaluate(y, directions.loc[feature, "direction"] * part[feature].values, profiles)),
+            (f"rule: {DUPLICATE_RULE} (pairs > 0)", evaluate(y, dup, profiles, flags=dup > 0)),
+        ]:
+            rows.append({"split": name, "baseline": baseline, **result})
+    return pd.DataFrame(rows)
 
 
 def main(argv=None):
@@ -72,13 +118,15 @@ def main(argv=None):
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_OUT_DIR)
     args = parser.parse_args(argv)
 
-    inputs = [args.data_dir / f for f in ["feature_vectors.csv", "split.csv", "labels.csv"]]
-    table, directions, n_train, n_val, n_val_fraud = run_baselines(args.data_dir)
+    inputs = [args.data_dir / f for f in ["feature_vectors.csv", "split.csv", "labels.csv", "activation_records_clean.csv"]]
+    table, directions, n_train, n_val, n_val_fraud, both = run_baselines(args.data_dir)
     run_dir = start_run("baselines", None, {"alert_budget": ALERT_BUDGET, "random_seeds": list(RANDOM_SEEDS),
                                             "rule": f"{RULE_FEATURE} > train P{RULE_PERCENTILE}",
+                                            "duplicate_rule": "pairs used by another agent or repeated after completed > 0",
                                             "evaluated_on": "validation", "fitted_on": "train"}, inputs)
     table.to_csv(run_dir / "baseline_metrics.csv", index=False)
     directions.to_csv(run_dir / "single_feature_directions.csv")
+    both.to_csv(run_dir / "baselines_train_and_validation.csv", index=False)
 
     cols = ["roc_auc", "pr_auc", "pr_auc_random", "flagged", "precision", "recall", "f1"]
     print(f"Fitted on {n_train} training agents; evaluated on {n_val} validation agents ({n_val_fraud} fraud). "
@@ -90,6 +138,8 @@ def main(argv=None):
     single = table[table["baseline"].str.startswith("single")].set_index("baseline")[["val_auc_raw", "val_strength"]]
     print(directions.round(3).to_string())
     print(single.round(3).to_string())
+    print("\nTraining and validation (reported baselines):")
+    print(both.set_index(["split", "baseline"])[cols].round(3).to_string())
     print(f"\nRandom-score spread over seeds: ROC AUC std {table.iloc[0]['random_std_roc_auc']:.3f}, "
           f"PR AUC std {table.iloc[0]['random_std_pr_auc']:.3f}")
     print(f"Run folder {run_dir}")

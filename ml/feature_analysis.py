@@ -107,8 +107,7 @@ def main(argv=None):
     print(f"Training agents only: {len(train)} ({int(train['is_fraud'].sum())} fraud)\n")
     print("Single-feature ROC AUC (value = score, higher = more suspicious):")
     print(wide.to_string())
-    print("
-Direction-free strength max(AUC, 1 - AUC):")
+    print("\nDirection-free strength max(AUC, 1 - AUC):")
     print(strength.to_string())
     print(f"\nShortcut risk (strength >= {SHORTCUT_SEPARATION}):")
     print(shortcuts[["feature", "target", "auc", "strength", "direction"]].to_string(index=False))

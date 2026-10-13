@@ -160,6 +160,8 @@ def choose(grid):
     return chosen, ties.drop(columns=["_trees", "_samples"]), top
 
 
+# Q1/Q2 reference: the best single-feature validation PR AUC from Step 7 (acceptance_criteria.md).
+# 0.541 was that value on the v3a data; on new data it is read from the latest Step 7 run.
 ACCEPTANCE_BEST_SINGLE_FEATURE_PR_AUC = 0.541
 ACCEPTANCE_MAX_GAP = 0.10
 ACCEPTANCE_MIN_RECALL = 0.60
@@ -167,7 +169,16 @@ ACCEPTANCE_MAX_ALERT_RATE = 0.25
 ACCEPTANCE_RANDOM_MULTIPLE = 3
 
 
-def acceptance_on_validation(chosen, y, scores, train_roc_auc, cutoff):
+def best_single_feature_pr_auc(baselines_run=None):
+    """(best single-feature validation PR AUC, run name) from a Step 7 baselines run (default: the latest)."""
+    from run_utils import RUNS_DIR
+
+    run = Path(baselines_run) if baselines_run else sorted(RUNS_DIR.glob("*_baselines"))[-1]
+    table = pd.read_csv(run / "baseline_metrics.csv")
+    return float(table.loc[table["baseline"].str.startswith("single feature"), "pr_auc"].max()), run.name
+
+
+def acceptance_on_validation(chosen, y, scores, train_roc_auc, cutoff, best_single=ACCEPTANCE_BEST_SINGLE_FEATURE_PR_AUC):
     """Q1-Q6 of the draft acceptance criteria, measured on validation (the final check is Step 11 on test)."""
     y = np.asarray(y, dtype=bool)
     pr = average_precision_score(y, scores)
@@ -176,9 +187,9 @@ def acceptance_on_validation(chosen, y, scores, train_roc_auc, cutoff):
     recall = flags[y].mean()
     gap = train_roc_auc - roc_auc_score(y, scores)
     rows = [
-        ("Q1", "mean validation PR AUC over seeds 1-5 > best single feature (0.541)", chosen["pr_auc_mean"],
-         chosen["pr_auc_mean"] > ACCEPTANCE_BEST_SINGLE_FEATURE_PR_AUC),
-        ("Q2", "PR AUC (seed 42 model) > best single feature (0.541)", pr, pr > ACCEPTANCE_BEST_SINGLE_FEATURE_PR_AUC),
+        ("Q1", f"mean validation PR AUC over seeds 1-5 > best single feature ({best_single:.3f})", chosen["pr_auc_mean"],
+         chosen["pr_auc_mean"] > best_single),
+        ("Q2", f"PR AUC (seed 42 model) > best single feature ({best_single:.3f})", pr, pr > best_single),
         ("Q3", f"PR AUC >= {ACCEPTANCE_RANDOM_MULTIPLE} x fraud rate ({y.mean():.3f}) and CI low > fraud rate",
          f"{pr:.3f} (CI {ci[0]:.3f}-{ci[1]:.3f})", pr >= ACCEPTANCE_RANDOM_MULTIPLE * y.mean() and ci[0] > y.mean()),
         ("Q4", "train ROC AUC - validation ROC AUC <= 0.10", gap, gap <= ACCEPTANCE_MAX_GAP),
@@ -240,8 +251,10 @@ def main(argv=None):
 
     parser = argparse.ArgumentParser(description="Step 9: grid selection and operating point on validation.")
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_OUT_DIR)
+    parser.add_argument("--baselines-run", type=Path, default=None)
     args = parser.parse_args(argv)
 
+    best_single, baselines_run = best_single_feature_pr_auc(args.baselines_run)
     parts = load_labelled(args.data_dir, ["train", "validation"])
     train, val = parts["train"], parts["validation"]
     inputs = [args.data_dir / f for f in ["feature_vectors.csv", "split.csv", "labels.csv"]]
@@ -249,7 +262,8 @@ def main(argv=None):
         "selection_seeds": SELECTION_SEEDS, "bootstrap_resamples": BOOTSTRAP_RESAMPLES, "bootstrap_seed": BOOTSTRAP_SEED,
         "tie_margin": TIE_MARGIN, "heavy_overlap": HEAVY_OVERLAP, "if_grid": IF_GRID, "lof_grid": LOF_GRID,
         "contamination": "auto", "cost_missed_fraud": COST_MISSED_FRAUD, "cost_false_alarm": COST_FALSE_ALARM,
-        "sensitivity_ratios": SENSITIVITY_RATIOS, "fitted_on": "train", "evaluated_on": "validation"}, inputs)
+        "sensitivity_ratios": SENSITIVITY_RATIOS, "fitted_on": "train", "evaluated_on": "validation",
+        "acceptance_best_single_feature_pr_auc": best_single, "baselines_run": baselines_run}, inputs)
 
     weights = bootstrap_weights(val["is_fraud"].values)
     summaries, seed_rows = [], []
@@ -292,8 +306,11 @@ def main(argv=None):
     pattern = points.set_index("rule")[[f"recall_{p}" for p in FRAUD_PATTERNS]]
     pattern.to_csv(run_dir / "pattern_recall.csv")
     acceptance = acceptance_on_validation(chosen, val["is_fraud"].values, val_scores, train_eval["roc_auc"],
-                                          float(operating["cutoff"]))
+                                          float(operating["cutoff"]), best_single)
     acceptance.to_csv(run_dir / "acceptance_validation.csv", index=False)
+    acceptance_v3a_reference = acceptance_on_validation(chosen, val["is_fraud"].values, val_scores,
+                                                        train_eval["roc_auc"], float(operating["cutoff"]))
+    acceptance_v3a_reference.to_csv(run_dir / "acceptance_validation_v3a_reference.csv", index=False)
 
     best_other = grid[grid["features"] != chosen["features"]].iloc[0]
     same_family_other = grid[(grid["model"] == chosen["model"]) & (grid["features"] != chosen["features"])].iloc[0]
@@ -330,8 +347,10 @@ def main(argv=None):
     print(pattern.round(2).to_string())
     print("\nTrain vs validation (chosen model, at the 5:1 cutoff):")
     print(gap.round(3).to_string())
-    print("\nAcceptance criteria Q1-Q6 on validation:")
+    print(f"\nAcceptance criteria Q1-Q6 on validation (Q1/Q2 reference {best_single:.3f} from {baselines_run}):")
     print(acceptance.to_string(index=False))
+    print("Q1/Q2 against the v3a reference value 0.541:")
+    print(acceptance_v3a_reference.head(2).to_string(index=False))
     print(f"\nRun folder {run_dir}")
 
 

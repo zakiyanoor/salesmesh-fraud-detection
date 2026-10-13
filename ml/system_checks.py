@@ -8,7 +8,10 @@ S2 model replaceable and threshold read from the bundle: a LOF bundle fitted on
    training features is scored through the same entry point;
 S3 every output row has all schema fields, non-empty;
 S4 timing at 500, 1000, 5000 and 10000 synthetic agents (generation, features,
-   scoring); timing only, no accuracy claim.
+   scoring); timing only, no accuracy claim. S4 generates the behaviour part only
+   (agents and activations, the inputs of features and scoring): the context
+   fields are not needed, and the fictional name lists give at most 4900 unique
+   full names.
 
 Usage: python system_checks.py [--data-dir DIR] [--explain-run DIR]
 Output: ml/runs/<run_id>/ with system_checks.json and scaling.csv
@@ -23,7 +26,8 @@ from pathlib import Path
 import joblib
 import pandas as pd
 
-from data_generation import DEFAULT_OUT_DIR, generate_dataset
+import data_generation as dg
+from data_generation import DEFAULT_OUT_DIR
 from detectors import fit_lof
 from feature_engineering import compute_feature_vectors
 from labels_guard import load_unlabelled
@@ -46,6 +50,15 @@ def median_seconds(fn, repeats=TIMING_REPEATS):
         fn()
         times.append(time.perf_counter() - start)
     return statistics.median(times)
+
+
+def behaviour_dataset(seed, n_agents):
+    """Agents and activations exactly as generate_dataset draws them, without the context fields."""
+    dg.seed_everything(seed)
+    num_fraud = int(round(n_agents * dg.DEFAULT_FRAUD_RATE))
+    agents = dg.generate_agents(n_agents - num_fraud, num_fraud)
+    profiles, rings = dg.assign_profiles(agents)
+    return agents[["agent_id", "registration_timestamp", "region"]], dg.generate_activation_records(agents, profiles, rings)
 
 
 def schema_problems(output):
@@ -102,13 +115,13 @@ def main(argv=None):
     rows = []
     for n in S4_SIZES:
         start = time.perf_counter()
-        data = generate_dataset(S4_SEED, n_agents=n)
+        agents, activations = behaviour_dataset(S4_SEED, n)
         generation = time.perf_counter() - start
         start = time.perf_counter()
-        table = compute_feature_vectors(data.activations, data.agents)
+        table = compute_feature_vectors(activations, agents)
         feature_time = time.perf_counter() - start
         scoring_time = median_seconds(lambda: score_agents(bundle, table), repeats=3)
-        rows.append({"agents": n, "records": len(data.activations), "generation_seconds": generation,
+        rows.append({"agents": n, "records": len(activations), "generation_seconds": generation,
                      "feature_seconds": feature_time, "scoring_seconds": scoring_time,
                      "scoring_ms_per_agent": 1000 * scoring_time / n, "end_to_end_seconds": feature_time + scoring_time})
     scaling = pd.DataFrame(rows)

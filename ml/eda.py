@@ -4,9 +4,12 @@ Exploratory data analysis (Step 3) on the cleaned activation records.
 Per-agent descriptors here are for understanding the data only; they are not
 the model features (Step 4). Labels are read to describe the groups. EDA covers
 all agents, including those that Step 5 will put in validation and test; no
-later decision may be based on it unless documented.
+later decision may be based on it unless documented. With --without-test
+(after the split exists) test agents are left out and their labels are never
+read (labels_guard.load_labels); descriptors are still computed from every
+agent's unlabelled records, so platform-wide sharing is measured as deployed.
 
-Usage: python eda.py [--data-dir DIR] [--clean-run DIR]
+Usage: python eda.py [--data-dir DIR] [--clean-run DIR] [--without-test]
 Output: ml/runs/<run_id>/ with run_info.json, findings.md, raw_sample.md,
         descriptors_by_agent.csv, descriptors_by_group.csv, correlations.csv and fig*.png
 """
@@ -150,7 +153,7 @@ def fig_distributions(table, path):
     plt.close(fig)
 
 
-def fig_correlations(corr, path):
+def fig_correlations(corr, path, agents):
     fig, ax = plt.subplots(figsize=(7.5, 6.5))
     image = ax.imshow(corr.values, cmap=DIVERGING, vmin=-1, vmax=1)
     labels = [DESCRIPTORS[c] for c in corr.columns]
@@ -161,7 +164,7 @@ def fig_correlations(corr, path):
             ax.text(j, i, f"{corr.values[i, j]:.2f}", ha="center", va="center", fontsize=7, color=INK)
     ax.grid(False)
     fig.colorbar(image, ax=ax, fraction=0.046, label="Spearman correlation")
-    ax.set_title("Correlation between per-agent descriptors (all 1000 agents)")
+    ax.set_title(f"Correlation between per-agent descriptors ({agents} agents)")
     fig.tight_layout()
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -171,17 +174,30 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Exploratory analysis of the cleaned activation records.")
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--clean-run", type=Path, default=None)
+    parser.add_argument("--without-test", action="store_true")
     args = parser.parse_args(argv)
 
     clean_run = args.clean_run or latest_clean_run()
     inputs = [args.data_dir / f for f in ["activation_records.csv", "activation_records_clean.csv",
-                                          "agents.csv", "clients.csv", "labels.csv"]]
-    raw, acts, agents, clients, labels = (pd.read_csv(p, keep_default_na=False) for p in inputs)
+                                          "agents.csv", "clients.csv"]]
+    raw, acts, agents, clients = (pd.read_csv(p, keep_default_na=False) for p in inputs)
+    if args.without_test:
+        from labels_guard import load_labels
+
+        labels = load_labels(args.data_dir, ["train", "validation"]).drop(columns="split")
+        inputs.append(args.data_dir / "split.csv")
+    else:
+        labels = pd.read_csv(args.data_dir / "labels.csv", keep_default_na=False)
+    inputs.append(args.data_dir / "labels.csv")
     flags = pd.read_csv(clean_run / "record_flags.csv")
     run_dir = start_run("eda", SAMPLE_SEED, {"sample_rows": SAMPLE_ROWS, "night_hours": [0, 4],
-                                             "clean_run": clean_run.name}, inputs + [clean_run / "record_flags.csv"])
+                                             "clean_run": clean_run.name, "without_test": args.without_test},
+                        inputs + [clean_run / "record_flags.csv"])
 
-    table = agent_descriptors(acts, flags).join(labels.set_index("agent_id")).join(agents.set_index("agent_id"))
+    descriptors = agent_descriptors(acts, flags)
+    keep = set(labels["agent_id"])
+    raw, acts, agents = (df[df["agent_id"].isin(keep)] for df in (raw, acts, agents))
+    table = descriptors.join(labels.set_index("agent_id"), how="inner").join(agents.set_index("agent_id"))
     table.reset_index().to_csv(run_dir / "descriptors_by_agent.csv", index=False)
 
     by_group = table.groupby("profile")[list(DESCRIPTORS)].agg(
@@ -211,17 +227,19 @@ def main(argv=None):
     fig_class_balance(labels, run_dir / "fig01_class_balance.png")
     fig_volume_by_hour(acts, labels, run_dir / "fig02_volume_by_hour.png")
     fig_distributions(table, run_dir / "fig03_distributions_by_group.png")
-    fig_correlations(corr, run_dir / "fig04_correlations.png")
+    fig_correlations(corr, run_dir / "fig04_correlations.png", len(table))
 
     hours = pd.to_datetime(acts["timestamp"]).dt.hour
     fraud_records = acts["agent_id"].map(labels.set_index("agent_id")["is_fraud"])
     night = hours.isin(NIGHT_HOURS).groupby(fraud_records).mean()
     near = table.groupby("profile")["near_duplicates"].agg(agents_flagged=lambda s: int((s > 0).sum()),
                                                             flags="sum").reindex(GROUP_ORDER).astype(int)
+    scope = ("Test agents are left out (their labels were never read); descriptors use every agent's unlabelled records."
+             if args.without_test else "It covers all agents, including those Step 5 will put in validation and test.")
     findings = f"""# EDA findings (run `{run_dir.name}`)
 
 Inputs: cleaned activation records ({len(acts)} rows), {len(agents)} agents, {len(clients)} clients, labels, and near-duplicate flags from cleaning run `{clean_run.name}`.
-EDA reads labels to describe groups and covers all agents, including those Step 5 will put in validation and test. The feature definitions were fixed in DATA_CARD.md before this EDA; nothing in later steps is chosen from it unless stated.
+EDA reads labels to describe groups. {scope} The feature definitions were fixed in DATA_CARD.md before this EDA; nothing in later steps is chosen from it unless stated.
 
 ## Class balance
 {int(labels['is_fraud'].sum())} fraud of {len(labels)} agents ({labels['is_fraud'].mean():.1%}). Fraud agents produce {fraud_records.mean():.1%} of records.
@@ -241,7 +259,7 @@ Medians by class:
 ## Near-duplicate flags from cleaning, by group
 {md_table(near)}
 
-## Strongest correlations between descriptors (Spearman, all agents)
+## Strongest correlations between descriptors (Spearman, {len(table)} agents)
 {md_table(upper.head(6).rename('rho').to_frame())}
 
 ## Figures

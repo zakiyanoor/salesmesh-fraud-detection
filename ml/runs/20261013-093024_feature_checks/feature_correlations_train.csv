@@ -1,0 +1,6 @@
+,submission_frequency,time_of_day_entropy,customer_similarity,collusion_score,volume_vs_peers
+submission_frequency,1.0,0.088,0.079,-0.022,0.803
+time_of_day_entropy,0.088,1.0,-0.086,-0.144,0.117
+customer_similarity,0.079,-0.086,1.0,-0.009,0.081
+collusion_score,-0.022,-0.144,-0.009,1.0,-0.02
+volume_vs_peers,0.803,0.117,0.081,-0.02,1.0

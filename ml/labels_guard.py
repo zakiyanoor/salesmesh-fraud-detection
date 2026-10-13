@@ -36,6 +36,17 @@ def load_split_table(data_dir):
     return pd.read_csv(Path(data_dir) / "split.csv")
 
 
+def load_labels(data_dir, splits=("train", "validation")):
+    """Label rows (with their split) for the requested splits only; test rows are dropped on read."""
+    splits = list(splits)
+    if "test" in splits and not _test_unlocked:
+        raise TestLabelsLocked(f"test labels are locked until Step 11 ({FINAL_EVALUATION_SCRIPT})")
+    split = load_split_table(data_dir)
+    wanted = split[split["split"].isin(splits)]
+    labels = pd.read_csv(Path(data_dir) / "labels.csv", keep_default_na=False)[LABEL_COLUMNS]
+    return labels[labels["agent_id"].isin(wanted["agent_id"])].merge(wanted, on="agent_id").reset_index(drop=True)
+
+
 def load_labelled(data_dir, splits=("train", "validation")):
     """{split: feature vectors joined with labels} for the requested splits only."""
     splits = list(splits)
