@@ -110,6 +110,9 @@ def refresh_session():
             session.clear()
             return jsonify({"error": DEACTIVATED if admin is not None else "Authentication required"}), 401
         session["role"] = admin.role
+        if admin.role not in VALID_ROLES:
+            # A legacy or hand-edited account whose role no longer exists gets no access at all.
+            return jsonify({"error": f"Unknown role {admin.role!r}; an admin must assign a valid role"}), 403
         return None
     finally:
         db_session.close()

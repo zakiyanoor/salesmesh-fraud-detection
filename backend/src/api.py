@@ -48,6 +48,7 @@ from src.db import (
 )
 from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER, ROLE_ADMIN, DEACTIVATED,
+    VALID_ROLES,
 )
 from src import accounts, reports, threat_intel
 from src import audit
@@ -208,14 +209,16 @@ def login():
         return jsonify({"error": "Username and password are required"}), 400
 
     admin = verify_login(data["username"], data["password"])
-    if not admin or not admin["is_active"]:
+    if not admin or not admin["is_active"] or admin["role"] not in VALID_ROLES:
         # The actor is unknown until a login succeeds, so failures are "anonymous".
-        reason = "invalid credentials" if not admin else "account deactivated"
+        reason = ("invalid credentials" if not admin else "account deactivated" if not admin["is_active"]
+                  else "unknown role")
         audit.record_now(audit.ANONYMOUS, "login_failure", "authentication",
                          details={"username": str(data["username"])[:100], "reason": reason},
                          request_ip=request.remote_addr)
         g.audit_recorded = True
-        message = "Invalid username or password" if not admin else DEACTIVATED
+        message = ("Invalid username or password" if not admin else DEACTIVATED if not admin["is_active"]
+                   else "This account has no valid role; an admin must assign one")
         return jsonify({"error": message}), 401
 
     session["admin_id"] = admin["admin_id"]
@@ -756,7 +759,7 @@ def report_flagged_agents():
         content, rows = reports.flagged_agents_csv(db_session, run)
         return content, rows, {"run_id": run.run_id}
 
-    return _download("flagged-agents", "csv", "text/csv; charset=utf-8", build)
+    return _download("flagged-agents", "csv", "text/csv", build)
 
 
 @app.route("/api/reports/audit-log.csv", methods=["GET"])
@@ -766,7 +769,7 @@ def report_audit_log():
         content, rows = reports.audit_log_csv(db_session, request.args)
         return content, rows, {"cap": reports.AUDIT_CSV_CAP}
 
-    return _download("audit-log", "csv", "text/csv; charset=utf-8", build)
+    return _download("audit-log", "csv", "text/csv", build)
 
 
 @app.route("/api/reports/detection-summary.pdf", methods=["GET"])
