@@ -38,7 +38,7 @@ describe("session restore", () => {
     await userEvent.type(screen.getByLabelText("Password"), "LanternHarbour58");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
     expect(await screen.findByRole("heading", { name: "Accounts" })).toBeInTheDocument();
-    expect(screen.getByText("Coming in the next step")).toBeInTheDocument();
+    expect(await screen.findByRole("table", { name: "Accounts" })).toBeInTheDocument();
   });
 
   it("shows a wrong password on the form", async () => {

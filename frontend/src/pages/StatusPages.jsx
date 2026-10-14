@@ -3,16 +3,6 @@ import { Link as RouterLink } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import { AccessDeniedState, EmptyState } from "../components/states";
 
-/** A menu page that is not built yet. */
-export function ComingSoon({ title }) {
-  return (
-    <>
-      <PageHeader title={title} />
-      <EmptyState title="Coming in the next step">This page is planned and will be added in the next step.</EmptyState>
-    </>
-  );
-}
-
 export function AccessDenied() {
   return (
     <>
