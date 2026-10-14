@@ -10,7 +10,7 @@ import SearchIcon from "@mui/icons-material/SearchOutlined";
 import Sidebar, { DRAWER_WIDTH } from "../components/Sidebar";
 import { api } from "../api";
 
-const MONO = { fontFamily: '"IBM Plex Mono"' };
+const MONO = { fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' };
 const HIGH_RISK = 0.8;
 const MEDIUM_RISK = 0.5;
 const CHART_SIZE = 140;
@@ -97,9 +97,9 @@ export default function Dashboard({ username, onLogout }) {
       })
       .catch(onLogout)
       .finally(() => setLoading(false));
-  }, []);
+  }, [onLogout]);
 
-  const agents = data?.flagged_agents || [];
+  const agents = useMemo(() => data?.flagged_agents || [], [data]);
   const regions = useMemo(() => [...new Set(agents.map((a) => a.region))], [agents]);
 
   const filtered = useMemo(() => {
@@ -211,9 +211,9 @@ export default function Dashboard({ username, onLogout }) {
           <TableBody>
             {filtered.map((agent) => (
               <TableRow key={agent.agent_id} hover>
-                <TableCell sx={{ fontFamily: '"IBM Plex Mono"' }}>{agent.agent_id}</TableCell>
+                <TableCell sx={{ fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}>{agent.agent_id}</TableCell>
                 <TableCell>{agent.region}</TableCell>
-                <TableCell sx={{ fontFamily: '"IBM Plex Mono"' }}>{agent.suspicion_score.toFixed(3)}</TableCell>
+                <TableCell sx={{ fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}>{agent.suspicion_score.toFixed(3)}</TableCell>
                 <TableCell>
                   <Chip label={agent.flag_status} color={riskColor(agent.suspicion_score)} size="small" variant="outlined" />
                 </TableCell>

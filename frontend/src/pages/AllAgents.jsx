@@ -10,7 +10,7 @@ import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
 import Sidebar, { DRAWER_WIDTH } from "../components/Sidebar";
 import { api } from "../api";
 
-const MONO = { fontFamily: '"IBM Plex Mono"' };
+const MONO = { fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' };
 
 function fmt(value, digits) {
   return value == null ? "—" : value.toFixed(digits);
@@ -38,9 +38,9 @@ export default function AllAgents({ username, onLogout }) {
 
   useEffect(() => {
     api.getAllAgents().then(setData).catch(onLogout).finally(() => setLoading(false));
-  }, []);
+  }, [onLogout]);
 
-  const agents = data?.agents || [];
+  const agents = useMemo(() => data?.agents || [], [data]);
   const regions = useMemo(() => [...new Set(agents.map((a) => a.region))].sort(), [agents]);
 
   const filtered = useMemo(() => {

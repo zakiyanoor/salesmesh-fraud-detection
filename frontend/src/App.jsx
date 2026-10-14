@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -9,12 +9,13 @@ import ReviewHistory from "./pages/ReviewHistory";
 
 export default function App() {
   const [username, setUsername] = useState(null);
+  const logout = useCallback(() => setUsername(null), []);
 
   if (!username) {
     return <Login onLogin={setUsername} />;
   }
 
-  const shared = { username, onLogout: () => setUsername(null) };
+  const shared = { username, onLogout: logout };
 
   return (
     <Routes>

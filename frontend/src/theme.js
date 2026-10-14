@@ -1,5 +1,8 @@
 import { createTheme } from "@mui/material/styles";
 
+const SANS = '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+const HEADING = '"Space Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
 const theme = createTheme({
   palette: {
     mode: "light",
@@ -31,13 +34,13 @@ const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"IBM Plex Sans", sans-serif',
-    h1: { fontFamily: '"Space Grotesk", sans-serif', fontWeight: 600 },
-    h2: { fontFamily: '"Space Grotesk", sans-serif', fontWeight: 600 },
-    h3: { fontFamily: '"Space Grotesk", sans-serif', fontWeight: 600 },
-    h4: { fontFamily: '"Space Grotesk", sans-serif', fontWeight: 600 },
-    h5: { fontFamily: '"Space Grotesk", sans-serif', fontWeight: 600 },
-    h6: { fontFamily: '"Space Grotesk", sans-serif', fontWeight: 600 },
+    fontFamily: SANS,
+    h1: { fontFamily: HEADING, fontWeight: 600 },
+    h2: { fontFamily: HEADING, fontWeight: 600 },
+    h3: { fontFamily: HEADING, fontWeight: 600 },
+    h4: { fontFamily: HEADING, fontWeight: 600 },
+    h5: { fontFamily: HEADING, fontWeight: 600 },
+    h6: { fontFamily: HEADING, fontWeight: 600 },
     button: { textTransform: "none", fontWeight: 500 },
   },
   shape: {

@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { Drawer, Box, Typography, Button, Divider, List, ListItemButton, ListItemIcon, ListItemText } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import PeopleIcon from "@mui/icons-material/PeopleAltOutlined";
@@ -16,8 +16,6 @@ const NAV_ITEMS = [
 ];
 
 export default function Sidebar({ username, onLogout }) {
-  const navigate = useNavigate();
-
   const handleLogout = async () => {
     await api.logout();
     onLogout();

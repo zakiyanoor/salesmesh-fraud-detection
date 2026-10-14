@@ -9,7 +9,7 @@ export default function ReviewHistory({ username, onLogout }) {
 
   useEffect(() => {
     api.getReviewHistory().then(setData).catch(onLogout).finally(() => setLoading(false));
-  }, []);
+  }, [onLogout]);
 
   if (loading) {
     return <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}><CircularProgress /></Box>;
@@ -39,7 +39,7 @@ export default function ReviewHistory({ username, onLogout }) {
           <TableBody>
             {decisions.map((d) => (
               <TableRow key={d.decision_id} hover>
-                <TableCell sx={{ fontFamily: '"IBM Plex Mono"' }}>{d.agent_id}</TableCell>
+                <TableCell sx={{ fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}>{d.agent_id}</TableCell>
                 <TableCell>
                   <Chip label={d.decision_outcome} color={d.decision_outcome === "confirmed_fraud" ? "error" : "success"} size="small" variant="outlined" />
                 </TableCell>
