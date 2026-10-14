@@ -34,6 +34,25 @@ export const FIXTURES = {
     flag: { flag_id: "FL1", flag_status: "flagged", model_version: "lof_v3_4f", suspicion_score: 3.2 },
   },
   "POST /api/logout": { message: "Logged out successfully" },
+  "GET /api/threat-intelligence/summary": {
+    agents_scored: 1000, flagged: 145, flagged_rate: 0.145, rule_flagged: 102,
+    flag_sources: { ML: 72, Rule: 29, Both: 73, None: 826 },
+    risk_bands: { high: 145, review: 89, low: 766 },
+  },
+  "GET /api/detection-runs/latest": {
+    run: {
+      run_id: "RUN1", trigger: "manual", status: "succeeded", started_at: "2026-10-13T15:07:08",
+      finished_at: "2026-10-13T15:07:16", agents_scored: 1000, flagged_count: 145, error: null,
+    },
+  },
+  "GET /api/agent-scores": {
+    total: 3, count: 3, offset: 0, threshold: 1.444799,
+    scores: [
+      { agent_id: "A35485", anomaly_score: 5.563827, flag_source: "Both", risk_band: "high" },
+      { agent_id: "A10001", anomaly_score: 3.2, flag_source: "ML", risk_band: "high" },
+      { agent_id: "A20002", anomaly_score: 1.35, flag_source: "Rule", risk_band: "review" },
+    ],
+  },
 };
 
 export function reply(status, body) {

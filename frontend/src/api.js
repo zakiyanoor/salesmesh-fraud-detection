@@ -86,7 +86,8 @@ export const api = {
   getFlaggedAgents: () => request("/flagged-agents"),
   getAllAgents: () => request("/all-agents"),
   getAgentDetail: (agentId) => request(`/agents/${id(agentId)}`),
-  getAgentScores: (flagSource) => request("/agent-scores", { params: { flag_source: flagSource } }),
+  getAgentScores: ({ flagSource, limit, offset } = {}) =>
+    request("/agent-scores", { params: { flag_source: flagSource, limit, offset } }),
   getAnalytics: () => request("/analytics"),
   getClients: () => request("/clients"),
   getLatestDetectionRun: () => request("/detection-runs/latest"),
