@@ -18,12 +18,25 @@ Start the backend first (`python -m src.api` from `backend/`).
 | `npm run dev` | Development server with the `/api` proxy |
 | `npm run build` | Production build into `dist/` |
 | `npm run preview` | Serves the build locally |
-| `npm run lint` | ESLint |
-| `npm test` | Unit and component tests (Vitest, jsdom) |
+| `npm run lint` | Lint the source |
+| `npm test` | Unit and component tests |
 
 ## Configuration
 
-`VITE_API_BASE` sets the API base URL (default `/api`, which the development proxy forwards). The backend only accepts browser requests from `http://localhost:5173`, with credentials.
+`VITE_API_BASE` sets the API base URL (default `/api`, which the development proxy forwards; see `.env.example`). The backend only accepts browser requests from `http://localhost:5173`, with credentials.
+
+## Pages and roles
+
+The menu shows only what the signed-in role can use, and the routes are guarded the same way (`src/auth/roles.js`). The server still checks every request.
+
+| Role | Menu |
+|---|---|
+| Fraud analyst | Overview, Flagged agents, All agents, Threat intelligence, Analytics, Review history |
+| Compliance officer | The analyst menu, plus Confirm queue and Audit log |
+| Admin | Overview, Threat intelligence, Analytics, Audit log, Reports, Accounts |
+
+- **Session:** restored on reload with `GET /api/me`. Only the username and role are kept, in memory; nothing about the session is written to browser storage.
+- **Errors:** a 401 from any request signs the user out with the reason (for example "Account is deactivated"). A 403 shows Access denied, and other errors show a message with "Try again".
 
 ## Fonts and assets
 

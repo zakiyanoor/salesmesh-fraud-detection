@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
-import { Box, Typography, Paper, CircularProgress } from "@mui/material";
+import { Box, Typography, Paper } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import Sidebar, { DRAWER_WIDTH } from "../components/Sidebar";
+import PageHeader from "../components/PageHeader";
+import { LoadStatus, PageSkeleton } from "../components/states";
+import { useApi } from "../hooks/useApi";
 import { mono } from "../theme";
 import { api } from "../api";
 
-export default function Analytics({ username, onLogout }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function Analytics() {
+  const result = useApi(api.getAnalytics);
   const theme = useTheme();
   const tooltipStyle = {
     background: theme.palette.background.paper,
@@ -16,68 +16,64 @@ export default function Analytics({ username, onLogout }) {
     color: theme.palette.text.primary,
   };
 
-  useEffect(() => {
-    api.getAnalytics().then(setData).catch(onLogout).finally(() => setLoading(false));
-  }, [onLogout]);
-
-  if (loading) {
-    return <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}><CircularProgress /></Box>;
+  const header = <PageHeader title="Analytics" subtitle="Aggregate view of agent behaviour across the platform" />;
+  if (!result.data) {
+    return (
+      <Box sx={{ maxWidth: 1100 }}>
+        {header}
+        <LoadStatus result={result} skeleton={<PageSkeleton cards={2} rows={3} />} />
+      </Box>
+    );
   }
+  const data = result.data;
 
   return (
-    <Box sx={{ display: "flex" }}>
-      <Sidebar username={username} onLogout={onLogout} />
-      <Box sx={{ flexGrow: 1, p: 5, ml: `${DRAWER_WIDTH}px`, maxWidth: 1100 }}>
-        <Typography variant="h4" gutterBottom>Analytics</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-          Aggregate view of agent behaviour across the platform
-        </Typography>
+    <Box sx={{ maxWidth: 1100 }}>
+      {header}
+      <Box sx={{ display: "flex", gap: 3, mb: 4, flexWrap: "wrap" }}>
+        <Paper sx={{ p: 3, flex: "1 1 300px", minWidth: 0 }}>
+          <Typography variant="overline" color="text.secondary">Suspicion score distribution</Typography>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={data.score_distribution}>
+              <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.chart.grid} />
+              <XAxis dataKey="bucket" stroke={theme.palette.chart.axis} fontSize={12} />
+              <YAxis stroke={theme.palette.chart.axis} fontSize={12} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Bar dataKey="count" fill={theme.palette.primary.main} radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Paper>
 
-        <Box sx={{ display: "flex", gap: 3, mb: 4, flexWrap: "wrap" }}>
-          <Paper sx={{ p: 3, flex: "1 1 300px" }}>
-            <Typography variant="overline" color="text.secondary">Suspicion score distribution</Typography>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={data.score_distribution}>
-                <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.chart.grid} />
-                <XAxis dataKey="bucket" stroke={theme.palette.chart.axis} fontSize={12} />
-                <YAxis stroke={theme.palette.chart.axis} fontSize={12} allowDecimals={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="count" fill={theme.palette.primary.main} radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-
-          <Paper sx={{ p: 3, flex: "1 1 300px" }}>
-            <Typography variant="overline" color="text.secondary">Flagged agents by region</Typography>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={data.region_breakdown}>
-                <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.chart.grid} />
-                <XAxis dataKey="region" stroke={theme.palette.chart.axis} fontSize={12} />
-                <YAxis stroke={theme.palette.chart.axis} fontSize={12} allowDecimals={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="flagged" fill={theme.palette.error.main} radius={[3, 3, 0, 0]} />
-                <Bar dataKey="total" fill={theme.palette.chart.neutral} radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Box>
-
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="overline" color="text.secondary">Platform average behaviour</Typography>
-          <Box sx={{ display: "flex", gap: 6, mt: 2 }}>
-            {[
-              ["Submission frequency", data.platform_averages.submission_frequency],
-              ["Time-of-day distribution", data.platform_averages.time_of_day_dist],
-              ["Customer similarity", data.platform_averages.customer_similarity],
-            ].map(([label, value]) => (
-              <Box key={label}>
-                <Typography variant="h5" sx={mono}>{value}</Typography>
-                <Typography variant="caption" color="text.secondary">{label}</Typography>
-              </Box>
-            ))}
-          </Box>
+        <Paper sx={{ p: 3, flex: "1 1 300px", minWidth: 0 }}>
+          <Typography variant="overline" color="text.secondary">Flagged agents by region</Typography>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={data.region_breakdown}>
+              <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.chart.grid} />
+              <XAxis dataKey="region" stroke={theme.palette.chart.axis} fontSize={12} />
+              <YAxis stroke={theme.palette.chart.axis} fontSize={12} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Bar dataKey="flagged" fill={theme.palette.error.main} radius={[3, 3, 0, 0]} />
+              <Bar dataKey="total" fill={theme.palette.chart.neutral} radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </Paper>
       </Box>
+
+      <Paper sx={{ p: 3 }}>
+        <Typography variant="overline" color="text.secondary">Platform average behaviour</Typography>
+        <Box sx={{ display: "flex", gap: { xs: 3, md: 6 }, mt: 2, flexWrap: "wrap" }}>
+          {[
+            ["Submission frequency", data.platform_averages?.submission_frequency],
+            ["Time-of-day distribution", data.platform_averages?.time_of_day_dist],
+            ["Customer similarity", data.platform_averages?.customer_similarity],
+          ].map(([label, value]) => (
+            <Box key={label}>
+              <Typography variant="h5" component="p" sx={mono}>{value ?? "—"}</Typography>
+              <Typography variant="caption" color="text.secondary">{label}</Typography>
+            </Box>
+          ))}
+        </Box>
+      </Paper>
     </Box>
   );
 }
