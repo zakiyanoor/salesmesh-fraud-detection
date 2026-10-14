@@ -45,7 +45,7 @@ from flask_limiter.util import get_remote_address
 from sqlalchemy import and_, func
 from src.db import (
     get_session, Agent, ActivationRecord, FeatureVector, FraudFlag, ReviewDecision,
-    AdminActionLog, DECISION_PENDING, DECISION_CONFIRMED, AgentCategory, AgentIdentity, AgentScore, Client,
+    AdminActionLog, DECISION_PENDING, DECISION_CONFIRMED, DECISION_OUTCOMES, AgentCategory, AgentIdentity, AgentScore, Client,
     DetectionRun, DuplicateEvidence, FLAG_SOURCES,
 )
 from src.auth import (
@@ -476,6 +476,9 @@ def submit_review_decision():
         missing = [f for f in required_fields if f not in data]
         if missing:
             return jsonify({"error": f"Missing fields: {missing}"}), 400
+        if data["decision_outcome"] not in DECISION_OUTCOMES:
+            return jsonify({"error": f"decision_outcome must be one of {list(DECISION_OUTCOMES)}, "
+                                     f"got {str(data['decision_outcome'])[:50]!r}"}), 400
         notes, notes_error = clean_notes(data.get("notes"))
         if notes_error:
             return jsonify({"error": notes_error}), 400

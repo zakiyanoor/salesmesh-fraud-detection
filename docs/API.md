@@ -276,6 +276,8 @@ Status of the most recent detection run, whatever its outcome (scheduler, manual
 
 **Analyst only.** Body: `{"flag_id": "FL93b6b96d", "decision_outcome": "confirmed_fraud", "notes": "Shares customers with two agents in Kisumu."}`. Creates a decision in `pending_confirmation` and records a `propose_decision` audit entry whose details hold the notes.
 
+**`decision_outcome` (required):** exactly `"confirmed_fraud"` or `"legitimate"` (case-sensitive, no surrounding spaces). Anything else returns `400` with "decision_outcome must be one of ['confirmed_fraud', 'legitimate'], got ..." and writes nothing (no decision, no audit entry).
+
 **`notes` (required, issue #13):**
 - a string, trimmed, 1 to 1000 characters after trimming;
 - plain text: newlines and tabs are allowed, other control characters are refused, and a Windows line break (CR LF) is stored as LF. It is stored as written, never as HTML;
@@ -286,7 +288,7 @@ Status of the most recent detection run, whatever its outcome (scheduler, manual
  "notes": "Shares customers with two agents in Kisumu."}
 ```
 
-Errors: `400` (missing `flag_id` or `decision_outcome`; `notes` missing or null: "notes is required: give a short plain-text reason for the decision"; "notes must not be empty"; "notes must be a string"; "notes must be at most 1000 characters (got N)"; "notes must be plain text ..."), `403` (wrong role), `404` (unknown flag).
+Errors: `400` (missing `flag_id` or `decision_outcome`; `decision_outcome` not one of the two values; `notes` missing or null: "notes is required: give a short plain-text reason for the decision"; "notes must not be empty"; "notes must be a string"; "notes must be at most 1000 characters (got N)"; "notes must be plain text ..."), `403` (wrong role), `404` (unknown flag).
 
 ### POST /api/review-decisions/<decision_id>/confirm
 

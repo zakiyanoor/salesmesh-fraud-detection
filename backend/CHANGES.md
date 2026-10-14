@@ -24,6 +24,10 @@ Branch `sprint-4/frontend-dashboard`. Reference in `docs/API.md`.
 - **Returned** in the propose response, the confirm response and every entry of `GET /api/review-decisions`.
 - **Audited:** `notes` is in the details of both the `propose_decision` and the `confirm_decision` entries, and so also in the audit-log CSV.
 - `POST /api/review-decisions` with no JSON body now returns `400` instead of `500`.
+- **`decision_outcome` is validated:**
+  - Only `"confirmed_fraud"` or `"legitimate"` are accepted (exact match, `DECISION_OUTCOMES` in `src/db.py`). Anything else, including a wrong case, padding, an empty string, null or a non-string, returns `400` naming both allowed values, and writes no decision and no audit entry.
+  - The check is in the API only; existing rows are not checked or changed.
+  - Tests: seven invalid values and both valid ones in `tests/test_review_notes.py`.
 - **Tests:**
   - new `tests/test_review_notes.py`: missing, null, empty, whitespace only, non-string, too long, control character, trimming at the length limit, stored and returned, audit entries, old rows, migration twice, and phone and national ID numbers in notes masked, followed by the full masking sweep;
   - `test_rbac_audit._propose` sends notes;
