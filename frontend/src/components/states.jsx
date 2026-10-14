@@ -4,10 +4,15 @@ import ErrorOutlineOutlined from "@mui/icons-material/ErrorOutlineOutlined";
 import InboxOutlined from "@mui/icons-material/InboxOutlined";
 import { Link as RouterLink } from "react-router-dom";
 
+const visuallyHidden = {
+  position: "absolute", width: 1, height: 1, p: 0, m: -1, overflow: "hidden", clip: "rect(0 0 0 0)", border: 0,
+};
+
 /** Skeleton shaped like a page body (the PageHeader renders above it): optional cards, then rows. */
 export function PageSkeleton({ cards = 0, rows = 6 }) {
   return (
-    <Box aria-busy="true" aria-label="Loading">
+    <Box role="status" aria-live="polite" aria-busy="true" aria-label="Loading">
+      <Box component="span" sx={visuallyHidden}>Loading…</Box>
       {cards > 0 && (
         <Box sx={{ display: "flex", gap: 3, mb: 4, flexWrap: "wrap" }}>
           {Array.from({ length: cards }, (_, i) => (

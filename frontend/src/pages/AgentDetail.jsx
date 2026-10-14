@@ -50,14 +50,19 @@ function FeatureList({ features, averages }) {
         const value = features?.[f.key];
         const average = averages?.[f.key];
         return (
-          <Box key={f.key} sx={{ py: 1.5, borderBottom: 1, borderColor: "divider", "&:last-of-type": { borderBottom: 0 } }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
-              <Typography component="dt" variant="body2" sx={{ fontWeight: 500 }}>{f.label}</Typography>
-              <Typography component="dd" variant="body2" sx={{ ...mono, m: 0 }}>{formatNumber(value, f.digits)}</Typography>
-            </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{f.help}</Typography>
+          // dt and dd sit directly in a div, as a description list allows; the grid lays them out.
+          <Box
+            key={f.key}
+            sx={{
+              py: 1.5, borderBottom: 1, borderColor: "divider", "&:last-of-type": { borderBottom: 0 },
+              display: "grid", gridTemplateColumns: "1fr auto", columnGap: 2,
+            }}
+          >
+            <Typography component="dt" variant="body2" sx={{ fontWeight: 500 }}>{f.label}</Typography>
+            <Typography component="dd" variant="body2" sx={{ ...mono, m: 0 }}>{formatNumber(value, f.digits)}</Typography>
+            <Typography component="dd" variant="caption" color="text.secondary" sx={{ m: 0, gridColumn: "1 / -1" }}>{f.help}</Typography>
             {average != null && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block", ...mono }}>
+              <Typography component="dd" variant="caption" color="text.secondary" sx={{ m: 0, gridColumn: "1 / -1", ...mono }}>
                 Platform average {formatNumber(average, f.digits)}
               </Typography>
             )}

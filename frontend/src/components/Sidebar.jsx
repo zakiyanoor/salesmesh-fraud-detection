@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Drawer, Box, Typography, Button, Divider, List, ListItemButton, ListItemIcon, ListItemText } from "@mui/material";
+import { Drawer, Box, Typography, Button, Divider, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import FlagIcon from "@mui/icons-material/FlagOutlined";
 import PeopleIcon from "@mui/icons-material/PeopleAltOutlined";
@@ -38,6 +38,8 @@ export default function Sidebar({ variant = "permanent", open = true, onClose, o
       variant={variant}
       open={open}
       onClose={onClose}
+      // The phone drawer is a modal dialog, so it needs a name of its own.
+      slotProps={variant === "temporary" ? { paper: { "aria-label": "Menu" } } : undefined}
       sx={{
         width: variant === "permanent" ? DRAWER_WIDTH : undefined,
         flexShrink: 0,
@@ -52,29 +54,33 @@ export default function Sidebar({ variant = "permanent", open = true, onClose, o
         },
       }}
     >
-      <Box component="nav" aria-label="Main menu" sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
-        <Typography variant="h6">SalesMesh</Typography>
+      {/* The brand is the page banner on desktop; in the phone drawer the top bar already is. */}
+      <Box component={variant === "permanent" ? "header" : "div"}>
+        <Typography variant="h6" component="p">SalesMesh</Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 4 }}>
           Fraud Detection
         </Typography>
+      </Box>
+      <Box component="nav" aria-label="Main menu" sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
 
         <List sx={{ flexGrow: 1 }}>
           {menuFor(user?.role).map((item) => (
-            <ListItemButton
-              key={item.key}
-              component={NavLink}
-              to={item.path}
-              end={item.path === "/"}
-              onClick={onNavigate}
-              sx={{
-                borderRadius: 1,
-                mb: 0.5,
-                "&.active": { bgcolor: "action.selected", color: "primary.dark" },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>{ICONS[item.key]}</ListItemIcon>
-              <ListItemText primary={item.label} slotProps={{ primary: { variant: "body2" } }} />
-            </ListItemButton>
+            <ListItem key={item.key} disablePadding>
+              <ListItemButton
+                component={NavLink}
+                to={item.path}
+                end={item.path === "/"}
+                onClick={onNavigate}
+                sx={{
+                  borderRadius: 1,
+                  mb: 0.5,
+                  "&.active": { bgcolor: "action.selected", color: "primary.dark" },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>{ICONS[item.key]}</ListItemIcon>
+                <ListItemText primary={item.label} slotProps={{ primary: { variant: "body2" } }} />
+              </ListItemButton>
+            </ListItem>
           ))}
         </List>
 
