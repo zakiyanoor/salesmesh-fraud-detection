@@ -13,6 +13,7 @@ import Analytics from "./pages/Analytics";
 import ReviewHistory from "./pages/ReviewHistory";
 import ConfirmQueue from "./pages/ConfirmQueue";
 import ThreatIntelligence from "./pages/ThreatIntelligence";
+import AuditLog from "./pages/AuditLog";
 import { AccessDenied, ComingSoon, NotFound } from "./pages/StatusPages";
 
 const PAGE_COMPONENTS = {
@@ -24,6 +25,7 @@ const PAGE_COMPONENTS = {
   history: ReviewHistory,
   confirm: ConfirmQueue,
   threat: ThreatIntelligence,
+  audit: AuditLog,
 };
 
 export default function App() {

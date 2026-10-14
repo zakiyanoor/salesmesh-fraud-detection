@@ -10,10 +10,10 @@ describe("menus per role", () => {
     ]);
   });
 
-  it("compliance officer gets the analyst menu plus Confirm queue and Audit log", () => {
+  it("compliance officer gets the analyst menu plus Confirm queue", () => {
     expect(labels("compliance_officer")).toEqual([
       "Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history",
-      "Confirm queue", "Audit log",
+      "Confirm queue",
     ]);
   });
 
@@ -35,7 +35,7 @@ describe("route access", () => {
     ["fraud_analyst", "audit", false],
     ["fraud_analyst", "accounts", false],
     ["compliance_officer", "confirm", true],
-    ["compliance_officer", "audit", true],
+    ["compliance_officer", "audit", false],
     ["compliance_officer", "reports", false],
     ["admin", "flagged", false],
     ["admin", "agentDetail", false],

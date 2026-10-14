@@ -32,7 +32,7 @@ The menu shows only what the signed-in role can use, and the routes are guarded 
 | Role | Menu |
 |---|---|
 | Fraud analyst | Overview, Flagged agents, All agents, Threat intelligence, Analytics, Review history |
-| Compliance officer | The analyst menu, plus Confirm queue and Audit log |
+| Compliance officer | The analyst menu, plus Confirm queue |
 | Admin | Overview, Threat intelligence, Analytics, Audit log, Reports, Accounts |
 
 - **Session:** restored on reload with `GET /api/me`. Only the username and role are kept, in memory; nothing about the session is written to browser storage.
