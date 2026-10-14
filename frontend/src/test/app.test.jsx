@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ACCOUNTS, mockApi, renderApp, reply, sessionRoutes } from "./server";
@@ -117,8 +117,8 @@ describe("error handling", () => {
   });
 
   it("a 403 shows Access denied and keeps the user signed in", async () => {
-    mockApi({ ...sessionRoutes("fraud_analyst"), "GET /api/analytics": reply(403, { error: "Forbidden" }) });
-    renderApp("/analytics");
+    mockApi({ ...sessionRoutes("fraud_analyst"), "GET /api/review-decisions": reply(403, { error: "Forbidden" }) });
+    renderApp("/history");
     expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
     expect(within(menu()).getByText("Signed in as analyst_01")).toBeInTheDocument();
   });
@@ -184,6 +184,27 @@ describe("storage", () => {
     } finally {
       Storage.prototype.setItem = original;
     }
+  });
+});
+
+describe("console", () => {
+  it("writes nothing to the console while signing in, browsing and proposing", async () => {
+    const spies = ["log", "info", "warn", "error", "debug"].map((method) => vi.spyOn(console, method));
+    mockApi({
+      ...sessionRoutes(null),
+      "POST /api/login": { message: "Login successful", ...ACCOUNTS.fraud_analyst },
+      "POST /api/review-decisions": reply(201, { decision_id: "RD9", status: "pending_confirmation", notes: "Checked." }),
+    });
+    renderApp("/agents/A10001");
+    await userEvent.type(await screen.findByLabelText("Username"), "analyst_01");
+    await userEvent.type(screen.getByLabelText("Password"), "RiverbankTrader42");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    const panel = await screen.findByRole("region", { name: "Propose a decision" });
+    await userEvent.click(within(panel).getByLabelText("Legitimate"));
+    await userEvent.type(within(panel).getByLabelText(/Notes/), "Checked.");
+    await userEvent.click(within(panel).getByRole("button", { name: "Propose decision" }));
+    await within(panel).findByRole("status");
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
   });
 });
 

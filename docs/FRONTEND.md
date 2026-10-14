@@ -64,12 +64,21 @@ The light theme is the default. Dark mode is optional, behind a toggle, and is d
 - Ids, scores and numbers in `mono`; scores show 3 decimals; a missing value shows a dash.
 - Rows are `hover`. An empty result is one full-width row in `text.secondary`, 32px vertical padding.
 - A `Divider` (16px below) separates the filters from the table.
+- **Lists use `DataTable`** (`components/DataTable.jsx`):
+  - Sortable columns use `TableSortLabel`. Missing values sort last.
+  - Paging is 25 rows by default (10, 25, 50 or 100).
+  - **Below `md`** each row becomes a card: the title column at the top, the other columns as label and value pairs, and action buttons at the bottom.
+- **Filters, sort and page live in the URL query string** (`hooks/useQueryParams.js`), so a refresh or Back restores them. A value equal to its default is left out of the URL. "Clear filters" appears once any filter is set.
+- An agent id is a link to agent detail (in `primary.dark`) wherever the role may open it, and plain text otherwise.
 
 ## Chips
 
 - `size="small"` and `variant="outlined"`.
 - Status: `error` for flagged or confirmed fraud, `success` for clear or legitimate.
 - Risk: `RiskBadge` only (label and icon, coloured by `palette.risk`).
+- Flag source: `FlagSourceChip`. Model, Model and rule, and Rule only are neutral; "Not flagged" is `success` with a check icon.
+- Decision status: `DecisionStatusChip`. Proposed is `warning` with an hourglass, Confirmed is `success` with a check, and Not reviewed is neutral.
+- Decision outcome: `OutcomeChip`. Confirmed fraud is `error` with a gavel, and Legitimate is `success` with a check.
 
 ## Sidebar
 
@@ -83,6 +92,10 @@ The light theme is the default. Dark mode is optional, behind a toggle, and is d
 
 - **Donut cards:** 140px chart, inner radius 44, outer radius 64, 2px padding between slices (none for a single slice), no stroke. The total sits in the centre in `h5` mono. A legend beside the chart lists a 10px dot, the name, the count in mono and the share in `caption` mono. With no data the ring is a single `divider` slice.
 - **Bar charts:** in a `ResponsiveContainer` 220px high, dashed grid in `chart.grid`, axes in `chart.axis` at 12px, integer y ticks, bar radius `[3, 3, 0, 0]`.
+  - Horizontal bars use radius `[0, 3, 3, 0]`.
+  - A bar per risk band takes its colour from `palette.risk`, with the band name on the axis.
+- **Line charts:** the same grid, axes and height, 2px lines and no dots. A second series is dashed, so the lines differ by more than colour.
+- **Legends:** 12px in `text.secondary`, on any chart with more than one series.
 - **Tooltips:** `background.paper` background, 1px `divider` border, `text.primary` text.
 
 ## States
@@ -91,6 +104,7 @@ The light theme is the default. Dark mode is optional, behind a toggle, and is d
 - **Empty:** a short sentence in `text.secondary` saying what is missing.
 - **Error:** what went wrong and a "Try again" button.
 - **Access denied:** shown on a 403 and on `/403`.
+- **Pages with several sources** give each card its own state (`SectionCard`), so one failed request leaves the other cards working, and each failed card has its own "Try again".
 
 ## Layout and touch
 
@@ -103,6 +117,45 @@ The light theme is the default. Dark mode is optional, behind a toggle, and is d
 - Text meets WCAG AA (4.5:1) on `background.default` and `background.paper` in both modes. Graphics and chart series meet 3:1, or carry their meaning in a text label or legend (the amber region colour does this).
 - `frontend/src/theme.test.js` checks the text contrast ratios.
 - Colour never carries meaning alone: risk, status and decision chips always have a text label.
+
+## Review wording
+
+A decision has no effect until a compliance officer other than the proposer confirms it. All wording comes from `frontend/src/review.js`:
+
+| Moment | Text |
+|---|---|
+| After proposing | "Decision proposed. It is waiting for a compliance officer to confirm it and has no effect until then." |
+| After confirming | "Decision for <agent> confirmed. It is now final." |
+| Status chips | Proposed, Confirmed |
+
+A proposal is never called saved, recorded or final; tests check this.
+
+**Notes:**
+- Required, 1 to 1000 characters after trimming.
+- A live counter shows the length.
+- The hint says that runs of 7 or more digits are masked when saved.
+- Older decisions without notes say so instead of showing a blank.
+
+## Pages
+
+| Route | Page | Roles | Endpoints |
+|---|---|---|---|
+| `/` | Overview: summary cards, flag source donut, risk band bars, needs attention | all | `/api/threat-intelligence/summary`, `/api/detection-runs/latest`, `/api/agent-scores?limit=50` |
+| `/flagged` | Flagged agents (model, rule or both) | fraud_analyst, compliance_officer | `/api/all-agents`, `/api/review-decisions` |
+| `/all-agents` | All agents, with a "Not flagged" state | fraud_analyst, compliance_officer | `/api/all-agents`, `/api/review-decisions` |
+| `/agents/:agentId` | Agent detail, evidence, decision timeline, propose panel (fraud_analyst) | fraud_analyst, compliance_officer | `/api/agents/<id>`, `/api/analytics`, `/api/review-decisions`, `POST /api/review-decisions` |
+| `/review/confirm` | Confirm queue | compliance_officer | `/api/review-decisions`, `POST /api/review-decisions/<id>/confirm` |
+| `/history` | Review history | fraud_analyst, compliance_officer | `/api/review-decisions` |
+| `/analytics` | Analytics: daily activations, score distribution, region rates, averages | all | `/api/analytics`, `/api/threat-intelligence/timeline`, `/api/threat-intelligence/by-region` |
+| `/threat-intelligence`, `/audit-log`, `/reports`, `/accounts` | Placeholders ("coming in the next step") | per menu | none |
+| `/403`, any other address | Access denied, Page not found | all | none |
+
+**Notes on what is shown:**
+- Agent ids are system codes, not personal data, so they are shown in full.
+- Phone and national ID numbers are masked by the server (last 3 digits). Agent detail shortens the name to initials.
+- Internal ids (flag, decision and run ids) are never shown.
+- Proposer and confirmer are shown as the account ids the API returns. Usernames are not available to these roles.
+- Rule-only agents have no model flag, so they cannot be reviewed. Their evidence is read-only, with a note saying why.
 
 ## Branding
 
