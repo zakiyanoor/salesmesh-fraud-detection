@@ -1,20 +1,18 @@
-import { Box, Button, Link, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
+import { Box, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import { Link as RouterLink } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import GroupsOutlined from "@mui/icons-material/GroupsOutlined";
 import ReportOutlined from "@mui/icons-material/ReportOutlined";
 import WarningAmberOutlined from "@mui/icons-material/WarningAmberOutlined";
 import RuleOutlined from "@mui/icons-material/RuleOutlined";
 import UpdateOutlined from "@mui/icons-material/UpdateOutlined";
+import AgentId from "../components/AgentId";
 import KpiCard from "../components/KpiCard";
 import PageHeader from "../components/PageHeader";
 import RiskBadge from "../components/RiskBadge";
 import SectionCard from "../components/SectionCard";
 import { DonutChart } from "../components/DonutCard";
 import { useApi } from "../hooks/useApi";
-import { useAuth } from "../auth/authContext";
-import { canAccess } from "../auth/roles";
 import { FLAG_SOURCE_LABELS, formatDateTime, formatNumber } from "../format";
 import { mono } from "../theme";
 import { api } from "../api";
@@ -55,11 +53,9 @@ function RiskBandChart({ bands }) {
 /** Overview: the latest detection run at a glance, for every role. */
 export default function Dashboard() {
   const theme = useTheme();
-  const { user } = useAuth();
   const summary = useApi(api.getThreatSummary);
   const run = useApi(api.getLatestDetectionRun);
   const scores = useApi(loadTopScores);
-  const canOpenAgents = canAccess(user?.role, "agentDetail");
 
   const s = summary.data;
   const lastRun = run.data?.run;
@@ -146,13 +142,7 @@ export default function Dashboard() {
                   .slice(0, NEEDS_ATTENTION)
                   .map((agent) => (
                     <TableRow key={agent.agent_id} hover>
-                      <TableCell sx={mono}>
-                        {canOpenAgents ? (
-                          <Link component={RouterLink} to={`/agents/${agent.agent_id}`} color="primary.dark">{agent.agent_id}</Link>
-                        ) : (
-                          agent.agent_id
-                        )}
-                      </TableCell>
+                      <TableCell><AgentId id={agent.agent_id} /></TableCell>
                       <TableCell sx={mono}>{formatNumber(agent.anomaly_score, 3)}</TableCell>
                       <TableCell><RiskBadge band={agent.risk_band} /></TableCell>
                       <TableCell>{FLAG_SOURCE_LABELS[agent.flag_source] || agent.flag_source}</TableCell>
