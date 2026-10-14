@@ -15,7 +15,8 @@ import ConfirmQueue from "./pages/ConfirmQueue";
 import ThreatIntelligence from "./pages/ThreatIntelligence";
 import AuditLog from "./pages/AuditLog";
 import Reports from "./pages/Reports";
-import { AccessDenied, ComingSoon, NotFound } from "./pages/StatusPages";
+import Accounts from "./pages/Accounts";
+import { AccessDenied, NotFound } from "./pages/StatusPages";
 
 const PAGE_COMPONENTS = {
   overview: Dashboard,
@@ -28,6 +29,7 @@ const PAGE_COMPONENTS = {
   threat: ThreatIntelligence,
   audit: AuditLog,
   reports: Reports,
+  accounts: Accounts,
 };
 
 export default function App() {
@@ -46,15 +48,9 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        {PAGES.map(({ key, path, label, roles }) => {
+        {PAGES.map(({ key, path, roles }) => {
           const Page = PAGE_COMPONENTS[key];
-          return (
-            <Route
-              key={key}
-              path={path}
-              element={<RequireRole roles={roles}>{Page ? <Page /> : <ComingSoon title={label} />}</RequireRole>}
-            />
-          );
+          return <Route key={key} path={path} element={<RequireRole roles={roles}><Page /></RequireRole>} />;
         })}
         <Route path="/403" element={<AccessDenied />} />
         <Route path="*" element={<NotFound />} />

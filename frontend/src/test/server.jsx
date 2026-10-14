@@ -46,6 +46,9 @@ export const FIXTURES = {
       finished_at: "2026-10-13T15:07:16", agents_scored: 1000, flagged_count: 145, error: null,
     },
   },
+  "GET /api/admin/accounts": {
+    count: 1, accounts: [{ admin_id: "ADM_ADMIN_01", username: "admin_01", role: "admin", is_active: true }],
+  },
   "GET /api/agent-scores": {
     total: 3, count: 3, offset: 0, threshold: 1.444799,
     scores: [
