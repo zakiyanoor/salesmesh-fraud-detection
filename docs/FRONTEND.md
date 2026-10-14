@@ -124,17 +124,103 @@ The light theme is the default. Dark mode is optional, behind a toggle, and is d
 
 Every signed-in page ends with one line in `caption`, `text.secondary`, above a 1px `divider` rule: "Model lof_v3_4f · Last detection run <time>". The run status is added when the run did not succeed. Without a run it says so.
 
-## Layout and touch
+## Responsive rules
 
-- Content padding: 40px from `md` up, 16px below.
-- Rows of filters and cards wrap; nothing scrolls sideways at 360px.
-- On touch screens (`pointer: coarse`) buttons, icon buttons, menu items and list items are at least 44px high. With a mouse they keep their compact size.
+Checked at 360, 768 and 1280 px by `npm run screenshots` (see "Screenshots" below), which fails on any sideways scroll or small touch target.
 
-## Accessibility
+**Layout:**
+- **Navigation:** a permanent 240px drawer from `md` (900px) up. Below `md`, a top bar with a menu button opens a temporary drawer, which closes after each choice.
+- **Content padding:** 40px from `md` up, 16px below.
+- **Rows** of filters, summary cards and chart cards wrap. Summary cards are at least 160px wide, so five fit on one row at 1280px.
+- **Nothing scrolls sideways** at any width. Tables below `md` become cards (`DataTable`); fixed tables (evidence, chart data) scroll inside their own `TableContainer`.
+- **Filter fields** are full width on phones and a fixed width from `sm` up.
+- **The audit details drawer** is 440px wide from `sm` up and full width on phones.
 
-- Text meets WCAG AA (4.5:1) on `background.default` and `background.paper` in both modes. Graphics and chart series meet 3:1, or carry their meaning in a text label or legend (the amber region colour does this).
-- `frontend/src/theme.test.js` checks the text contrast ratios.
-- Colour never carries meaning alone: risk, status and decision chips always have a text label.
+**Touch** (`pointer: coarse`): buttons, icon buttons, menu and list items, small text fields, selects and the rows-per-page select are at least 44px high. With a mouse they keep their compact size. Radio buttons are exempt, because their label is the target; links inside table cells and text are exempt as inline targets.
+
+## Accessibility rules
+
+Checked by `frontend/src/test/a11y.test.jsx` (axe on every page for its roles, the sign-in page, the phone menu, the audit drawer, the confirm dialog and a chart's table view) and `frontend/src/theme.test.js` (contrast).
+
+- **Structure:**
+  - one `h1` per page (the page title); section titles are `h2`;
+  - no heading used only for its size (figures such as the donut total are paragraphs).
+- **Landmarks:**
+  - a header (the brand on desktop, the top bar on phones);
+  - the main menu as `nav`;
+  - the page in `main`;
+  - the footer as `footer`.
+- **Skip link:** "Skip to content" is the first Tab stop, hidden until focused, and moves focus to `main`.
+- **Focus:**
+  - every focusable element shows a 2px `primary.main` ring on keyboard focus (3:1 against page and card);
+  - dialogs and the drawer trap focus, close with Esc, and return focus to what opened them.
+- **Labels:** every input has a visible label, or an `aria-label` where the field has an icon and a placeholder (search).
+- **Live regions:**
+  - loading states are `role="status"` with `aria-busy` and visually hidden "Loading…" text;
+  - results are announced: proposal and confirmation messages and download results are `status`, and errors are `alert`.
+- **Charts:**
+  - every chart card names its chart (`role="img"`);
+  - each has a "Show as table" toggle (`aria-pressed`) that shows the same numbers as a table.
+- **Colour:**
+  - never the only signal: risk bands, decision status, outcomes, flag sources and audit results always have a text label and an icon;
+  - the second series in line charts is dashed.
+- **Contrast:**
+  - text meets WCAG AA (4.5:1) on `background.default` and `background.paper` in both modes, which covers every chip colour (`error`, `warning`, `success`, `primary.dark`);
+  - graphics and chart series meet 3:1, or carry their meaning in a text label or legend (the amber region colour does this).
+
+## Client security rules
+
+Checked by `frontend/src/test/security.test.jsx`.
+
+- **No HTML injection:** there is no `dangerouslySetInnerHTML`, `innerHTML` or `eval`. All user text (notes, usernames, audit details) is rendered as text.
+- **Storage:** only `salesmesh.colorMode` is stored in the browser. The username and role live in memory, and the session is the server's HTTP-only cookie.
+- **Requests:** only `src/api.js` calls `fetch`, and only it sends credentials, to `VITE_API_BASE` (default `/api`) and nowhere else. File downloads use the same path.
+- **Session end:**
+  - a 401 from any request returns to the sign-in page once, with no request loop;
+  - signing out clears the client state even when the server cannot be reached.
+
+## Screenshots
+
+`docs/screenshots/` holds 74 screenshots of every page for each role at 360, 768 and 1280 px, named `<role>-<page>-<width>.png`.
+- **How they were made:** `npm run screenshots`, against the production build with fictional mocked data. Agent ids, regions, masked numbers and notes are made up, and there is no real personal data.
+- **Capture:** full page, except open drawers and menus, which are captured at viewport size.
+- **`report.json`:** records, for each screenshot, sideways scroll (all 0) and touch targets under 44px (none).
+
+| Screen | Widths |
+|---|---|
+| `signin` | [360](screenshots/signin-360.png), [768](screenshots/signin-768.png), [1280](screenshots/signin-1280.png) |
+| `analyst-agent-detail` | [360](screenshots/analyst-agent-detail-360.png), [768](screenshots/analyst-agent-detail-768.png), [1280](screenshots/analyst-agent-detail-1280.png) |
+| `analyst-all-agents` | [360](screenshots/analyst-all-agents-360.png), [768](screenshots/analyst-all-agents-768.png), [1280](screenshots/analyst-all-agents-1280.png) |
+| `analyst-analytics` | [360](screenshots/analyst-analytics-360.png), [768](screenshots/analyst-analytics-768.png), [1280](screenshots/analyst-analytics-1280.png) |
+| `analyst-flagged-agents` | [360](screenshots/analyst-flagged-agents-360.png), [768](screenshots/analyst-flagged-agents-768.png), [1280](screenshots/analyst-flagged-agents-1280.png) |
+| `analyst-menu-open` | [360](screenshots/analyst-menu-open-360.png), [768](screenshots/analyst-menu-open-768.png) |
+| `analyst-overview` | [360](screenshots/analyst-overview-360.png), [768](screenshots/analyst-overview-768.png), [1280](screenshots/analyst-overview-1280.png) |
+| `analyst-review-history` | [360](screenshots/analyst-review-history-360.png), [768](screenshots/analyst-review-history-768.png), [1280](screenshots/analyst-review-history-1280.png) |
+| `analyst-threat-intelligence` | [360](screenshots/analyst-threat-intelligence-360.png), [768](screenshots/analyst-threat-intelligence-768.png), [1280](screenshots/analyst-threat-intelligence-1280.png) |
+| `compliance-agent-detail` | [360](screenshots/compliance-agent-detail-360.png), [768](screenshots/compliance-agent-detail-768.png), [1280](screenshots/compliance-agent-detail-1280.png) |
+| `compliance-all-agents` | [360](screenshots/compliance-all-agents-360.png), [768](screenshots/compliance-all-agents-768.png), [1280](screenshots/compliance-all-agents-1280.png) |
+| `compliance-analytics` | [360](screenshots/compliance-analytics-360.png), [768](screenshots/compliance-analytics-768.png), [1280](screenshots/compliance-analytics-1280.png) |
+| `compliance-confirm-queue` | [360](screenshots/compliance-confirm-queue-360.png), [768](screenshots/compliance-confirm-queue-768.png), [1280](screenshots/compliance-confirm-queue-1280.png) |
+| `compliance-flagged-agents` | [360](screenshots/compliance-flagged-agents-360.png), [768](screenshots/compliance-flagged-agents-768.png), [1280](screenshots/compliance-flagged-agents-1280.png) |
+| `compliance-overview` | [360](screenshots/compliance-overview-360.png), [768](screenshots/compliance-overview-768.png), [1280](screenshots/compliance-overview-1280.png) |
+| `compliance-review-history` | [360](screenshots/compliance-review-history-360.png), [768](screenshots/compliance-review-history-768.png), [1280](screenshots/compliance-review-history-1280.png) |
+| `compliance-threat-intelligence` | [360](screenshots/compliance-threat-intelligence-360.png), [768](screenshots/compliance-threat-intelligence-768.png), [1280](screenshots/compliance-threat-intelligence-1280.png) |
+| `admin-access-denied` | [360](screenshots/admin-access-denied-360.png), [768](screenshots/admin-access-denied-768.png), [1280](screenshots/admin-access-denied-1280.png) |
+| `admin-accounts` | [360](screenshots/admin-accounts-360.png), [768](screenshots/admin-accounts-768.png), [1280](screenshots/admin-accounts-1280.png) |
+| `admin-analytics` | [360](screenshots/admin-analytics-360.png), [768](screenshots/admin-analytics-768.png), [1280](screenshots/admin-analytics-1280.png) |
+| `admin-audit-log` | [360](screenshots/admin-audit-log-360.png), [768](screenshots/admin-audit-log-768.png), [1280](screenshots/admin-audit-log-1280.png) |
+| `admin-audit-log-drawer` | [360](screenshots/admin-audit-log-drawer-360.png), [768](screenshots/admin-audit-log-drawer-768.png), [1280](screenshots/admin-audit-log-drawer-1280.png) |
+| `admin-overview` | [360](screenshots/admin-overview-360.png), [768](screenshots/admin-overview-768.png), [1280](screenshots/admin-overview-1280.png) |
+| `admin-reports` | [360](screenshots/admin-reports-360.png), [768](screenshots/admin-reports-768.png), [1280](screenshots/admin-reports-1280.png) |
+| `admin-threat-intelligence` | [360](screenshots/admin-threat-intelligence-360.png), [768](screenshots/admin-threat-intelligence-768.png), [1280](screenshots/admin-threat-intelligence-1280.png) |
+
+## Known limitations
+
+- **Compliance officers and the audit log:** the API (`GET /api/audit-log`) also lets compliance officers read the audit log. The app hides the menu item and guards the route for them, but the server would answer them.
+- **No "You" marker in review history and the confirm queue:** proposer and confirmer show as account ids. Marking your own decisions needs your account id, and `GET /api/me` returns only the username and role.
+- **Accounts:** creating accounts and resetting passwords happen on the server (`python -m src.auth` for the demo accounts, `python -m src.manage_accounts reset-password`). There is no API for either, so the Accounts page only lists accounts, changes roles and deactivates or reactivates them.
+- **Audit log filters:** the API offers no action or outcome filter, so the page filters by category, actor, agent id and date range. The Result column is derived from the action.
+- **Review history dates:** only the proposal date exists; the API returns no confirmation time.
 
 ## Review wording
 
