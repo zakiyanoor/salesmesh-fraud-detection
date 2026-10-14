@@ -80,6 +80,7 @@ Each entry has:
 |---|---|---|---|
 | POST | `/api/login` | none | Start a session |
 | POST | `/api/logout` | none | End the session |
+| GET | `/api/me` | all | Username and role of the current session |
 | GET | `/api/flagged-agents` | all | Agents the model flagged |
 | GET | `/api/all-agents` | all | Every agent with status, features and `risk_band` |
 | GET | `/api/agents/<agent_id>` | all | One agent: features, flag, score, rule evidence, identity (masked) |
@@ -123,6 +124,16 @@ Records a `logout` audit entry when a session exists.
 ```json
 {"message": "Logged out successfully"}
 ```
+
+### GET /api/me
+
+The username and role of the logged-in account, read fresh on every request, so a role change shows at once. Nothing else is returned (no account id, no password hash). Not audited, like the other reads; a `401` is recorded as `access_denied`, as on every protected route.
+
+```json
+{"username": "analyst_01", "role": "fraud_analyst"}
+```
+
+Errors: `401` (`"Authentication required"` without a session, `"Account is deactivated"` for a deactivated account), `403` (an account without a valid role).
 
 ### GET /api/flagged-agents
 

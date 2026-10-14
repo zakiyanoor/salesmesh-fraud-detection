@@ -9,6 +9,7 @@ per the system architecture diagram (Figure 4.2).
 Endpoints:
   POST /api/login                 -> authenticate and start a session (FR-01)
   POST /api/logout                -> end the current session
+  GET  /api/me                    -> username and role of the current session (protected)
   GET  /api/flagged-agents        -> list of flagged agents (protected, FR-02)
   GET  /api/all-agents            -> every agent with current status (protected)
   GET  /api/agents/<agent_id>     -> feature evidence for one agent (protected, FR-03)
@@ -248,6 +249,13 @@ def logout():
             db_session.close()
     session.clear()
     return jsonify({"message": "Logged out successfully"})
+
+
+@app.route("/api/me", methods=["GET"])
+@login_required
+def current_account():
+    """Issue #5: who is logged in. Not audited, like the other reads; a 401 is recorded as access_denied."""
+    return jsonify({"username": session.get("username"), "role": session["role"]})
 
 
 @app.route("/api/flagged-agents", methods=["GET"])
