@@ -35,6 +35,7 @@ action are recorded in the admin_action_log table.
 """
 
 import os
+import re
 import uuid
 from datetime import datetime
 from flask import Flask, g, jsonify, request, session
@@ -146,6 +147,33 @@ def mask_tail(value, visible: int = MASK_VISIBLE):
         return None
     text_value = str(value)
     return "*" * max(len(text_value) - visible, 0) + text_value[-visible:]
+
+
+NOTES_MAX_LENGTH = 1000
+# Plain text: printable characters, newlines and tabs only.
+NOTES_CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
+# Seven or more digits (single spaces between them allowed) could be a phone or national ID number.
+# Not after a letter or digit, so ids such as CUST12345678 are left alone; dates (2026-10-14) do not match.
+NOTES_LONG_NUMBER = re.compile(r"(?<![0-9A-Za-z])\+?\d(?: ?\d){6,}")
+
+
+def clean_notes(value):
+    """
+    Issue #13: (notes, None) for a valid notes value, else (None, error message).
+    Trimmed, 1 to 1000 characters, plain text; long digit runs are masked like phone numbers.
+    """
+    if value is None:
+        return None, "notes is required: give a short plain-text reason for the decision"
+    if not isinstance(value, str):
+        return None, "notes must be a string"
+    notes = value.replace("\r\n", "\n").strip()
+    if not notes:
+        return None, "notes must not be empty"
+    if len(notes) > NOTES_MAX_LENGTH:
+        return None, f"notes must be at most {NOTES_MAX_LENGTH} characters (got {len(notes)})"
+    if NOTES_CONTROL_CHARACTERS.search(notes):
+        return None, "notes must be plain text (no control characters other than newlines and tabs)"
+    return NOTES_LONG_NUMBER.sub(lambda m: mask_tail(re.sub(r"\D", "", m.group())), notes), None
 
 
 def identity_payload(identity):
@@ -437,12 +465,15 @@ def get_agent_detail(agent_id):
 def submit_review_decision():
     db_session = get_session()
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
 
         required_fields = ["flag_id", "decision_outcome"]
         missing = [f for f in required_fields if f not in data]
         if missing:
             return jsonify({"error": f"Missing fields: {missing}"}), 400
+        notes, notes_error = clean_notes(data.get("notes"))
+        if notes_error:
+            return jsonify({"error": notes_error}), 400
 
         flag = db_session.query(FraudFlag).filter(FraudFlag.flag_id == data["flag_id"]).first()
         if not flag:
@@ -455,13 +486,14 @@ def submit_review_decision():
             decision_outcome=data["decision_outcome"],
             decision_timestamp=datetime.utcnow(),
             status=DECISION_PENDING,
+            notes=notes,
         )
         db_session.add(decision)
         log_admin_action(
             db_session, session["admin_id"], "propose_decision",
             target_agent_id=agent_id_for_flag(db_session, data["flag_id"]),
             details={"decision_id": decision.decision_id, "flag_id": data["flag_id"],
-                     "decision_outcome": data["decision_outcome"]},
+                     "decision_outcome": data["decision_outcome"], "notes": notes},
         )
         db_session.commit()
 
@@ -469,6 +501,7 @@ def submit_review_decision():
             "message": "Review decision proposed; awaiting compliance confirmation",
             "decision_id": decision.decision_id,
             "status": decision.status,
+            "notes": decision.notes,
         }), 201
     except Exception as e:
         db_session.rollback()
@@ -502,7 +535,7 @@ def confirm_review_decision(decision_id):
             db_session, session["admin_id"], "confirm_decision",
             target_agent_id=agent_id_for_flag(db_session, decision.flag_id),
             details={"decision_id": decision.decision_id, "flag_id": decision.flag_id,
-                     "proposed_by": decision.reviewer_id},
+                     "proposed_by": decision.reviewer_id, "notes": decision.notes},
         )
         db_session.commit()
 
@@ -511,6 +544,7 @@ def confirm_review_decision(decision_id):
             "decision_id": decision.decision_id,
             "status": decision.status,
             "confirmed_by": decision.confirmed_by,
+            "notes": decision.notes,
         })
     except Exception as e:
         db_session.rollback()
@@ -544,6 +578,7 @@ def list_review_decisions():
                 "decision_timestamp": d.decision_timestamp.isoformat(),
                 "status": d.status,
                 "confirmed_by": d.confirmed_by,
+                "notes": d.notes,
             })
         return jsonify({"count": len(results), "decisions": results})
     finally:
