@@ -97,8 +97,8 @@ describe("role-based menus and guards", () => {
   it("the review form is only for fraud analysts", async () => {
     mockApi(sessionRoutes("compliance_officer"));
     renderApp("/agents/A10001");
-    await screen.findByRole("heading", { name: "A10001" });
-    expect(screen.queryByRole("button", { name: "Submit decision" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Open the confirm queue" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Propose decision" })).not.toBeInTheDocument();
   });
 });
 
