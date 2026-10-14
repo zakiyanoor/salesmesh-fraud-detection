@@ -8,7 +8,9 @@ Rules:
   removing each other at the same moment cannot leave the system with none.
 """
 
-from src.auth import ROLE_ADMIN, VALID_ROLES, Administrator
+from werkzeug.security import generate_password_hash
+
+from src.auth import ROLE_ADMIN, VALID_ROLES, Administrator, validate_password
 
 
 class AccountError(Exception):
@@ -52,6 +54,29 @@ def change_role(db_session, actor_id, target_id, new_role):
         _ensure_not_last_admin(db_session, target)
     target.role = new_role
     return target, old_role
+
+
+def find_account(db_session, account):
+    """An account by admin_id, or else by username (row locked); AccountError 404 if neither matches."""
+    query = db_session.query(Administrator).with_for_update()
+    admin = query.filter(Administrator.admin_id == account).first() or query.filter(Administrator.username == account).first()
+    if admin is None:
+        raise AccountError("Account not found", 404)
+    return admin
+
+
+def reset_password(db_session, account, new_password):
+    """
+    Local recovery (#19): sets a new password with the creation rule and hashing; the caller commits.
+    Accounts have no lockout or failed-attempt fields, so there is nothing else to clear.
+    """
+    try:
+        validate_password(new_password)
+    except ValueError as e:
+        raise AccountError(str(e), 400) from None
+    admin = find_account(db_session, account)
+    admin.password_hash = generate_password_hash(new_password)
+    return admin
 
 
 def set_active(db_session, actor_id, target_id, active):

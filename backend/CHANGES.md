@@ -4,6 +4,23 @@
 
 Branch `sprint-4/frontend-dashboard`. Reference in `docs/API.md`.
 
+### Local password recovery (issue #19)
+
+- New: `python -m src.manage_accounts reset-password <admin_id or username> --new-password-env <VARIABLE>`. It is for a forgotten password and needs direct database access, not an admin password.
+- **Password handling:**
+  - The new password is read only from the named environment variable and is never printed.
+  - It must meet the account-creation rule, now shared as `auth.validate_password`.
+  - It is hashed with the same `generate_password_hash`.
+- **Audit:** an `admin` entry with action `password_reset`, actor `local:<OS user>` and `"channel": "local recovery"`, without the password or hash.
+- **Account state:** unchanged; a deactivated account stays deactivated. There are no lockout or failed-attempt fields to clear.
+- **The command now uses subcommands;** existing `deactivate`, `reactivate` and `role` invocations work unchanged.
+- **Tests** (`tests/test_manage_accounts.py`):
+  - success by id and by username;
+  - unknown account, weak passwords, an unset variable, no password argument;
+  - the audit entry, a deactivated account, the help text;
+  - no password or hash in the output or the audit entry.
+- Steps: `docs/API.md`, "Account recovery".
+
 ### GET /api/me (issue #5)
 
 - Returns `{"username", "role"}` for the current session and nothing else; `401` without a session or for a deactivated account.
