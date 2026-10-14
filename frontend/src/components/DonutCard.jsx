@@ -37,7 +37,7 @@ export function DonutChart({ slices }) {
           )}
         </PieChart>
         <Box sx={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-          <Typography variant="h5" sx={mono}>{total}</Typography>
+          <Typography variant="h5" component="p" sx={mono}>{total}</Typography>
         </Box>
       </Box>
 

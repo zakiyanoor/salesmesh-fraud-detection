@@ -79,6 +79,11 @@ export function createAppTheme(mode = "light") {
       borderRadius: 4,
     },
     components: {
+      MuiCssBaseline: {
+        styleOverrides: (theme) => ({
+          "*:focus-visible": { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
+        }),
+      },
       MuiPaper: {
         styleOverrides: {
           root: ({ theme }) => ({

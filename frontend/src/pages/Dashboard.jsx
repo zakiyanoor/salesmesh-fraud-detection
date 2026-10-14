@@ -11,6 +11,7 @@ import KpiCard from "../components/KpiCard";
 import PageHeader from "../components/PageHeader";
 import RiskBadge from "../components/RiskBadge";
 import SectionCard from "../components/SectionCard";
+import { flagSourceTable, riskBandTable } from "../chartTables";
 import { DonutChart } from "../components/DonutCard";
 import { useApi } from "../hooks/useApi";
 import { FLAG_SOURCE_LABELS, formatDateTime, formatNumber } from "../format";
@@ -90,6 +91,7 @@ export default function Dashboard() {
       <Box sx={{ display: "flex", gap: 3, mb: 4, flexWrap: "wrap" }}>
         <SectionCard
           title="Flag sources"
+          table={flagSourceTable}
           subtitle="Who flagged each agent in the latest run"
           result={summary}
           isEmpty={(data) => !data?.agents_scored}
@@ -108,6 +110,7 @@ export default function Dashboard() {
         </SectionCard>
         <SectionCard
           title="Risk bands"
+          table={riskBandTable}
           subtitle="High: model flagged · Review: rule only or score 1.3 and above · Low: the rest"
           result={summary}
           isEmpty={(data) => !data?.agents_scored}

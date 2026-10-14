@@ -46,6 +46,10 @@ describe.each(["light", "dark"])("%s palette", (mode) => {
     expect(contrast(p.primary.dark, over(p.selected, p.background.paper))).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("the keyboard focus ring (primary.main) meets 3:1 on page and card", () => {
+    for (const surface of Object.values(surfaces)) expect(contrast(p.primary.main, surface)).toBeGreaterThanOrEqual(3);
+  });
+
   it("the neutral chart bar meets 3:1 against cards", () => {
     expect(contrast(p.chartNeutral, p.background.paper)).toBeGreaterThanOrEqual(3);
   });

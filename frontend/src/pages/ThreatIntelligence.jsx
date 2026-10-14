@@ -9,6 +9,7 @@ import KpiCard from "../components/KpiCard";
 import PageHeader from "../components/PageHeader";
 import RiskBadge from "../components/RiskBadge";
 import SectionCard from "../components/SectionCard";
+import { flagSourceTable, regionRateTable, timelineTable, topFeatureTable } from "../chartTables";
 import { DonutChart } from "../components/DonutCard";
 import { ActivationTimelineChart, RegionRateChart, SimpleBarChart } from "../components/charts";
 import { FlagSourceChip } from "../components/chips";
@@ -119,6 +120,7 @@ export default function ThreatIntelligence() {
       <Box sx={{ display: "flex", gap: 3, mb: 3, flexWrap: "wrap" }}>
         <SectionCard
           title="Flag sources"
+          table={flagSourceTable}
           subtitle="Who flagged each agent"
           result={summary}
           isEmpty={(d) => !d?.agents_scored}
@@ -137,6 +139,7 @@ export default function ThreatIntelligence() {
         </SectionCard>
         <SectionCard
           title="What drives the flags"
+          table={topFeatureTable}
           subtitle="Flagged agents by their strongest feature"
           result={summary}
           isEmpty={(d) => !d?.top_features?.as_top_feature?.length}
@@ -155,6 +158,7 @@ export default function ThreatIntelligence() {
 
       <SectionCard
         title="Activation timeline"
+        table={timelineTable}
         subtitle="Activations per day by agents the model flagged and by all other agents"
         result={timeline}
         isEmpty={(d) => !d?.days?.length}
@@ -166,6 +170,7 @@ export default function ThreatIntelligence() {
 
       <SectionCard
         title="Regional flagged rates"
+        table={regionRateTable}
         subtitle="The 10 highest flagged rates among regions with at least 5 agents"
         result={regions}
         isEmpty={(d) => !d?.top_by_flagged_rate?.length}

@@ -3,6 +3,7 @@ import { useTheme } from "@mui/material/styles";
 import { BarChart, Bar, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
+import { regionBreakdownTable, regionRateTable, scoreDistributionTable, timelineTable } from "../chartTables";
 import { ActivationTimelineChart, CHART_HEIGHT, RegionRateChart } from "../components/charts";
 import { useApi } from "../hooks/useApi";
 import { FEATURES, formatNumber } from "../format";
@@ -43,6 +44,7 @@ export default function Analytics() {
 
       <SectionCard
         title="Daily activations"
+        table={timelineTable}
         subtitle="Activations per day by agents the model flagged and by all other agents"
         result={timeline}
         isEmpty={(data) => !data?.days?.length}
@@ -57,6 +59,7 @@ export default function Analytics() {
       <Box sx={{ display: "flex", gap: 3, mb: 3, flexWrap: "wrap" }}>
         <SectionCard
           title="Suspicion score distribution"
+          table={scoreDistributionTable}
           subtitle="Agents per score range; the cutoff is 1.445"
           result={analytics}
           isEmpty={(data) => !data?.score_distribution?.some((b) => b.count > 0)}
@@ -78,6 +81,7 @@ export default function Analytics() {
 
         <SectionCard
           title="Highest flagged rates by region"
+          table={regionRateTable}
           subtitle="Share of each region's agents the model flagged; regions with at least 5 agents"
           result={regions}
           isEmpty={(data) => !data?.top_by_flagged_rate?.length}
@@ -92,6 +96,7 @@ export default function Analytics() {
 
       <SectionCard
         title="Flagged agents by region"
+        table={regionBreakdownTable}
         subtitle="Flagged and total agents per region"
         result={analytics}
         isEmpty={(data) => !data?.region_breakdown?.length}
