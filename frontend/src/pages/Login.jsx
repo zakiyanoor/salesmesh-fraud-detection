@@ -1,44 +1,53 @@
 import { useState } from "react";
 import { Box, Paper, TextField, Button, Typography, Alert } from "@mui/material";
-import { api } from "../api";
+import { useAuth } from "../auth/authContext";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
-export default function Login({ onLogin }) {
+export default function Login() {
+  const { login, notice } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  useDocumentTitle("Sign in");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSubmitting(true);
     try {
-      const data = await api.login(username, password);
-      onLogin(data.username);
+      await login(username, password);
     } catch (err) {
       setError(err.message);
+      setSubmitting(false);
     }
   };
 
+  const message = error || notice;
+
   return (
     <Box
+      component="main"
       sx={{
         minHeight: "100vh",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         bgcolor: "background.default",
+        p: 2,
       }}
     >
-      <Paper sx={{ p: 5, width: 380 }}>
-        <Typography variant="h5" gutterBottom>
+      <Paper sx={{ p: { xs: 3, sm: 5 }, width: "100%", maxWidth: 380, boxSizing: "border-box" }}>
+        <Typography variant="h5" component="h1" gutterBottom>
           SalesMesh
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-          Fraud detection administrator sign-in
+          Sign in to review flagged agents, confirm decisions or manage accounts.
         </Typography>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
+        {message && (
+          <Alert severity={error ? "error" : "warning"} sx={{ mb: 2 }}>
+            {message}
           </Alert>
         )}
 
@@ -47,6 +56,7 @@ export default function Login({ onLogin }) {
             label="Username"
             fullWidth
             margin="normal"
+            autoComplete="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             autoFocus
@@ -56,10 +66,11 @@ export default function Login({ onLogin }) {
             type="password"
             fullWidth
             margin="normal"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <Button type="submit" variant="contained" fullWidth sx={{ mt: 3, py: 1.2 }}>
+          <Button type="submit" variant="contained" fullWidth disabled={submitting} sx={{ mt: 3, py: 1.2 }}>
             Sign in
           </Button>
         </form>

@@ -1,33 +1,124 @@
-const API_BASE = "/api";
+// Every backend call goes through request() or download(); endpoints are documented in docs/API.md.
+const API_BASE = (import.meta.env.VITE_API_BASE || "/api").replace(/\/+$/, "");
 
-async function request(endpoint, options = {}) {
-  const resp = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-  const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) {
-    throw new Error(data.error || "Request failed");
+export class ApiError extends Error {
+  constructor(status, message, body = null) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.body = body;
   }
-  return data;
 }
 
+const DEFAULT_MESSAGES = {
+  0: "Could not reach the server. Check your connection and try again.",
+  401: "Your session has ended. Please sign in again.",
+  403: "You do not have access to this.",
+  404: "Not found.",
+  409: "This was already changed by someone else. Reload and try again.",
+  429: "Too many attempts. Wait a minute and try again.",
+};
+
+function defaultMessage(status) {
+  return DEFAULT_MESSAGES[status] || (status >= 500 ? "The server had a problem. Try again." : `Request failed (${status}).`);
+}
+
+// Only a 401 ends the session; the auth provider registers what that does.
+let unauthorizedHandler = null;
+
+export function setUnauthorizedHandler(handler) {
+  unauthorizedHandler = handler;
+  return () => {
+    if (unauthorizedHandler === handler) unauthorizedHandler = null;
+  };
+}
+
+function queryString(params) {
+  const entries = Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null && v !== "");
+  const text = new URLSearchParams(entries).toString();
+  return text ? `?${text}` : "";
+}
+
+async function send(path, { method = "GET", body, params, handleUnauthorized = true } = {}) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}${queryString(params)}`, {
+      method,
+      credentials: "include",
+      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError(0, defaultMessage(0));
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    const error = new ApiError(response.status, data?.error || defaultMessage(response.status), data);
+    if (response.status === 401 && handleUnauthorized && unauthorizedHandler) unauthorizedHandler(error);
+    throw error;
+  }
+  return response;
+}
+
+export async function request(path, options) {
+  const response = await send(path, options);
+  return response.json().catch(() => ({}));
+}
+
+/** A file endpoint: { blob, filename } with the server's file name. */
+export async function download(path, params) {
+  const response = await send(path, { params });
+  const match = /filename="?([^";]+)"?/.exec(response.headers.get("Content-Disposition") || "");
+  return { blob: await response.blob(), filename: match ? match[1] : path.split("/").pop() };
+}
+
+const id = encodeURIComponent;
+
 export const api = {
+  // Session. A 401 here means "not signed in" or "wrong password", not "session ended".
   login: (username, password) =>
-    request("/login", { method: "POST", body: JSON.stringify({ username, password }) }),
-  logout: () => request("/logout", { method: "POST" }),
+    request("/login", { method: "POST", body: { username, password }, handleUnauthorized: false }),
+  logout: () => request("/logout", { method: "POST", handleUnauthorized: false }),
+  me: () => request("/me", { handleUnauthorized: false }),
+  health: () => request("/health"),
+
+  // Agents and scores
   getFlaggedAgents: () => request("/flagged-agents"),
   getAllAgents: () => request("/all-agents"),
-  getAgentDetail: (agentId) => request(`/agents/${agentId}`),
-  submitReviewDecision: (flagId, decisionOutcome) =>
+  getAgentDetail: (agentId) => request(`/agents/${id(agentId)}`),
+  getAgentScores: (flagSource) => request("/agent-scores", { params: { flag_source: flagSource } }),
+  getAnalytics: () => request("/analytics"),
+  getClients: () => request("/clients"),
+  getLatestDetectionRun: () => request("/detection-runs/latest"),
+
+  // Threat intelligence
+  getThreatSummary: () => request("/threat-intelligence/summary"),
+  getThreatByRegion: () => request("/threat-intelligence/by-region"),
+  getThreatByClient: () => request("/threat-intelligence/by-client"),
+  getThreatByCategory: () => request("/threat-intelligence/by-category"),
+  getThreatTimeline: () => request("/threat-intelligence/timeline"),
+  getCustomerSharing: () => request("/threat-intelligence/customer-sharing"),
+
+  // Review decisions (propose: fraud_analyst; confirm: compliance_officer)
+  proposeDecision: ({ flagId, decisionOutcome, notes }) =>
     request("/review-decisions", {
       method: "POST",
-      body: JSON.stringify({ flag_id: flagId, decision_outcome: decisionOutcome }),
+      body: { flag_id: flagId, decision_outcome: decisionOutcome, notes },
     }),
-  getAnalytics: () => request("/analytics"),
-  getReviewHistory: () => request("/review-decisions"),
+  confirmDecision: (decisionId) => request(`/review-decisions/${id(decisionId)}/confirm`, { method: "POST" }),
+  getReviewDecisions: () => request("/review-decisions"),
+
+  // Audit log: filters category, actor, agent_id, date_from, date_to; paging limit, offset
+  getAuditLog: (filters) => request("/audit-log", { params: filters }),
+
+  // Reports (admin)
+  downloadFlaggedAgentsCsv: () => download("/reports/flagged-agents.csv"),
+  downloadAuditLogCsv: (filters) => download("/reports/audit-log.csv", filters),
+  downloadDetectionSummaryPdf: () => download("/reports/detection-summary.pdf"),
+
+  // Accounts (admin)
+  listAccounts: () => request("/admin/accounts"),
+  changeAccountRole: (adminId, role) => request(`/admin/accounts/${id(adminId)}/role`, { method: "PATCH", body: { role } }),
+  deactivateAccount: (adminId) => request(`/admin/accounts/${id(adminId)}/deactivate`, { method: "POST" }),
+  reactivateAccount: (adminId) => request(`/admin/accounts/${id(adminId)}/reactivate`, { method: "POST" }),
 };
