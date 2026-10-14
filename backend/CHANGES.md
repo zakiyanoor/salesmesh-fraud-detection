@@ -1,5 +1,16 @@
 # Backend changes
 
+## Sprint 4: backend additions for the frontend
+
+Branch `sprint-4/frontend-dashboard`. Reference in `docs/API.md`.
+
+### GET /api/me (issue #5)
+
+- Returns `{"username", "role"}` for the current session and nothing else; `401` without a session or for a deactivated account.
+- The role is re-read from the database on every request, so a role change shows at once.
+- **Not audited:** no other read endpoint writes an audit entry, so a successful call writes none. A `401` is recorded as `access_denied` by the existing hook, the same as on every protected route.
+- Tests: `tests/test_me.py`. The masking sweep in `test_masking.py` picks the route up automatically.
+
 ## Sprint 3, part 2: roles, audit, threat intelligence and reports (issue #18)
 
 Branch `sprint-3/backend-database`. The full endpoint reference, roles table and audit event types are in `docs/API.md`.
