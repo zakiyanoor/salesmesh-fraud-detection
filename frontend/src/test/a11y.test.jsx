@@ -29,7 +29,7 @@ const DATA = {
 
 async function expectNoViolations() {
   // Let lazy pages, charts and requests settle before scanning.
-  await waitFor(() => expect(screen.queryAllByRole("status", { name: "Loading" })).toHaveLength(0));
+  await waitFor(() => expect(document.querySelectorAll("[aria-busy=true]")).toHaveLength(0));
   expect(await axe(document.body)).toHaveNoViolations();
 }
 

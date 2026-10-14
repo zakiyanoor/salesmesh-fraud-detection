@@ -2,6 +2,10 @@ import { useState } from "react";
 import { Box, Button, Paper, Skeleton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 import { mono } from "../theme";
 
+const visuallyHidden = {
+  position: "absolute", width: "1px", height: "1px", p: 0, m: "-1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0,
+};
+
 /**
  * A card with its own loading, error and empty state, so one failing request does not blank a page.
  * children is a function of the loaded data. isEmpty(data) decides the empty state.
@@ -15,8 +19,9 @@ export default function SectionCard({ title, subtitle, result, isEmpty, emptyTex
   let body;
   if (result.loading || result.error?.status === 401) {
     body = (
-      <Box role="status" aria-live="polite">
-        <Skeleton variant="rounded" height={160} aria-label={`Loading ${title}`} />
+      <Box role="status" aria-live="polite" aria-busy="true">
+        <Box component="span" sx={visuallyHidden}>Loading {title}…</Box>
+        <Skeleton variant="rounded" height={160} />
       </Box>
     );
   } else if (result.error) {
