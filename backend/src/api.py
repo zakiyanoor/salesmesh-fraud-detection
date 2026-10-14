@@ -83,8 +83,13 @@ def log_admin_action(db_session, admin_id, action, target_agent_id=None, categor
 
 @app.after_request
 def audit_denied_requests(response):
-    """Every 401 and 403 becomes an access_denied entry (route, role, reason), unless the route recorded it."""
-    if response.status_code in (401, 403) and not g.get("audit_recorded"):
+    """
+    Every 401 and 403 becomes an access_denied entry (route, role, reason), unless the route recorded it.
+    Exception (#5): a 401 on GET /api/me with no session at all is only a "who is logged in?" check.
+    """
+    anonymous_me_check = (request.endpoint == "current_account" and response.status_code == 401
+                          and not g.get("denied_admin_id") and "admin_id" not in session)
+    if response.status_code in (401, 403) and not g.get("audit_recorded") and not anonymous_me_check:
         body = response.get_json(silent=True) or {}
         audit.record_now(
             g.get("denied_admin_id") or session.get("admin_id", audit.ANONYMOUS), "access_denied", "authorization",
@@ -282,7 +287,7 @@ def logout():
 @app.route("/api/me", methods=["GET"])
 @login_required
 def current_account():
-    """Issue #5: who is logged in. Not audited, like the other reads; a 401 is recorded as access_denied."""
+    """Issue #5: who is logged in. Not audited, like the other reads; see audit_denied_requests for its 401."""
     return jsonify({"username": session.get("username"), "role": session["role"]})
 
 

@@ -80,10 +80,29 @@ def test_me_is_not_audited_like_other_reads(client) -> None:
     assert audit_entries(client, actor=COMPLIANCE["admin_id"], date_from=started) == []
 
 
-def test_me_401_is_recorded_as_access_denied_like_other_routes(client) -> None:
+def test_me_without_a_session_is_not_audited_but_other_routes_still_are(client) -> None:
     started = (datetime.utcnow() - timedelta(seconds=1)).isoformat()
     assert client.get("/api/me").status_code == 401
+    login(client, ANALYST)
+    client.post("/api/logout")
+    assert client.get("/api/me").status_code == 401
+    assert client.get("/api/flagged-agents").status_code == 401
     login(client, COMPLIANCE)
     denied = audit_entries(client, category="authorization", actor=audit.ANONYMOUS, date_from=started)
+    assert [e for e in denied if e["details"]["route"] == "/api/me"] == []
+    other = next(e for e in denied if e["details"]["route"] == "/api/flagged-agents")
+    assert other["action"] == "access_denied" and other["details"]["status"] == 401
+
+
+def test_me_401_for_a_deactivated_account_is_audited(client, throwaway) -> None:
+    other = client.application.test_client()
+    login(other, throwaway)
+    login(client, ADMIN)
+    assert client.post(f"/api/admin/accounts/{throwaway['admin_id']}/deactivate").status_code == 200
+    started = (datetime.utcnow() - timedelta(seconds=1)).isoformat()
+    assert other.get("/api/me").status_code == 401
+
+    denied = audit_entries(client, category="authorization", actor=throwaway["admin_id"], date_from=started)
     entry = next(e for e in denied if e["details"]["route"] == "/api/me")
     assert entry["action"] == "access_denied" and entry["details"]["status"] == 401
+    assert entry["details"]["reason"] == "Account is deactivated" and entry["details"]["role"] == "fraud_analyst"
