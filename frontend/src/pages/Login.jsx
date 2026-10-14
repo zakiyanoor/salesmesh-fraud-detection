@@ -41,9 +41,6 @@ export default function Login() {
         <Typography variant="h5" component="h1" gutterBottom>
           SalesMesh
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-          Sign in to review flagged agents, confirm decisions or manage accounts.
-        </Typography>
 
         {message && (
           <Alert severity={error ? "error" : "warning"} sx={{ mb: 2 }}>
