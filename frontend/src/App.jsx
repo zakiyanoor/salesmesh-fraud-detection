@@ -11,6 +11,7 @@ import AllAgents from "./pages/AllAgents";
 import AgentDetail from "./pages/AgentDetail";
 import Analytics from "./pages/Analytics";
 import ReviewHistory from "./pages/ReviewHistory";
+import ConfirmQueue from "./pages/ConfirmQueue";
 import { AccessDenied, ComingSoon, NotFound } from "./pages/StatusPages";
 
 const PAGE_COMPONENTS = {
@@ -20,6 +21,7 @@ const PAGE_COMPONENTS = {
   agentDetail: AgentDetail,
   analytics: Analytics,
   history: ReviewHistory,
+  confirm: ConfirmQueue,
 };
 
 export default function App() {

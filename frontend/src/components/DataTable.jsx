@@ -8,9 +8,14 @@ import { ROWS_PER_PAGE } from "./tableState";
 
 /**
  * Sortable, paged table that turns into cards below md (docs/FRONTEND.md, Tables).
- * columns: { key, label, render(row), sortValue?(row), align?, title? (the card heading) }.
+ * columns: { key, label, render(row), sortValue?(row), align?, title? (the card heading), action? (buttons) }.
+ * An action column's label is read by screen readers only; on cards its content sits at the bottom.
  * sort is { key, dir }; page and rowsPerPage are numbers. Sorting and paging happen here.
  */
+const visuallyHidden = {
+  position: "absolute", width: 1, height: 1, p: 0, m: -1, overflow: "hidden", clip: "rect(0 0 0 0)", border: 0,
+};
+
 export default function DataTable({
   label, columns, rows, rowKey, sort, onSort, page, rowsPerPage, onPageChange, onRowsPerPageChange, emptyText,
 }) {
@@ -61,13 +66,16 @@ export default function DataTable({
             <Paper component="li" key={rowKey(row)} sx={{ p: 2 }}>
               <Box sx={{ mb: 1 }}>{titleColumn.render(row)}</Box>
               <Box component="dl" sx={{ m: 0, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 2, rowGap: 0.75 }}>
-                {columns.filter((c) => c !== titleColumn && c.label).map((c) => (
+                {columns.filter((c) => c !== titleColumn && !c.action).map((c) => (
                   <Box key={c.key} sx={{ display: "contents" }}>
                     <Typography component="dt" variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>{c.label}</Typography>
                     <Box component="dd" sx={{ m: 0, minWidth: 0, overflowWrap: "anywhere", typography: "body2" }}>{c.render(row)}</Box>
                   </Box>
                 ))}
               </Box>
+              {columns.filter((c) => c.action).map((c) => (
+                <Box key={c.key} sx={{ mt: 1.5, display: "flex", justifyContent: "flex-end" }}>{c.render(row)}</Box>
+              ))}
             </Paper>
           ))}
         </Box>
@@ -84,7 +92,9 @@ export default function DataTable({
             <TableRow>
               {columns.map((c) => (
                 <TableCell key={c.key} align={c.align} sortDirection={sort?.key === c.key ? sort.dir : false}>
-                  {c.sortValue ? (
+                  {c.action ? (
+                    <Box component="span" sx={visuallyHidden}>{c.label}</Box>
+                  ) : c.sortValue ? (
                     <TableSortLabel
                       active={sort?.key === c.key}
                       direction={sort?.key === c.key ? sort.dir : "asc"}

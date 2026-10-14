@@ -21,7 +21,7 @@ export const PAGES = [
   { key: "threat", path: "/threat-intelligence", label: "Threat intelligence", roles: EVERYONE, menu: true },
   { key: "analytics", path: "/analytics", label: "Analytics", roles: EVERYONE, menu: true },
   { key: "history", path: "/history", label: "Review history", roles: REVIEWERS, menu: true },
-  { key: "confirm", path: "/confirm-queue", label: "Confirm queue", roles: [COMPLIANCE_OFFICER], menu: true },
+  { key: "confirm", path: "/review/confirm", label: "Confirm queue", roles: [COMPLIANCE_OFFICER], menu: true },
   { key: "audit", path: "/audit-log", label: "Audit log", roles: [COMPLIANCE_OFFICER, ADMIN], menu: true },
   { key: "reports", path: "/reports", label: "Reports", roles: [ADMIN], menu: true },
   { key: "accounts", path: "/accounts", label: "Accounts", roles: [ADMIN], menu: true },
