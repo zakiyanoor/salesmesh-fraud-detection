@@ -106,6 +106,22 @@ export function createAppTheme(mode = "light") {
       MuiIconButton: { styleOverrides: { root: { [TOUCH]: { minWidth: 44, minHeight: 44 } } } },
       MuiListItemButton: { styleOverrides: { root: { [TOUCH]: { minHeight: 44 } } } },
       MuiMenuItem: { styleOverrides: { root: { [TOUCH]: { minHeight: 44 } } } },
+      // Small fields are 40px with a mouse; on touch screens they grow to 44px.
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: { [TOUCH]: { "&.MuiInputBase-sizeSmall .MuiInputBase-input": { paddingTop: 10.5, paddingBottom: 10.5 } } },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: { [TOUCH]: { "&.MuiInputLabel-sizeSmall:not(.MuiInputLabel-shrink)": { transform: "translate(14px, 11px) scale(1)" } } },
+        },
+      },
+      MuiTablePagination: {
+        styleOverrides: {
+          root: { [TOUCH]: { "& .MuiTablePagination-select.MuiSelect-select.MuiInputBase-input": { minHeight: 44, boxSizing: "border-box", display: "flex", alignItems: "center" } } },
+        },
+      },
     },
   });
 }

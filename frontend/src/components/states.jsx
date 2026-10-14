@@ -5,7 +5,8 @@ import InboxOutlined from "@mui/icons-material/InboxOutlined";
 import { Link as RouterLink } from "react-router-dom";
 
 const visuallyHidden = {
-  position: "absolute", width: 1, height: 1, p: 0, m: -1, overflow: "hidden", clip: "rect(0 0 0 0)", border: 0,
+  // Pixel strings: in sx a bare 1 means 100% and m: -1 means -8px.
+  position: "absolute", width: "1px", height: "1px", p: 0, m: "-1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0,
 };
 
 /** Skeleton shaped like a page body (the PageHeader renders above it): optional cards, then rows. */

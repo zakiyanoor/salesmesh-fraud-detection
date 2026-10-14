@@ -55,7 +55,15 @@ function AuditReportFilters({ filters, onChange }) {
   const set = (key) => (e) => onChange({ ...filters, [key]: e.target.value });
   return (
     <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
-      <TextField select size="small" label="Category" value={filters.category} onChange={set("category")} sx={filterWidth(170)}>
+      <TextField
+        select
+        size="small"
+        label="Category"
+        value={filters.category}
+        onChange={set("category")}
+        slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
+        sx={filterWidth(170)}
+      >
         <MenuItem value="">All categories</MenuItem>
         {Object.entries(AUDIT_CATEGORIES).map(([value, text]) => <MenuItem key={value} value={value}>{text}</MenuItem>)}
       </TextField>
