@@ -81,7 +81,7 @@ export default function ConfirmQueue() {
     { key: "notes", label: "Notes", render: (d) => <Box sx={notesSx}>{d.notes || "—"}</Box> },
     {
       key: "proposed",
-      label: "Proposed",
+      label: "Proposed on",
       sortValue: (d) => d.decision_timestamp,
       render: (d) => <Box component="span" sx={{ whiteSpace: "nowrap" }}>{formatDateTime(d.decision_timestamp)}</Box>,
     },
