@@ -2,8 +2,9 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, vi } from "vitest";
 import { cleanup, configure } from "@testing-library/react";
 
-// Whole-app renders can take over a second under a full parallel run; findBy and waitFor wait up to 3s.
-configure({ asyncUtilTimeout: 3000 });
+// Whole-app renders with lazy-loaded pages can take a few seconds under a full parallel run;
+// findBy and waitFor wait up to 5s.
+configure({ asyncUtilTimeout: 5000 });
 
 afterEach(() => {
   cleanup();
