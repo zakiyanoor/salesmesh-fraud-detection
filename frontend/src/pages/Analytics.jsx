@@ -3,6 +3,7 @@ import { Box, Typography, Paper, CircularProgress } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import Sidebar, { DRAWER_WIDTH } from "../components/Sidebar";
+import { mono } from "../theme";
 import { api } from "../api";
 
 export default function Analytics({ username, onLogout }) {
@@ -37,9 +38,9 @@ export default function Analytics({ username, onLogout }) {
             <Typography variant="overline" color="text.secondary">Suspicion score distribution</Typography>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={data.score_distribution}>
-                <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                <XAxis dataKey="bucket" stroke={theme.palette.text.secondary} fontSize={12} />
-                <YAxis stroke={theme.palette.text.secondary} fontSize={12} allowDecimals={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.chart.grid} />
+                <XAxis dataKey="bucket" stroke={theme.palette.chart.axis} fontSize={12} />
+                <YAxis stroke={theme.palette.chart.axis} fontSize={12} allowDecimals={false} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Bar dataKey="count" fill={theme.palette.primary.main} radius={[3, 3, 0, 0]} />
               </BarChart>
@@ -50,12 +51,12 @@ export default function Analytics({ username, onLogout }) {
             <Typography variant="overline" color="text.secondary">Flagged agents by region</Typography>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={data.region_breakdown}>
-                <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                <XAxis dataKey="region" stroke={theme.palette.text.secondary} fontSize={12} />
-                <YAxis stroke={theme.palette.text.secondary} fontSize={12} allowDecimals={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.chart.grid} />
+                <XAxis dataKey="region" stroke={theme.palette.chart.axis} fontSize={12} />
+                <YAxis stroke={theme.palette.chart.axis} fontSize={12} allowDecimals={false} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Bar dataKey="flagged" fill={theme.palette.error.main} radius={[3, 3, 0, 0]} />
-                <Bar dataKey="total" fill={theme.palette.grey[400]} radius={[3, 3, 0, 0]} />
+                <Bar dataKey="total" fill={theme.palette.chart.neutral} radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </Paper>
@@ -70,7 +71,7 @@ export default function Analytics({ username, onLogout }) {
               ["Customer similarity", data.platform_averages.customer_similarity],
             ].map(([label, value]) => (
               <Box key={label}>
-                <Typography variant="h5" sx={{ fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}>{value}</Typography>
+                <Typography variant="h5" sx={mono}>{value}</Typography>
                 <Typography variant="caption" color="text.secondary">{label}</Typography>
               </Box>
             ))}

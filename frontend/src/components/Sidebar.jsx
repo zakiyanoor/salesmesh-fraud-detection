@@ -4,6 +4,7 @@ import DashboardIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import PeopleIcon from "@mui/icons-material/PeopleAltOutlined";
 import InsightsIcon from "@mui/icons-material/InsightsOutlined";
 import HistoryIcon from "@mui/icons-material/HistoryOutlined";
+import ColorModeToggle from "./ColorModeToggle";
 import { api } from "../api";
 
 export const DRAWER_WIDTH = 240;
@@ -52,7 +53,7 @@ export default function Sidebar({ username, onLogout }) {
             sx={{
               borderRadius: 1,
               mb: 0.5,
-              "&.active": { bgcolor: "action.selected", color: "primary.main" },
+              "&.active": { bgcolor: "action.selected", color: "primary.dark" },
             }}
           >
             <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>{item.icon}</ListItemIcon>
@@ -66,9 +67,12 @@ export default function Sidebar({ username, onLogout }) {
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
           Signed in as {username}
         </Typography>
-        <Button size="small" onClick={handleLogout} sx={{ px: 0 }}>
-          Sign out
-        </Button>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Button size="small" onClick={handleLogout} sx={{ px: 0 }}>
+            Sign out
+          </Button>
+          <ColorModeToggle />
+        </Box>
       </Box>
     </Drawer>
   );

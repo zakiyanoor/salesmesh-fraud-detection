@@ -2,26 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box, Typography, Button, Table, TableHead, TableBody, TableRow, TableCell,
-  Divider, Chip, CircularProgress, TextField, MenuItem, Paper, InputAdornment,
+  Divider, CircularProgress, TextField, MenuItem, Paper, InputAdornment,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { PieChart, Pie, Tooltip } from "recharts";
 import SearchIcon from "@mui/icons-material/SearchOutlined";
 import Sidebar, { DRAWER_WIDTH } from "../components/Sidebar";
+import RiskBadge from "../components/RiskBadge";
+import { mono } from "../theme";
 import { api } from "../api";
 
-const MONO = { fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' };
-const HIGH_RISK = 0.8;
-const MEDIUM_RISK = 0.5;
 const CHART_SIZE = 140;
-// Categorical palette for regions; avoids the red/amber/green used for status and risk.
-const REGION_COLORS = ["#1976D2", "#00897B", "#F59E0B", "#8E24AA", "#546E7A"];
-
-function riskColor(score) {
-  if (score >= HIGH_RISK) return "error";
-  if (score >= MEDIUM_RISK) return "warning";
-  return "success";
-}
 
 function DonutCard({ title, subtitle, slices }) {
   const theme = useTheme();
@@ -58,7 +49,7 @@ function DonutCard({ title, subtitle, slices }) {
             )}
           </PieChart>
           <Box sx={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-            <Typography variant="h5" sx={MONO}>{total}</Typography>
+            <Typography variant="h5" sx={mono}>{total}</Typography>
           </Box>
         </Box>
 
@@ -67,8 +58,8 @@ function DonutCard({ title, subtitle, slices }) {
             <Box key={s.name} sx={{ display: "flex", alignItems: "center", gap: 1, py: 0.5 }}>
               <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: s.fill, flexShrink: 0 }} />
               <Typography variant="body2" noWrap title={s.name} sx={{ flex: 1, minWidth: 0 }}>{s.name}</Typography>
-              <Typography variant="body2" sx={MONO}>{s.value}</Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ ...MONO, width: 40, textAlign: "right" }}>
+              <Typography variant="body2" sx={mono}>{s.value}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ ...mono, width: 40, textAlign: "right" }}>
                 {total > 0 ? `${Math.round((s.value / total) * 100)}%` : "—"}
               </Typography>
             </Box>
@@ -122,7 +113,6 @@ export default function Dashboard({ username, onLogout }) {
   // double-counts any agent analysed in more than one period.
   const roster = allAgents?.agents || [];
   const flaggedTotal = roster.filter((a) => a.status === "flagged").length;
-  const scored = roster.filter((a) => a.suspicion_score != null);
 
   const regionCounts = {};
   roster.forEach((a) => {
@@ -138,17 +128,17 @@ export default function Dashboard({ username, onLogout }) {
   const regionSlices = regionEntries.slice(0, 5).map(([region, count], i) => ({
     name: region,
     value: count,
-    fill: REGION_COLORS[i],
+    fill: theme.palette.chart.region[i],
   }));
   const riskSlices = [
-    { name: "High", value: scored.filter((a) => a.suspicion_score >= HIGH_RISK).length, fill: theme.palette.error.main },
-    {
-      name: "Medium",
-      value: scored.filter((a) => a.suspicion_score >= MEDIUM_RISK && a.suspicion_score < HIGH_RISK).length,
-      fill: theme.palette.warning.main,
-    },
-    { name: "Low", value: scored.filter((a) => a.suspicion_score < MEDIUM_RISK).length, fill: theme.palette.success.main },
-  ];
+    { name: "High risk", band: "high" },
+    { name: "Review", band: "review" },
+    { name: "Low risk", band: "low" },
+  ].map(({ name, band }) => ({
+    name,
+    value: roster.filter((a) => a.risk_band === band).length,
+    fill: theme.palette.risk[band],
+  }));
 
   const analysisPeriod = agents[0]?.analysis_period;
 
@@ -171,7 +161,7 @@ export default function Dashboard({ username, onLogout }) {
           />
           <DonutCard
             title="Risk Level Breakdown"
-            subtitle={`High ≥ ${HIGH_RISK} · Medium ≥ ${MEDIUM_RISK} · Low below`}
+            subtitle="High: model flagged · Review: rule only or score 1.3 and above · Low: the rest"
             slices={riskSlices}
           />
         </Box>
@@ -204,18 +194,18 @@ export default function Dashboard({ username, onLogout }) {
               <TableCell>Agent ID</TableCell>
               <TableCell>Region</TableCell>
               <TableCell>Suspicion score</TableCell>
-              <TableCell>Status</TableCell>
+              <TableCell>Risk</TableCell>
               <TableCell align="right"></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filtered.map((agent) => (
               <TableRow key={agent.agent_id} hover>
-                <TableCell sx={{ fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}>{agent.agent_id}</TableCell>
+                <TableCell sx={mono}>{agent.agent_id}</TableCell>
                 <TableCell>{agent.region}</TableCell>
-                <TableCell sx={{ fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}>{agent.suspicion_score.toFixed(3)}</TableCell>
+                <TableCell sx={mono}>{agent.suspicion_score.toFixed(3)}</TableCell>
                 <TableCell>
-                  <Chip label={agent.flag_status} color={riskColor(agent.suspicion_score)} size="small" variant="outlined" />
+                  <RiskBadge band={agent.risk_band} />
                 </TableCell>
                 <TableCell align="right">
                   <Button size="small" onClick={() => navigate(`/agents/${agent.agent_id}`)}>Review</Button>
