@@ -76,6 +76,7 @@ export default function Dashboard() {
           loading={run.loading}
           value={lastRun ? RUN_STATUS[lastRun.status] || lastRun.status : run.error ? "Unavailable" : "None yet"}
           label="Last detection run"
+          compact
           detail={lastRun ? formatDateTime(lastRun.finished_at || lastRun.started_at) : null}
         />
       </Box>

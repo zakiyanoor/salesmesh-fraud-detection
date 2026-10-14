@@ -7,7 +7,8 @@ import { useTheme } from "@mui/material/styles";
 import { ROWS_PER_PAGE } from "./tableState";
 
 const visuallyHidden = {
-  position: "absolute", width: 1, height: 1, p: 0, m: -1, overflow: "hidden", clip: "rect(0 0 0 0)", border: 0,
+  // Pixel strings: in sx a bare 1 means 100% and m: -1 means -8px.
+  position: "absolute", width: "1px", height: "1px", p: 0, m: "-1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0,
 };
 
 /**

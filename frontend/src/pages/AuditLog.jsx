@@ -40,6 +40,7 @@ function AuditFilters({ values, onApply }) {
         select
         size="small"
         label="Category"
+        slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
         value={draft.category}
         onChange={(e) => {
           setDraft((d) => ({ ...d, category: e.target.value }));
