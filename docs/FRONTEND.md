@@ -105,6 +105,24 @@ The light theme is the default. Dark mode is optional, behind a toggle, and is d
 - **Error:** what went wrong and a "Try again" button.
 - **Access denied:** shown on a 403 and on `/403`.
 - **Pages with several sources** give each card its own state (`SectionCard`), so one failed request leaves the other cards working, and each failed card has its own "Try again".
+- **Downloads** (`ReportCard` on Reports):
+  - while the file is prepared, the button reads "Preparing…" with a small spinner and is disabled;
+  - a failure shows "Download failed:" with the server's reason;
+  - a success names the saved file.
+  - The file name always comes from the response's `Content-Disposition` header.
+
+## Drawers and dialogs
+
+- **Details drawer** (`AuditDrawer`):
+  - opens from the right, 440px wide from `sm` up and full width below;
+  - opened by clicking a row or its "Details" button;
+  - as a modal it traps focus, closes with Esc or the close button, and returns focus to the row or button that opened it;
+  - details are shown as label and value pairs, and any key that looks like a secret (`password`, `hash`, `secret`, `token`, `cookie`, `session`) is left out.
+- **Confirm dialogs:** confirming a decision and changing an account both open a small dialog that says what will happen. The server's refusal (your own proposal, your own account, the last admin) appears inside it as an error alert, and the row stays as it was.
+
+## Footer
+
+Every signed-in page ends with one line in `caption`, `text.secondary`, above a 1px `divider` rule: "Model lof_v3_4f · Last detection run <time>". The run status is added when the run did not succeed. Without a run it says so.
 
 ## Layout and touch
 
@@ -147,7 +165,11 @@ A proposal is never called saved, recorded or final; tests check this.
 | `/review/confirm` | Confirm queue | compliance_officer | `/api/review-decisions`, `POST /api/review-decisions/<id>/confirm` |
 | `/history` | Review history | fraud_analyst, compliance_officer | `/api/review-decisions` |
 | `/analytics` | Analytics: daily activations, score distribution, region rates, averages | all | `/api/analytics`, `/api/threat-intelligence/timeline`, `/api/threat-intelligence/by-region` |
-| `/threat-intelligence`, `/audit-log`, `/reports`, `/accounts` | Placeholders ("coming in the next step") | per menu | none |
+| `/threat-intelligence` | Threat intelligence: summary, flag sources, drivers, timeline, regional rates, top risk agents, connected agents | all | `/api/threat-intelligence/summary`, `/timeline`, `/by-region`, `/customer-sharing`, `/api/agent-scores?limit=10` |
+| `/audit-log` | Audit log with server-side filters and paging, details drawer | admin | `/api/audit-log` |
+| `/reports` | Report downloads | admin | `/api/reports/flagged-agents.csv`, `/api/reports/audit-log.csv`, `/api/reports/detection-summary.pdf` |
+| `/accounts` | Accounts: list, change role, deactivate, reactivate | admin | `/api/admin/accounts`, `PATCH .../role`, `POST .../deactivate`, `POST .../reactivate` |
+| every signed-in page | Footer: model version and last detection run | all | `/api/detection-runs/latest` |
 | `/403`, any other address | Access denied, Page not found | all | none |
 
 **Notes on what is shown:**
@@ -155,6 +177,10 @@ A proposal is never called saved, recorded or final; tests check this.
 - Phone and national ID numbers are masked by the server (last 3 digits). Agent detail shortens the name to initials.
 - Internal ids (flag, decision and run ids) are never shown.
 - Proposer and confirmer are shown as the account ids the API returns. Usernames are not available to these roles.
+- **Agent ids for admins:** they cannot open agent detail, so they see agent ids as plain text everywhere: Overview, Threat intelligence and the Audit log (`AgentId` component).
+- **Audit log is admin only** in the app. The API also lets compliance officers read it, but the menu and route allow admins only.
+- **Audit log filters:** the API offers no action or outcome filter, so the page filters by category, actor, agent id and date range. The Result column (Completed, Refused, Failed) is derived from the action for display only.
+- **Accounts:** creating accounts and resetting passwords have no API, so the Accounts page says they are done on the server (`python -m src.manage_accounts reset-password`).
 - Rule-only agents have no model flag, so they cannot be reviewed. Their evidence is read-only, with a note saying why.
 
 ## Branding
