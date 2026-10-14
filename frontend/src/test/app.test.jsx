@@ -54,7 +54,7 @@ describe("session restore", () => {
 describe("role-based menus and guards", () => {
   it.each([
     ["fraud_analyst", ["Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history"]],
-    ["compliance_officer", ["Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history", "Confirm queue", "Audit log"]],
+    ["compliance_officer", ["Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history", "Confirm queue"]],
     ["admin", ["Overview", "Threat intelligence", "Analytics", "Audit log", "Reports", "Accounts"]],
   ])("%s sees only its menu", async (role, expected) => {
     mockApi(sessionRoutes(role));
@@ -67,6 +67,7 @@ describe("role-based menus and guards", () => {
     ["fraud_analyst", "/accounts"],
     ["fraud_analyst", "/review/confirm"],
     ["fraud_analyst", "/audit-log"],
+    ["compliance_officer", "/audit-log"],
     ["compliance_officer", "/reports"],
     ["admin", "/flagged"],
     ["admin", "/agents/A10001"],
@@ -79,7 +80,7 @@ describe("role-based menus and guards", () => {
 
   it.each([
     ["compliance_officer", "/review/confirm", "Confirm queue"],
-    ["compliance_officer", "/audit-log", "Audit log"],
+    ["admin", "/audit-log", "Audit log"],
     ["fraud_analyst", "/flagged", "Flagged agents"],
     ["admin", "/reports", "Reports"],
   ])("%s may open %s", async (role, path, title) => {

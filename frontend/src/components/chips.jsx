@@ -4,7 +4,10 @@ import HourglassEmptyOutlined from "@mui/icons-material/HourglassEmptyOutlined";
 import TaskAltOutlined from "@mui/icons-material/TaskAltOutlined";
 import RemoveCircleOutlineOutlined from "@mui/icons-material/RemoveCircleOutlineOutlined";
 import GavelOutlined from "@mui/icons-material/GavelOutlined";
+import BlockOutlined from "@mui/icons-material/BlockOutlined";
+import ErrorOutlineOutlined from "@mui/icons-material/ErrorOutlineOutlined";
 import { FLAG_SOURCE_LABELS, OUTCOME_LABELS, REVIEW_STATUS_LABELS } from "../format";
+import { auditResult } from "../audit";
 
 const chip = { size: "small", variant: "outlined" };
 
@@ -36,4 +39,12 @@ export function FlagSourceChip({ source }) {
     return <Chip {...chip} color="success" icon={<CheckCircleOutlined fontSize="small" />} label={FLAG_SOURCE_LABELS.None} />;
   }
   return <Chip {...chip} label={FLAG_SOURCE_LABELS[source] || source} />;
+}
+
+/** Audit event result: Completed, Refused (access denied) or Failed. */
+export function AuditResultChip({ entry }) {
+  const result = auditResult(entry);
+  if (result === "refused") return <Chip {...chip} color="error" icon={<BlockOutlined fontSize="small" />} label="Refused" />;
+  if (result === "failed") return <Chip {...chip} color="error" icon={<ErrorOutlineOutlined fontSize="small" />} label="Failed" />;
+  return <Chip {...chip} icon={<CheckCircleOutlined fontSize="small" />} label="Completed" />;
 }

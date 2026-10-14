@@ -6,18 +6,21 @@ import {
 import { useTheme } from "@mui/material/styles";
 import { ROWS_PER_PAGE } from "./tableState";
 
-/**
- * Sortable, paged table that turns into cards below md (docs/FRONTEND.md, Tables).
- * columns: { key, label, render(row), sortValue?(row), align?, title? (the card heading), action? (buttons) }.
- * An action column's label is read by screen readers only; on cards its content sits at the bottom.
- * sort is { key, dir }; page and rowsPerPage are numbers. Sorting and paging happen here.
- */
 const visuallyHidden = {
   position: "absolute", width: 1, height: 1, p: 0, m: -1, overflow: "hidden", clip: "rect(0 0 0 0)", border: 0,
 };
 
+/**
+ * Sortable, paged table that turns into cards below md (docs/FRONTEND.md, Tables).
+ * columns: { key, label, render(row), sortValue?(row), align?, title? (the card heading), action? (buttons) }.
+ * An action column's label is read by screen readers only; on cards its content sits at the bottom.
+ * sort is { key, dir }; page and rowsPerPage are numbers. Sorting and paging happen here, unless
+ * totalCount is given: then rows are already the current page from the server.
+ * onRowClick(row, element) makes rows clickable; the row takes focus so a drawer can return focus to it.
+ */
 export default function DataTable({
   label, columns, rows, rowKey, sort, onSort, page, rowsPerPage, onPageChange, onRowsPerPageChange, emptyText,
+  totalCount, onRowClick,
 }) {
   const theme = useTheme();
   const cards = useMediaQuery(theme.breakpoints.down("md"), { noSsr: true });
@@ -37,15 +40,17 @@ export default function DataTable({
     });
   }, [rows, columns, sort]);
 
-  const lastPage = Math.max(0, Math.ceil(sorted.length / rowsPerPage) - 1);
-  const safePage = Math.min(page, lastPage);
-  const visible = sorted.slice(safePage * rowsPerPage, safePage * rowsPerPage + rowsPerPage);
+  const serverPaged = totalCount != null;
+  const count = serverPaged ? totalCount : sorted.length;
+  const lastPage = Math.max(0, Math.ceil(count / rowsPerPage) - 1);
+  const safePage = serverPaged ? page : Math.min(page, lastPage);
+  const visible = serverPaged ? sorted : sorted.slice(safePage * rowsPerPage, safePage * rowsPerPage + rowsPerPage);
   const titleColumn = columns.find((c) => c.title) || columns[0];
 
-  const pagination = sorted.length > 0 && (
+  const pagination = count > 0 && (
     <TablePagination
       component="div"
-      count={sorted.length}
+      count={count}
       page={safePage}
       rowsPerPage={rowsPerPage}
       rowsPerPageOptions={ROWS_PER_PAGE}
@@ -111,7 +116,15 @@ export default function DataTable({
           </TableHead>
           <TableBody>
             {visible.map((row) => (
-              <TableRow key={rowKey(row)} hover>
+              <TableRow
+                key={rowKey(row)}
+                hover
+                {...(onRowClick && {
+                  tabIndex: -1,
+                  onClick: (e) => onRowClick(row, e.currentTarget),
+                  sx: { cursor: "pointer", "&:focus-visible": { outline: 2, outlineColor: "primary.main", outlineOffset: -2 } },
+                })}
+              >
                 {columns.map((c) => (
                   <TableCell key={c.key} align={c.align} sx={c.cellSx}>{c.render(row)}</TableCell>
                 ))}
