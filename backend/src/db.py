@@ -39,6 +39,7 @@ Base = declarative_base()
 DECISION_PENDING = "pending_confirmation"
 DECISION_CONFIRMED = "confirmed"
 DECISION_STATUSES = (DECISION_PENDING, DECISION_CONFIRMED)
+DECISION_OUTCOMES = ("confirmed_fraud", "legitimate")
 
 
 # --- Entity: Agents ---

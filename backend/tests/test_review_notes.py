@@ -160,3 +160,28 @@ def test_phone_and_national_id_in_notes_are_masked_everywhere(client, flag, iden
     client.post("/api/logout")
 
     sweep_every_get_route(client, identities, known_agent_id)
+
+
+@pytest.mark.parametrize("outcome", ["fraud", "Confirmed_Fraud", " legitimate", "", None, 1, ["legitimate"]],
+                         ids=["unknown", "wrong-case", "padded", "empty", "null", "number", "list"])
+def test_unknown_decision_outcome_returns_400_and_writes_nothing(client, flag, outcome) -> None:
+    login(client, ANALYST)
+    started = datetime.utcnow().isoformat()
+    before = analyst_decision_count()
+    response = client.post("/api/review-decisions",
+                           json={"flag_id": flag[0], "decision_outcome": outcome, "notes": NOTES})
+    assert response.status_code == 400
+    assert "decision_outcome must be one of ['confirmed_fraud', 'legitimate']" in response.get_json()["error"]
+    assert analyst_decision_count() == before
+    login(client, COMPLIANCE)
+    written = client.get(f"/api/audit-log?actor={ANALYST['admin_id']}&date_from={started}").get_json()["entries"]
+    assert [e for e in written if e["action"] == "propose_decision"] == []
+
+
+@pytest.mark.parametrize("outcome", ["confirmed_fraud", "legitimate"])
+def test_both_decision_outcomes_are_accepted(client, flag, outcome) -> None:
+    login(client, ANALYST)
+    response = client.post("/api/review-decisions",
+                           json={"flag_id": flag[0], "decision_outcome": outcome, "notes": NOTES})
+    assert response.status_code == 201
+    assert history_entry(client, response.get_json()["decision_id"])["decision_outcome"] == outcome
