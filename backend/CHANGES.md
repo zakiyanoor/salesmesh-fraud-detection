@@ -8,8 +8,12 @@ Branch `sprint-4/frontend-dashboard`. Reference in `docs/API.md`.
 
 - Returns `{"username", "role"}` for the current session and nothing else; `401` without a session or for a deactivated account.
 - The role is re-read from the database on every request, so a role change shows at once.
-- **Not audited:** no other read endpoint writes an audit entry, so a successful call writes none. A `401` is recorded as `access_denied` by the existing hook, the same as on every protected route.
-- Tests: `tests/test_me.py`. The masking sweep in `test_masking.py` picks the route up automatically.
+- **Not audited:** no other read endpoint writes an audit entry, so a successful call writes none.
+- **401s:**
+  - A `401` with **no session at all** writes no entry: an anonymous "is anyone logged in?" check is not a security event, and the frontend makes it on every load while logged out. The exception is in `audit_denied_requests` and applies to this route only.
+  - A `401` for a **deactivated account** is still recorded as `access_denied` with that account as the actor.
+  - Every other denied request on every route is recorded as before.
+- Tests: `tests/test_me.py`, covering the unaudited anonymous check (while `/api/flagged-agents` is still audited) and the audited deactivated case. The masking sweep in `test_masking.py` picks the route up automatically.
 
 ### Notes on review decisions (issue #13)
 

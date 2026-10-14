@@ -68,7 +68,7 @@ Each entry has:
 | Category | Actions | Details |
 |---|---|---|
 | `authentication` | `login`, `login_failure`, `logout` | `username`, `role`; for failures `reason` (`invalid credentials`, `account deactivated`, `unknown role`); failures have actor `anonymous` |
-| `authorization` | `access_denied` (every `401` and `403`) | `route`, `method`, `role`, `status`, `reason` |
+| `authorization` | `access_denied` (every `401` and `403`, except a `401` on `GET /api/me` with no session) | `route`, `method`, `role`, `status`, `reason` |
 | `review` | `propose_decision`, `confirm_decision` | `decision_id`, `flag_id`, `notes`, and `decision_outcome` (proposal) or `proposed_by` (confirmation) |
 | `admin` | `role_change`, `account_deactivated`, `account_reactivated` | `target_admin_id`, `target_username`, `old_role` / `new_role` or `role` |
 | `report` | `report_download` | `report`, `filename`, `filters`, `row_count`, `bytes`, `sha256` of the file sent, plus `run_id`, `cap`, `load_id` or `data_hash` |
@@ -127,7 +127,11 @@ Records a `logout` audit entry when a session exists.
 
 ### GET /api/me
 
-The username and role of the logged-in account, read fresh on every request, so a role change shows at once. Nothing else is returned (no account id, no password hash). Not audited, like the other reads; a `401` is recorded as `access_denied`, as on every protected route.
+The username and role of the logged-in account, read fresh on every request, so a role change shows at once. Nothing else is returned (no account id, no password hash). Not audited, like the other reads.
+
+- **A `401` with no session at all** (nobody logged in, or after logout) writes **no** audit entry: the frontend calls this to ask whether anyone is logged in, which is not a security event.
+- **A `401` for a deactivated account** is recorded as `access_denied` with that account as the actor, as on every protected route.
+- Every other denied request, on every route, is recorded exactly as before.
 
 ```json
 {"username": "analyst_01", "role": "fraud_analyst"}
