@@ -482,4 +482,41 @@ All commands run from `backend/`.
 | `python -m src.scheduler` | Runs detection now and then every `DETECTION_INTERVAL_MINUTES` (default 1440); set `DETECTION_RUN_ON_START=false` to wait one interval first |
 | `python -m src.auth` | Creates the demo accounts analyst_01, compliance_01 and admin_01 (demo and test only) |
 | `python -m src.manage_accounts deactivate <admin_id> --as <admin>` | Account changes from the command line (`deactivate`, `reactivate`, `role <admin_id> <role>`), as an active admin who gives a password; same rules and audit as the API |
+| `python -m src.manage_accounts reset-password <admin_id or username> --new-password-env <VARIABLE>` | Local recovery for a forgotten password; needs direct database access, not an admin password (see below) |
 | `pytest` | Runs the tests on `salesmesh_fraud_detection_test`, never on the development database |
+
+### Account recovery (forgotten password)
+
+`reset-password` is a **local recovery** command.
+
+**Why it needs no admin password:** it runs on the server with the database credentials from `.env`, and anyone who can run it can already change the database directly. There is no API endpoint for it; the web app and the API cannot reset passwords.
+
+**Steps** (PowerShell, from `backend/`):
+
+1. Put the new password in an environment variable without echoing it:
+
+   ```powershell
+   $env:NEW_ACCOUNT_PASSWORD = [System.Net.NetworkCredential]::new("", (Read-Host "New password" -AsSecureString)).Password
+   ```
+
+2. Reset the account, by `admin_id` or username:
+
+   ```powershell
+   python -m src.manage_accounts reset-password analyst_01 --new-password-env NEW_ACCOUNT_PASSWORD
+   ```
+
+3. Remove the variable:
+
+   ```powershell
+   Remove-Item Env:NEW_ACCOUNT_PASSWORD
+   ```
+
+**Rules:**
+- **Source of the password:** only the environment variable named by `--new-password-env`. There is no argument for the password itself, so it never lands in shell history or the process list. It is never printed.
+- **Strength and storage:** the same rule as account creation (at least 12 characters, otherwise `Refused: Password must be at least 12 characters long`) and the same hashing (werkzeug `generate_password_hash`).
+- **Audit:** an `admin` entry with action `password_reset`. The actor is `local:<operating-system user>`, and the details are `target_admin_id`, `target_username` and `"channel": "local recovery"`. Never the password or its hash.
+- **Account state:** active or deactivated is unchanged. A deactivated account stays deactivated; reactivate it separately.
+- **Lockouts:**
+  - Accounts have no lockout or failed-attempt fields, so there is nothing to clear.
+  - The only throttle is the API's login rate limit: 5 attempts per minute per IP, held in the API process's memory. It clears itself after a minute, or when the API restarts.
+- **Errors:** an unknown account gives `Refused: Account not found`; an unset or empty variable is refused before anything changes.
