@@ -62,7 +62,8 @@ export function reply(status, body) {
 
 /**
  * Stubs fetch. routes maps "METHOD /path" (no query) to a body (200), a reply(status, body),
- * a function (request) => either, or an Error to simulate a network failure. Unknown routes are 404.
+ * a function (request) => either, a Response (for files), or an Error to simulate a network failure.
+ * Unknown routes are 404.
  */
 export function mockApi(routes = {}) {
   const calls = [];
@@ -72,8 +73,9 @@ export function mockApi(routes = {}) {
     const request = { method, path, url: String(url), init, body: init.body ? JSON.parse(init.body) : undefined };
     calls.push(request);
     let route = routes[`${method} ${path}`] ?? FIXTURES[`${method} ${path}`];
-    if (typeof route === "function") route = route(request);
+    if (typeof route === "function") route = await route(request);
     if (route instanceof Error) throw route;
+    if (route instanceof Response) return route;
     const { status, body } = route && "status" in route && "body" in route ? route : { status: route ? 200 : 404, body: route ?? { error: "Not found" } };
     return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
   });
