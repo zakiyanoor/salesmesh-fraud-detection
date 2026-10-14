@@ -19,6 +19,7 @@ Start the backend first (`python -m src.api` from `backend/`).
 | `npm run build` | Production build into `dist/` |
 | `npm run preview` | Serves the build locally |
 | `npm run lint` | ESLint |
+| `npm test` | Unit and component tests (Vitest, jsdom) |
 
 ## Configuration
 
@@ -31,3 +32,4 @@ IBM Plex Sans, IBM Plex Mono and Space Grotesk are bundled from npm packages, so
 ## Reference
 
 - `docs/API.md`: every endpoint, role and payload.
+- `docs/FRONTEND.md`: the style guide (tokens, fonts, cards, tables, chips, sidebar, charts). Every page follows it.

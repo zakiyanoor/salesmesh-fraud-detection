@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Box, Typography, Table, TableHead, TableBody, TableRow, TableCell, Chip, CircularProgress, Divider } from "@mui/material";
 import Sidebar, { DRAWER_WIDTH } from "../components/Sidebar";
+import { mono } from "../theme";
 import { api } from "../api";
 
 export default function ReviewHistory({ username, onLogout }) {
@@ -39,7 +40,7 @@ export default function ReviewHistory({ username, onLogout }) {
           <TableBody>
             {decisions.map((d) => (
               <TableRow key={d.decision_id} hover>
-                <TableCell sx={{ fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}>{d.agent_id}</TableCell>
+                <TableCell sx={mono}>{d.agent_id}</TableCell>
                 <TableCell>
                   <Chip label={d.decision_outcome} color={d.decision_outcome === "confirmed_fraud" ? "error" : "success"} size="small" variant="outlined" />
                 </TableCell>

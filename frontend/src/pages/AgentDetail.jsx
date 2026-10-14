@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Box, Typography, Button, Divider, Paper, RadioGroup, FormControlLabel, Radio, TextField, Alert, CircularProgress } from "@mui/material";
 import Sidebar, { DRAWER_WIDTH } from "../components/Sidebar";
+import RiskBadge from "../components/RiskBadge";
+import { mono } from "../theme";
 import { api } from "../api";
 
 export default function AgentDetail({ username, onLogout }) {
@@ -53,7 +55,7 @@ export default function AgentDetail({ username, onLogout }) {
       <Box sx={{ flexGrow: 1, p: 5, ml: `${DRAWER_WIDTH}px`, maxWidth: 1000 }}>
         <Button onClick={() => navigate("/")} sx={{ mb: 3, px: 0 }}>← Back to flagged agents</Button>
 
-        <Typography variant="h4" sx={{ fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}>{data.agent_id}</Typography>
+        <Typography variant="h4" sx={mono}>{data.agent_id}</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
           {data.region} · Registered {new Date(data.registration_timestamp).toLocaleDateString()}
         </Typography>
@@ -70,16 +72,19 @@ export default function AgentDetail({ username, onLogout }) {
             ].map(([label, value]) => (
               <Box key={label} sx={{ display: "flex", justifyContent: "space-between", py: 1.2 }}>
                 <Typography variant="body2" color="text.secondary">{label}</Typography>
-                <Typography variant="body2" sx={{ fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}>{value ?? "—"}</Typography>
+                <Typography variant="body2" sx={mono}>{value ?? "—"}</Typography>
               </Box>
             ))}
 
             <Box sx={{ mt: 4 }}>
               <Typography variant="overline" color="text.secondary">Suspicion score</Typography>
-              <Typography variant="h2" sx={{ fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', color: "primary.main" }}>
+              <Typography variant="h2" sx={{ ...mono, color: "primary.main" }}>
                 {flag?.suspicion_score?.toFixed(3) ?? "—"}
               </Typography>
-              <Typography variant="caption" color="text.secondary">Model: {flag?.model_version}</Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+                <RiskBadge band={data.risk_band} />
+                <Typography variant="caption" color="text.secondary">Model: {flag?.model_version}</Typography>
+              </Box>
             </Box>
           </Box>
 
@@ -106,7 +111,7 @@ export default function AgentDetail({ username, onLogout }) {
                 <Box key={metric} sx={{ mb: 2.5 }}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
                     <Typography variant="body2">{metric}</Typography>
-                    <Typography variant="body2" sx={{ fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', color: isHigh ? "error.main" : "text.secondary" }}>
+                    <Typography variant="body2" sx={{ ...mono, color: isHigh ? "error.main" : "text.secondary" }}>
                       {ratio.toFixed(0)}% of average
                     </Typography>
                   </Box>

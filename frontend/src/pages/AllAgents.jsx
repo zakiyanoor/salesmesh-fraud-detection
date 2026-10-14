@@ -8,9 +8,9 @@ import WarningAmberOutlined from "@mui/icons-material/WarningAmberOutlined";
 import GroupsOutlined from "@mui/icons-material/GroupsOutlined";
 import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
 import Sidebar, { DRAWER_WIDTH } from "../components/Sidebar";
+import RiskBadge from "../components/RiskBadge";
+import { mono } from "../theme";
 import { api } from "../api";
-
-const MONO = { fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' };
 
 function fmt(value, digits) {
   return value == null ? "—" : value.toFixed(digits);
@@ -21,7 +21,7 @@ function KpiCard({ icon, value, label, color }) {
     <Paper sx={{ p: 2.5, flex: 1, display: "flex", alignItems: "center", gap: 2 }}>
       <Box sx={{ color: color || "primary.main" }}>{icon}</Box>
       <Box>
-        <Typography variant="h4" sx={{ ...MONO, lineHeight: 1 }}>{value}</Typography>
+        <Typography variant="h4" sx={{ ...mono, lineHeight: 1 }}>{value}</Typography>
         <Typography variant="caption" color="text.secondary">{label}</Typography>
       </Box>
     </Paper>
@@ -111,6 +111,7 @@ export default function AllAgents({ username, onLogout }) {
                   Suspicion score
                 </TableSortLabel>
               </TableCell>
+              <TableCell>Risk</TableCell>
               <TableCell>Submission frequency</TableCell>
               <TableCell>Time-of-day dist.</TableCell>
               <TableCell>Customer similarity</TableCell>
@@ -120,12 +121,13 @@ export default function AllAgents({ username, onLogout }) {
           <TableBody>
             {filtered.map((agent) => (
               <TableRow key={agent.agent_id} hover>
-                <TableCell sx={MONO}>{agent.agent_id}</TableCell>
+                <TableCell sx={mono}>{agent.agent_id}</TableCell>
                 <TableCell>{agent.region}</TableCell>
-                <TableCell sx={MONO}>{fmt(agent.suspicion_score, 3)}</TableCell>
-                <TableCell sx={MONO}>{agent.submission_frequency ?? "—"}</TableCell>
-                <TableCell sx={MONO}>{fmt(agent.time_of_day_dist, 3)}</TableCell>
-                <TableCell sx={MONO}>{fmt(agent.customer_similarity, 3)}</TableCell>
+                <TableCell sx={mono}>{fmt(agent.suspicion_score, 3)}</TableCell>
+                <TableCell><RiskBadge band={agent.risk_band} /></TableCell>
+                <TableCell sx={mono}>{agent.submission_frequency ?? "—"}</TableCell>
+                <TableCell sx={mono}>{fmt(agent.time_of_day_dist, 3)}</TableCell>
+                <TableCell sx={mono}>{fmt(agent.customer_similarity, 3)}</TableCell>
                 <TableCell>
                   <Chip
                     label={agent.status}
@@ -137,7 +139,7 @@ export default function AllAgents({ username, onLogout }) {
               </TableRow>
             ))}
             {filtered.length === 0 && (
-              <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4, color: "text.secondary" }}>No agents match your filters.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} align="center" sx={{ py: 4, color: "text.secondary" }}>No agents match your filters.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
