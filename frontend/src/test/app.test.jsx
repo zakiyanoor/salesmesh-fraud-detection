@@ -104,7 +104,7 @@ describe("role-based menus and guards", () => {
 
 describe("error handling", () => {
   it("a 401 from any request signs out and shows why", async () => {
-    mockApi({ ...sessionRoutes("fraud_analyst"), "GET /api/flagged-agents": reply(401, { error: "Account is deactivated" }) });
+    mockApi({ ...sessionRoutes("fraud_analyst"), "GET /api/all-agents": reply(401, { error: "Account is deactivated" }) });
     renderApp("/flagged");
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
     expect(screen.getByText("Account is deactivated")).toBeInTheDocument();
