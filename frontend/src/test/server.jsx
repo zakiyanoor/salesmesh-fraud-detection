@@ -42,7 +42,7 @@ export const FIXTURES = {
   },
   "GET /api/detection-runs/latest": {
     run: {
-      run_id: "RUN1", trigger: "manual", status: "succeeded", started_at: "2026-10-13T15:07:08",
+      run_id: "RUN1", trigger: "manual", status: "succeeded", model_version: "lof_v3_4f", started_at: "2026-10-13T15:07:08",
       finished_at: "2026-10-13T15:07:16", agents_scored: 1000, flagged_count: 145, error: null,
     },
   },

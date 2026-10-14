@@ -5,6 +5,7 @@ import { useTheme } from "@mui/material/styles";
 import MenuIcon from "@mui/icons-material/MenuOutlined";
 import Sidebar from "./Sidebar";
 import ErrorBoundary from "./ErrorBoundary";
+import AppFooter from "./AppFooter";
 
 export default function Layout() {
   const theme = useTheme();
@@ -38,11 +39,14 @@ export default function Layout() {
       />
 
       {/* The permanent drawer already takes its 240px in this row, so the content needs no margin. */}
-      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, md: 5 } }}>
+      <Box sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, md: 5 }, display: "flex", flexDirection: "column" }}>
         {!desktop && <Toolbar />}
-        <ErrorBoundary key={location.pathname}>
-          <Outlet />
-        </ErrorBoundary>
+        <Box component="main" sx={{ flexGrow: 1, minWidth: 0 }}>
+          <ErrorBoundary key={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
+        </Box>
+        <AppFooter />
       </Box>
     </Box>
   );
