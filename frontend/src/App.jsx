@@ -1,3 +1,4 @@
+import { lazy } from "react";
 import { Routes, Route } from "react-router-dom";
 import { Box, CircularProgress } from "@mui/material";
 import { useAuth } from "./auth/authContext";
@@ -5,31 +6,21 @@ import { PAGES } from "./auth/roles";
 import RequireRole from "./auth/RequireRole";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import FlaggedAgents from "./pages/FlaggedAgents";
-import AllAgents from "./pages/AllAgents";
-import AgentDetail from "./pages/AgentDetail";
-import Analytics from "./pages/Analytics";
-import ReviewHistory from "./pages/ReviewHistory";
-import ConfirmQueue from "./pages/ConfirmQueue";
-import ThreatIntelligence from "./pages/ThreatIntelligence";
-import AuditLog from "./pages/AuditLog";
-import Reports from "./pages/Reports";
-import Accounts from "./pages/Accounts";
 import { AccessDenied, NotFound } from "./pages/StatusPages";
 
+// Every page is its own chunk, loaded on first visit; Login and the layout shell stay in the main bundle.
 const PAGE_COMPONENTS = {
-  overview: Dashboard,
-  flagged: FlaggedAgents,
-  allAgents: AllAgents,
-  agentDetail: AgentDetail,
-  analytics: Analytics,
-  history: ReviewHistory,
-  confirm: ConfirmQueue,
-  threat: ThreatIntelligence,
-  audit: AuditLog,
-  reports: Reports,
-  accounts: Accounts,
+  overview: lazy(() => import("./pages/Dashboard")),
+  flagged: lazy(() => import("./pages/FlaggedAgents")),
+  allAgents: lazy(() => import("./pages/AllAgents")),
+  agentDetail: lazy(() => import("./pages/AgentDetail")),
+  analytics: lazy(() => import("./pages/Analytics")),
+  history: lazy(() => import("./pages/ReviewHistory")),
+  confirm: lazy(() => import("./pages/ConfirmQueue")),
+  threat: lazy(() => import("./pages/ThreatIntelligence")),
+  audit: lazy(() => import("./pages/AuditLog")),
+  reports: lazy(() => import("./pages/Reports")),
+  accounts: lazy(() => import("./pages/Accounts")),
 };
 
 export default function App() {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { AppBar, Box, IconButton, Toolbar, Typography, useMediaQuery } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
@@ -6,6 +6,7 @@ import MenuIcon from "@mui/icons-material/MenuOutlined";
 import Sidebar from "./Sidebar";
 import ErrorBoundary from "./ErrorBoundary";
 import AppFooter from "./AppFooter";
+import { PageSkeleton } from "./states";
 
 export default function Layout() {
   const theme = useTheme();
@@ -43,7 +44,9 @@ export default function Layout() {
         {!desktop && <Toolbar />}
         <Box component="main" sx={{ flexGrow: 1, minWidth: 0 }}>
           <ErrorBoundary key={location.pathname}>
-            <Outlet />
+            <Suspense fallback={<PageSkeleton cards={2} rows={6} />}>
+              <Outlet />
+            </Suspense>
           </ErrorBoundary>
         </Box>
         <AppFooter />
