@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import LocationProbe from "./LocationProbe";
 import ColorModeProvider from "../colorMode/ColorModeProvider";
 import AuthProvider from "../auth/AuthProvider";
 import App from "../App";
@@ -85,6 +86,11 @@ export function sessionRoutes(role) {
   return { "GET /api/me": role ? ACCOUNTS[role] : reply(401, { error: "Authentication required" }) };
 }
 
+/** The current router address, for checking that filters land in the query string. */
+export function currentLocation() {
+  return document.querySelector('[data-testid="location"]').textContent;
+}
+
 export function renderApp(path = "/") {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -93,6 +99,7 @@ export function renderApp(path = "/") {
           <App />
         </AuthProvider>
       </ColorModeProvider>
+      <LocationProbe />
     </MemoryRouter>,
   );
 }
