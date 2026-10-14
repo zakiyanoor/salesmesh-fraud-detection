@@ -69,7 +69,7 @@ Each entry has:
 |---|---|---|
 | `authentication` | `login`, `login_failure`, `logout` | `username`, `role`; for failures `reason` (`invalid credentials`, `account deactivated`, `unknown role`); failures have actor `anonymous` |
 | `authorization` | `access_denied` (every `401` and `403`) | `route`, `method`, `role`, `status`, `reason` |
-| `review` | `propose_decision`, `confirm_decision` | `decision_id`, `flag_id`, `decision_outcome` or `proposed_by` |
+| `review` | `propose_decision`, `confirm_decision` | `decision_id`, `flag_id`, `notes`, and `decision_outcome` (proposal) or `proposed_by` (confirmation) |
 | `admin` | `role_change`, `account_deactivated`, `account_reactivated` | `target_admin_id`, `target_username`, `old_role` / `new_role` or `role` |
 | `report` | `report_download` | `report`, `filename`, `filters`, `row_count`, `bytes`, `sha256` of the file sent, plus `run_id`, `cap`, `load_id` or `data_hash` |
 | `ai_decision` | `ai_detection_run` (one per run, also when it fails); `ai_flag` (per agent whose `flag_source` changed since the previous successful run, or newly flagged) | run: `run_id`, `status`, `trigger`, `model_version`, `threshold`, counts, `flag_changes`, `error`; flag: `change` (`newly flagged`, `cleared`, `flag source changed`), `previous_flag_source`, `flag_source`, `anomaly_score`, `threshold`, `top_features`, `reasons`, `model_version` |
@@ -270,20 +270,27 @@ Status of the most recent detection run, whatever its outcome (scheduler, manual
 
 ### POST /api/review-decisions
 
-**Analyst only.** Body: `{"flag_id": "FL93b6b96d", "decision_outcome": "confirmed_fraud"}`. Creates a decision in `pending_confirmation` and records a `propose_decision` audit entry.
+**Analyst only.** Body: `{"flag_id": "FL93b6b96d", "decision_outcome": "confirmed_fraud", "notes": "Shares customers with two agents in Kisumu."}`. Creates a decision in `pending_confirmation` and records a `propose_decision` audit entry whose details hold the notes.
+
+**`notes` (required, issue #13):**
+- a string, trimmed, 1 to 1000 characters after trimming;
+- plain text: newlines and tabs are allowed, other control characters are refused, and a Windows line break (CR LF) is stored as LF. It is stored as written, never as HTML;
+- seven or more digits in a row (single spaces allowed between them, and not straight after a letter or digit) are masked like phone numbers, keeping the last 3, so a phone or national ID typed into a note is never stored in full. Dates such as `2026-10-14` and ids such as `CUST12345678` are left alone.
 
 ```json
-{"message": "Review decision proposed; awaiting compliance confirmation", "decision_id": "RD1a2b3c4d", "status": "pending_confirmation"}
+{"message": "Review decision proposed; awaiting compliance confirmation", "decision_id": "RD1a2b3c4d", "status": "pending_confirmation",
+ "notes": "Shares customers with two agents in Kisumu."}
 ```
 
-Errors: `400` (missing fields), `403` (wrong role), `404` (unknown flag).
+Errors: `400` (missing `flag_id` or `decision_outcome`; `notes` missing or null: "notes is required: give a short plain-text reason for the decision"; "notes must not be empty"; "notes must be a string"; "notes must be at most 1000 characters (got N)"; "notes must be plain text ..."), `403` (wrong role), `404` (unknown flag).
 
 ### POST /api/review-decisions/<decision_id>/confirm
 
-**Compliance only.** Confirms a pending decision proposed by a different admin, and records a `confirm_decision` audit entry.
+**Compliance only.** No body. Confirms a pending decision proposed by a different admin, and records a `confirm_decision` audit entry whose details repeat the proposal's notes.
 
 ```json
-{"message": "Review decision confirmed", "decision_id": "RD1a2b3c4d", "status": "confirmed", "confirmed_by": "ADM_COMPLIANCE_01"}
+{"message": "Review decision confirmed", "decision_id": "RD1a2b3c4d", "status": "confirmed", "confirmed_by": "ADM_COMPLIANCE_01",
+ "notes": "Shares customers with two agents in Kisumu."}
 ```
 
 Errors: `403` (wrong role, or confirming your own proposal), `404` (unknown decision), `409` (already confirmed).
@@ -293,8 +300,10 @@ Errors: `403` (wrong role, or confirming your own proposal), `404` (unknown deci
 ```json
 {"count": 1, "decisions": [{"decision_id": "RD1a2b3c4d", "agent_id": "A35485", "reviewer_id": "ADM_ANALYST_01",
   "decision_outcome": "confirmed_fraud", "decision_timestamp": "2026-10-13T15:10:00", "status": "confirmed",
-  "confirmed_by": "ADM_COMPLIANCE_01"}]}
+  "confirmed_by": "ADM_COMPLIANCE_01", "notes": "Shares customers with two agents in Kisumu."}]}
 ```
+
+`notes` is `null` for decisions recorded before notes existed; `confirmed_by` is `null` until a decision is confirmed.
 
 ### GET /api/audit-log
 

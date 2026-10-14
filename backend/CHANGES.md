@@ -11,6 +11,21 @@ Branch `sprint-4/frontend-dashboard`. Reference in `docs/API.md`.
 - **Not audited:** no other read endpoint writes an audit entry, so a successful call writes none. A `401` is recorded as `access_denied` by the existing hook, the same as on every protected route.
 - Tests: `tests/test_me.py`. The masking sweep in `test_masking.py` picks the route up automatically.
 
+### Notes on review decisions (issue #13)
+
+- **Required on `POST /api/review-decisions`:** `notes`, a string, trimmed, 1 to 1000 characters after trimming. A missing, null, empty, non-string, too long or non-plain-text value returns `400` with a message naming the problem, and nothing is stored.
+- **Plain text:** newlines and tabs are allowed; other control characters are refused; CR LF is stored as LF. Notes are stored as written and never treated as HTML.
+- **Masking:** a run of seven or more digits (single spaces allowed, not straight after a letter or digit) is masked on the way in, keeping the last 3 digits, so a phone or national ID typed into a note is never stored or returned in full. Dates and ids such as `CUST12345678` are not touched.
+- **Stored** in the new nullable column `review_decisions.notes`; the migration adds it with `ADD COLUMN IF NOT EXISTS` (safe to run twice). Decisions made before this change keep `notes = null` and can still be listed and confirmed.
+- **Returned** in the propose response, the confirm response and every entry of `GET /api/review-decisions`.
+- **Audited:** `notes` is in the details of both the `propose_decision` and the `confirm_decision` entries, and so also in the audit-log CSV.
+- `POST /api/review-decisions` with no JSON body now returns `400` instead of `500`.
+- **Tests:**
+  - new `tests/test_review_notes.py`: missing, null, empty, whitespace only, non-string, too long, control character, trimming at the length limit, stored and returned, audit entries, old rows, migration twice, and phone and national ID numbers in notes masked, followed by the full masking sweep;
+  - `test_rbac_audit._propose` sends notes;
+  - the sweep in `test_masking.py` is now a reusable function.
+- **The frontend must send `notes`:** until it does, proposals from the current React page fail with `400`.
+
 ## Sprint 3, part 2: roles, audit, threat intelligence and reports (issue #18)
 
 Branch `sprint-3/backend-database`. The full endpoint reference, roles table and audit event types are in `docs/API.md`.
