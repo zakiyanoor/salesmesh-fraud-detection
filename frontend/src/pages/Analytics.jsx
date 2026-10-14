@@ -17,7 +17,7 @@ export default function Analytics({ username, onLogout }) {
 
   useEffect(() => {
     api.getAnalytics().then(setData).catch(onLogout).finally(() => setLoading(false));
-  }, []);
+  }, [onLogout]);
 
   if (loading) {
     return <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}><CircularProgress /></Box>;
@@ -70,7 +70,7 @@ export default function Analytics({ username, onLogout }) {
               ["Customer similarity", data.platform_averages.customer_similarity],
             ].map(([label, value]) => (
               <Box key={label}>
-                <Typography variant="h5" sx={{ fontFamily: '"IBM Plex Mono"' }}>{value}</Typography>
+                <Typography variant="h5" sx={{ fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}>{value}</Typography>
                 <Typography variant="caption" color="text.secondary">{label}</Typography>
               </Box>
             ))}

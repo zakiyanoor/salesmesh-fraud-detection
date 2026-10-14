@@ -1,16 +1,33 @@
-# React + Vite
+# SalesMesh fraud detection: web dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The browser client for the SalesMesh fraud detection API (`backend/`). Fraud analysts review flagged agents and propose decisions, compliance officers confirm them, and admins manage accounts and reports. The server enforces every permission; the client only hides what a role cannot use.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```
+npm install
+npm run dev        # http://localhost:5173, /api is proxied to the backend on 127.0.0.1:5000
+```
 
-## React Compiler
+Start the backend first (`python -m src.api` from `backend/`).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Scripts
 
-## Expanding the ESLint configuration
+| Script | What it does |
+|---|---|
+| `npm run dev` | Development server with the `/api` proxy |
+| `npm run build` | Production build into `dist/` |
+| `npm run preview` | Serves the build locally |
+| `npm run lint` | ESLint |
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Configuration
+
+`VITE_API_BASE` sets the API base URL (default `/api`, which the development proxy forwards). The backend only accepts browser requests from `http://localhost:5173`, with credentials.
+
+## Fonts and assets
+
+IBM Plex Sans, IBM Plex Mono and Space Grotesk are bundled from npm packages, so the app makes no requests to third-party servers.
+
+## Reference
+
+- `docs/API.md`: every endpoint, role and payload.
