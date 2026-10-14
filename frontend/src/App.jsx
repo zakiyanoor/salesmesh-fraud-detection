@@ -14,6 +14,7 @@ import ReviewHistory from "./pages/ReviewHistory";
 import ConfirmQueue from "./pages/ConfirmQueue";
 import ThreatIntelligence from "./pages/ThreatIntelligence";
 import AuditLog from "./pages/AuditLog";
+import Reports from "./pages/Reports";
 import { AccessDenied, ComingSoon, NotFound } from "./pages/StatusPages";
 
 const PAGE_COMPONENTS = {
@@ -26,6 +27,7 @@ const PAGE_COMPONENTS = {
   confirm: ConfirmQueue,
   threat: ThreatIntelligence,
   audit: AuditLog,
+  reports: Reports,
 };
 
 export default function App() {
