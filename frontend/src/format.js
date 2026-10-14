@@ -46,6 +46,18 @@ export const FEATURES = [
   },
 ];
 
+/** Labels for the model's own feature names (as in top_features and reasons). */
+export const MODEL_FEATURE_LABELS = {
+  submission_frequency: "Submission frequency",
+  time_of_day_entropy: "Time-of-day entropy",
+  customer_similarity: "Customer similarity",
+  collusion_score: "Collusion score",
+};
+
+export function formatPercent(share, digits = 1) {
+  return share == null ? "—" : `${(share * 100).toFixed(digits)}%`;
+}
+
 export function formatNumber(value, digits = 0) {
   return value == null || Number.isNaN(value) ? "—" : Number(value).toFixed(digits);
 }

@@ -12,6 +12,7 @@ import AgentDetail from "./pages/AgentDetail";
 import Analytics from "./pages/Analytics";
 import ReviewHistory from "./pages/ReviewHistory";
 import ConfirmQueue from "./pages/ConfirmQueue";
+import ThreatIntelligence from "./pages/ThreatIntelligence";
 import { AccessDenied, ComingSoon, NotFound } from "./pages/StatusPages";
 
 const PAGE_COMPONENTS = {
@@ -22,6 +23,7 @@ const PAGE_COMPONENTS = {
   analytics: Analytics,
   history: ReviewHistory,
   confirm: ConfirmQueue,
+  threat: ThreatIntelligence,
 };
 
 export default function App() {

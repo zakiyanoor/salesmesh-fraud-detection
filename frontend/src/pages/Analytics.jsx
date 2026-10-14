@@ -1,16 +1,14 @@
 import { Box, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import {
-  BarChart, Bar, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from "recharts";
+import { BarChart, Bar, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
+import { ActivationTimelineChart, CHART_HEIGHT, RegionRateChart } from "../components/charts";
 import { useApi } from "../hooks/useApi";
 import { FEATURES, formatNumber } from "../format";
 import { mono } from "../theme";
 import { api } from "../api";
 
-const CHART_HEIGHT = 220;
 const half = { flex: "1 1 300px" };
 
 function useChartStyle() {
@@ -52,17 +50,7 @@ export default function Analytics() {
         sx={{ mb: 3 }}
       >
         {(data) => (
-          <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-            <LineChart data={data.days}>
-              {grid}
-              <XAxis dataKey="date" {...axis} minTickGap={24} />
-              <YAxis {...axis} allowDecimals={false} />
-              {tooltip}
-              {legend}
-              <Line type="monotone" dataKey="flagged_agents" name="Flagged agents" stroke={theme.palette.error.main} strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="other_agents" name="Other agents" stroke={theme.palette.chart.neutral} strokeWidth={2} strokeDasharray="5 3" dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
+          <ActivationTimelineChart days={data.days} />
         )}
       </SectionCard>
 
@@ -97,15 +85,7 @@ export default function Analytics() {
           sx={half}
         >
           {(data) => (
-            <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-              <BarChart data={data.top_by_flagged_rate.map((r) => ({ ...r, percent: Math.round(r.flagged_rate * 1000) / 10 }))} layout="vertical" margin={{ left: 8 }}>
-                {grid}
-                <XAxis type="number" {...axis} unit="%" />
-                <YAxis type="category" dataKey="region" {...axis} width={110} />
-                {tooltip}
-                <Bar dataKey="percent" name="Flagged %" fill={theme.palette.error.main} radius={[0, 3, 3, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <RegionRateChart regions={data.top_by_flagged_rate} />
           )}
         </SectionCard>
       </Box>
