@@ -65,7 +65,7 @@ describe("role-based menus and guards", () => {
 
   it.each([
     ["fraud_analyst", "/accounts"],
-    ["fraud_analyst", "/confirm-queue"],
+    ["fraud_analyst", "/review/confirm"],
     ["fraud_analyst", "/audit-log"],
     ["compliance_officer", "/reports"],
     ["admin", "/flagged"],
@@ -78,7 +78,7 @@ describe("role-based menus and guards", () => {
   });
 
   it.each([
-    ["compliance_officer", "/confirm-queue", "Confirm queue"],
+    ["compliance_officer", "/review/confirm", "Confirm queue"],
     ["compliance_officer", "/audit-log", "Audit log"],
     ["fraud_analyst", "/flagged", "Flagged agents"],
     ["admin", "/reports", "Reports"],
