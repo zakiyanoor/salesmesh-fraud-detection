@@ -9,6 +9,7 @@ per the system architecture diagram (Figure 4.2).
 Endpoints:
   POST /api/login                 -> authenticate and start a session (FR-01)
   POST /api/logout                -> end the current session
+  GET  /api/me                    -> username and role of the current session (protected)
   GET  /api/flagged-agents        -> list of flagged agents (protected, FR-02)
   GET  /api/all-agents            -> every agent with current status (protected)
   GET  /api/agents/<agent_id>     -> feature evidence for one agent (protected, FR-03)
@@ -34,6 +35,7 @@ action are recorded in the admin_action_log table.
 """
 
 import os
+import re
 import uuid
 from datetime import datetime
 from flask import Flask, g, jsonify, request, session
@@ -43,7 +45,7 @@ from flask_limiter.util import get_remote_address
 from sqlalchemy import and_, func
 from src.db import (
     get_session, Agent, ActivationRecord, FeatureVector, FraudFlag, ReviewDecision,
-    AdminActionLog, DECISION_PENDING, DECISION_CONFIRMED, AgentCategory, AgentIdentity, AgentScore, Client,
+    AdminActionLog, DECISION_PENDING, DECISION_CONFIRMED, DECISION_OUTCOMES, AgentCategory, AgentIdentity, AgentScore, Client,
     DetectionRun, DuplicateEvidence, FLAG_SOURCES,
 )
 from src.auth import (
@@ -81,8 +83,13 @@ def log_admin_action(db_session, admin_id, action, target_agent_id=None, categor
 
 @app.after_request
 def audit_denied_requests(response):
-    """Every 401 and 403 becomes an access_denied entry (route, role, reason), unless the route recorded it."""
-    if response.status_code in (401, 403) and not g.get("audit_recorded"):
+    """
+    Every 401 and 403 becomes an access_denied entry (route, role, reason), unless the route recorded it.
+    Exception (#5): a 401 on GET /api/me with no session at all is only a "who is logged in?" check.
+    """
+    anonymous_me_check = (request.endpoint == "current_account" and response.status_code == 401
+                          and not g.get("denied_admin_id") and "admin_id" not in session)
+    if response.status_code in (401, 403) and not g.get("audit_recorded") and not anonymous_me_check:
         body = response.get_json(silent=True) or {}
         audit.record_now(
             g.get("denied_admin_id") or session.get("admin_id", audit.ANONYMOUS), "access_denied", "authorization",
@@ -145,6 +152,33 @@ def mask_tail(value, visible: int = MASK_VISIBLE):
         return None
     text_value = str(value)
     return "*" * max(len(text_value) - visible, 0) + text_value[-visible:]
+
+
+NOTES_MAX_LENGTH = 1000
+# Plain text: printable characters, newlines and tabs only.
+NOTES_CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
+# Seven or more digits (single spaces between them allowed) could be a phone or national ID number.
+# Not after a letter or digit, so ids such as CUST12345678 are left alone; dates (2026-10-14) do not match.
+NOTES_LONG_NUMBER = re.compile(r"(?<![0-9A-Za-z])\+?\d(?: ?\d){6,}")
+
+
+def clean_notes(value):
+    """
+    Issue #13: (notes, None) for a valid notes value, else (None, error message).
+    Trimmed, 1 to 1000 characters, plain text; long digit runs are masked like phone numbers.
+    """
+    if value is None:
+        return None, "notes is required: give a short plain-text reason for the decision"
+    if not isinstance(value, str):
+        return None, "notes must be a string"
+    notes = value.replace("\r\n", "\n").strip()
+    if not notes:
+        return None, "notes must not be empty"
+    if len(notes) > NOTES_MAX_LENGTH:
+        return None, f"notes must be at most {NOTES_MAX_LENGTH} characters (got {len(notes)})"
+    if NOTES_CONTROL_CHARACTERS.search(notes):
+        return None, "notes must be plain text (no control characters other than newlines and tabs)"
+    return NOTES_LONG_NUMBER.sub(lambda m: mask_tail(re.sub(r"\D", "", m.group())), notes), None
 
 
 def identity_payload(identity):
@@ -248,6 +282,13 @@ def logout():
             db_session.close()
     session.clear()
     return jsonify({"message": "Logged out successfully"})
+
+
+@app.route("/api/me", methods=["GET"])
+@login_required
+def current_account():
+    """Issue #5: who is logged in. Not audited, like the other reads; see audit_denied_requests for its 401."""
+    return jsonify({"username": session.get("username"), "role": session["role"]})
 
 
 @app.route("/api/flagged-agents", methods=["GET"])
@@ -429,12 +470,18 @@ def get_agent_detail(agent_id):
 def submit_review_decision():
     db_session = get_session()
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
 
         required_fields = ["flag_id", "decision_outcome"]
         missing = [f for f in required_fields if f not in data]
         if missing:
             return jsonify({"error": f"Missing fields: {missing}"}), 400
+        if data["decision_outcome"] not in DECISION_OUTCOMES:
+            return jsonify({"error": f"decision_outcome must be one of {list(DECISION_OUTCOMES)}, "
+                                     f"got {str(data['decision_outcome'])[:50]!r}"}), 400
+        notes, notes_error = clean_notes(data.get("notes"))
+        if notes_error:
+            return jsonify({"error": notes_error}), 400
 
         flag = db_session.query(FraudFlag).filter(FraudFlag.flag_id == data["flag_id"]).first()
         if not flag:
@@ -447,13 +494,14 @@ def submit_review_decision():
             decision_outcome=data["decision_outcome"],
             decision_timestamp=datetime.utcnow(),
             status=DECISION_PENDING,
+            notes=notes,
         )
         db_session.add(decision)
         log_admin_action(
             db_session, session["admin_id"], "propose_decision",
             target_agent_id=agent_id_for_flag(db_session, data["flag_id"]),
             details={"decision_id": decision.decision_id, "flag_id": data["flag_id"],
-                     "decision_outcome": data["decision_outcome"]},
+                     "decision_outcome": data["decision_outcome"], "notes": notes},
         )
         db_session.commit()
 
@@ -461,6 +509,7 @@ def submit_review_decision():
             "message": "Review decision proposed; awaiting compliance confirmation",
             "decision_id": decision.decision_id,
             "status": decision.status,
+            "notes": decision.notes,
         }), 201
     except Exception as e:
         db_session.rollback()
@@ -494,7 +543,7 @@ def confirm_review_decision(decision_id):
             db_session, session["admin_id"], "confirm_decision",
             target_agent_id=agent_id_for_flag(db_session, decision.flag_id),
             details={"decision_id": decision.decision_id, "flag_id": decision.flag_id,
-                     "proposed_by": decision.reviewer_id},
+                     "proposed_by": decision.reviewer_id, "notes": decision.notes},
         )
         db_session.commit()
 
@@ -503,6 +552,7 @@ def confirm_review_decision(decision_id):
             "decision_id": decision.decision_id,
             "status": decision.status,
             "confirmed_by": decision.confirmed_by,
+            "notes": decision.notes,
         })
     except Exception as e:
         db_session.rollback()
@@ -536,6 +586,7 @@ def list_review_decisions():
                 "decision_timestamp": d.decision_timestamp.isoformat(),
                 "status": d.status,
                 "confirmed_by": d.confirmed_by,
+                "notes": d.notes,
             })
         return jsonify({"count": len(results), "decisions": results})
     finally:

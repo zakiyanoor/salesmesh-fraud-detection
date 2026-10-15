@@ -68,9 +68,9 @@ Each entry has:
 | Category | Actions | Details |
 |---|---|---|
 | `authentication` | `login`, `login_failure`, `logout` | `username`, `role`; for failures `reason` (`invalid credentials`, `account deactivated`, `unknown role`); failures have actor `anonymous` |
-| `authorization` | `access_denied` (every `401` and `403`) | `route`, `method`, `role`, `status`, `reason` |
-| `review` | `propose_decision`, `confirm_decision` | `decision_id`, `flag_id`, `decision_outcome` or `proposed_by` |
-| `admin` | `role_change`, `account_deactivated`, `account_reactivated` | `target_admin_id`, `target_username`, `old_role` / `new_role` or `role` |
+| `authorization` | `access_denied` (every `401` and `403`, except a `401` on `GET /api/me` with no session) | `route`, `method`, `role`, `status`, `reason` |
+| `review` | `propose_decision`, `confirm_decision` | `decision_id`, `flag_id`, `notes`, and `decision_outcome` (proposal) or `proposed_by` (confirmation) |
+| `admin` | `role_change`, `account_deactivated`, `account_reactivated`, `password_reset` (local recovery, actor `local:<OS user>`) | `target_admin_id`, `target_username`, `old_role` / `new_role` or `role`; `channel` (`cli` or `local recovery`) |
 | `report` | `report_download` | `report`, `filename`, `filters`, `row_count`, `bytes`, `sha256` of the file sent, plus `run_id`, `cap`, `load_id` or `data_hash` |
 | `ai_decision` | `ai_detection_run` (one per run, also when it fails); `ai_flag` (per agent whose `flag_source` changed since the previous successful run, or newly flagged) | run: `run_id`, `status`, `trigger`, `model_version`, `threshold`, counts, `flag_changes`, `error`; flag: `change` (`newly flagged`, `cleared`, `flag source changed`), `previous_flag_source`, `flag_source`, `anomaly_score`, `threshold`, `top_features`, `reasons`, `model_version` |
 
@@ -80,6 +80,7 @@ Each entry has:
 |---|---|---|---|
 | POST | `/api/login` | none | Start a session |
 | POST | `/api/logout` | none | End the session |
+| GET | `/api/me` | all | Username and role of the current session |
 | GET | `/api/flagged-agents` | all | Agents the model flagged |
 | GET | `/api/all-agents` | all | Every agent with status, features and `risk_band` |
 | GET | `/api/agents/<agent_id>` | all | One agent: features, flag, score, rule evidence, identity (masked) |
@@ -123,6 +124,20 @@ Records a `logout` audit entry when a session exists.
 ```json
 {"message": "Logged out successfully"}
 ```
+
+### GET /api/me
+
+The username and role of the logged-in account, read fresh on every request, so a role change shows at once. Nothing else is returned (no account id, no password hash). Not audited, like the other reads.
+
+- **A `401` with no session at all** (nobody logged in, or after logout) writes **no** audit entry: the frontend calls this to ask whether anyone is logged in, which is not a security event.
+- **A `401` for a deactivated account** is recorded as `access_denied` with that account as the actor, as on every protected route.
+- Every other denied request, on every route, is recorded exactly as before.
+
+```json
+{"username": "analyst_01", "role": "fraud_analyst"}
+```
+
+Errors: `401` (`"Authentication required"` without a session, `"Account is deactivated"` for a deactivated account), `403` (an account without a valid role).
 
 ### GET /api/flagged-agents
 
@@ -259,20 +274,29 @@ Status of the most recent detection run, whatever its outcome (scheduler, manual
 
 ### POST /api/review-decisions
 
-**Analyst only.** Body: `{"flag_id": "FL93b6b96d", "decision_outcome": "confirmed_fraud"}`. Creates a decision in `pending_confirmation` and records a `propose_decision` audit entry.
+**Analyst only.** Body: `{"flag_id": "FL93b6b96d", "decision_outcome": "confirmed_fraud", "notes": "Shares customers with two agents in Kisumu."}`. Creates a decision in `pending_confirmation` and records a `propose_decision` audit entry whose details hold the notes.
+
+**`decision_outcome` (required):** exactly `"confirmed_fraud"` or `"legitimate"` (case-sensitive, no surrounding spaces). Anything else returns `400` with "decision_outcome must be one of ['confirmed_fraud', 'legitimate'], got ..." and writes nothing (no decision, no audit entry).
+
+**`notes` (required, issue #13):**
+- a string, trimmed, 1 to 1000 characters after trimming;
+- plain text: newlines and tabs are allowed, other control characters are refused, and a Windows line break (CR LF) is stored as LF. It is stored as written, never as HTML;
+- seven or more digits in a row (single spaces allowed between them, and not straight after a letter or digit) are masked like phone numbers, keeping the last 3, so a phone or national ID typed into a note is never stored in full. Dates such as `2026-10-14` and ids such as `CUST12345678` are left alone.
 
 ```json
-{"message": "Review decision proposed; awaiting compliance confirmation", "decision_id": "RD1a2b3c4d", "status": "pending_confirmation"}
+{"message": "Review decision proposed; awaiting compliance confirmation", "decision_id": "RD1a2b3c4d", "status": "pending_confirmation",
+ "notes": "Shares customers with two agents in Kisumu."}
 ```
 
-Errors: `400` (missing fields), `403` (wrong role), `404` (unknown flag).
+Errors: `400` (missing `flag_id` or `decision_outcome`; `decision_outcome` not one of the two values; `notes` missing or null: "notes is required: give a short plain-text reason for the decision"; "notes must not be empty"; "notes must be a string"; "notes must be at most 1000 characters (got N)"; "notes must be plain text ..."), `403` (wrong role), `404` (unknown flag).
 
 ### POST /api/review-decisions/<decision_id>/confirm
 
-**Compliance only.** Confirms a pending decision proposed by a different admin, and records a `confirm_decision` audit entry.
+**Compliance only.** No body. Confirms a pending decision proposed by a different admin, and records a `confirm_decision` audit entry whose details repeat the proposal's notes.
 
 ```json
-{"message": "Review decision confirmed", "decision_id": "RD1a2b3c4d", "status": "confirmed", "confirmed_by": "ADM_COMPLIANCE_01"}
+{"message": "Review decision confirmed", "decision_id": "RD1a2b3c4d", "status": "confirmed", "confirmed_by": "ADM_COMPLIANCE_01",
+ "notes": "Shares customers with two agents in Kisumu."}
 ```
 
 Errors: `403` (wrong role, or confirming your own proposal), `404` (unknown decision), `409` (already confirmed).
@@ -282,8 +306,10 @@ Errors: `403` (wrong role, or confirming your own proposal), `404` (unknown deci
 ```json
 {"count": 1, "decisions": [{"decision_id": "RD1a2b3c4d", "agent_id": "A35485", "reviewer_id": "ADM_ANALYST_01",
   "decision_outcome": "confirmed_fraud", "decision_timestamp": "2026-10-13T15:10:00", "status": "confirmed",
-  "confirmed_by": "ADM_COMPLIANCE_01"}]}
+  "confirmed_by": "ADM_COMPLIANCE_01", "notes": "Shares customers with two agents in Kisumu."}]}
 ```
+
+`notes` is `null` for decisions recorded before notes existed; `confirmed_by` is `null` until a decision is confirmed.
 
 ### GET /api/audit-log
 
@@ -456,4 +482,41 @@ All commands run from `backend/`.
 | `python -m src.scheduler` | Runs detection now and then every `DETECTION_INTERVAL_MINUTES` (default 1440); set `DETECTION_RUN_ON_START=false` to wait one interval first |
 | `python -m src.auth` | Creates the demo accounts analyst_01, compliance_01 and admin_01 (demo and test only) |
 | `python -m src.manage_accounts deactivate <admin_id> --as <admin>` | Account changes from the command line (`deactivate`, `reactivate`, `role <admin_id> <role>`), as an active admin who gives a password; same rules and audit as the API |
+| `python -m src.manage_accounts reset-password <admin_id or username> --new-password-env <VARIABLE>` | Local recovery for a forgotten password; needs direct database access, not an admin password (see below) |
 | `pytest` | Runs the tests on `salesmesh_fraud_detection_test`, never on the development database |
+
+### Account recovery (forgotten password)
+
+`reset-password` is a **local recovery** command.
+
+**Why it needs no admin password:** it runs on the server with the database credentials from `.env`, and anyone who can run it can already change the database directly. There is no API endpoint for it; the web app and the API cannot reset passwords.
+
+**Steps** (PowerShell, from `backend/`):
+
+1. Put the new password in an environment variable without echoing it:
+
+   ```powershell
+   $env:NEW_ACCOUNT_PASSWORD = [System.Net.NetworkCredential]::new("", (Read-Host "New password" -AsSecureString)).Password
+   ```
+
+2. Reset the account, by `admin_id` or username:
+
+   ```powershell
+   python -m src.manage_accounts reset-password analyst_01 --new-password-env NEW_ACCOUNT_PASSWORD
+   ```
+
+3. Remove the variable:
+
+   ```powershell
+   Remove-Item Env:NEW_ACCOUNT_PASSWORD
+   ```
+
+**Rules:**
+- **Source of the password:** only the environment variable named by `--new-password-env`. There is no argument for the password itself, so it never lands in shell history or the process list. It is never printed.
+- **Strength and storage:** the same rule as account creation (at least 12 characters, otherwise `Refused: Password must be at least 12 characters long`) and the same hashing (werkzeug `generate_password_hash`).
+- **Audit:** an `admin` entry with action `password_reset`. The actor is `local:<operating-system user>`, and the details are `target_admin_id`, `target_username` and `"channel": "local recovery"`. Never the password or its hash.
+- **Account state:** active or deactivated is unchanged. A deactivated account stays deactivated; reactivate it separately.
+- **Lockouts:**
+  - Accounts have no lockout or failed-attempt fields, so there is nothing to clear.
+  - The only throttle is the API's login rate limit: 5 attempts per minute per IP, held in the API process's memory. It clears itself after a minute, or when the API restarts.
+- **Errors:** an unknown account gives `Refused: Account not found`; an unset or empty variable is refused before anything changes.

@@ -51,6 +51,11 @@ def test_mask_keeps_only_the_last_three_digits() -> None:
 
 
 def test_no_endpoint_returns_an_unmasked_phone_or_id(client, identities, known_agent_id) -> None:
+    sweep_every_get_route(client, identities, known_agent_id)
+
+
+def sweep_every_get_route(client, identities, known_agent_id) -> None:
+    """Every GET route, as every role, must hold no full phone or national ID number."""
     agent_ids = [known_agent_id] + [a for a, _, _ in identities[:40]]
     for account in ALL_ACCOUNTS:
         response = client.post("/api/login", json={"username": account["username"], "password": account["password"]})

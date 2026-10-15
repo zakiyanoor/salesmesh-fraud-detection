@@ -1,5 +1,56 @@
 # Backend changes
 
+## Sprint 4: backend additions for the frontend
+
+Branch `sprint-4/frontend-dashboard`. Reference in `docs/API.md`.
+
+### Local password recovery (issue #19)
+
+- New: `python -m src.manage_accounts reset-password <admin_id or username> --new-password-env <VARIABLE>`. It is for a forgotten password and needs direct database access, not an admin password.
+- **Password handling:**
+  - The new password is read only from the named environment variable and is never printed.
+  - It must meet the account-creation rule, now shared as `auth.validate_password`.
+  - It is hashed with the same `generate_password_hash`.
+- **Audit:** an `admin` entry with action `password_reset`, actor `local:<OS user>` and `"channel": "local recovery"`, without the password or hash.
+- **Account state:** unchanged; a deactivated account stays deactivated. There are no lockout or failed-attempt fields to clear.
+- **The command now uses subcommands;** existing `deactivate`, `reactivate` and `role` invocations work unchanged.
+- **Tests** (`tests/test_manage_accounts.py`):
+  - success by id and by username;
+  - unknown account, weak passwords, an unset variable, no password argument;
+  - the audit entry, a deactivated account, the help text;
+  - no password or hash in the output or the audit entry.
+- Steps: `docs/API.md`, "Account recovery".
+
+### GET /api/me (issue #5)
+
+- Returns `{"username", "role"}` for the current session and nothing else; `401` without a session or for a deactivated account.
+- The role is re-read from the database on every request, so a role change shows at once.
+- **Not audited:** no other read endpoint writes an audit entry, so a successful call writes none.
+- **401s:**
+  - A `401` with **no session at all** writes no entry: an anonymous "is anyone logged in?" check is not a security event, and the frontend makes it on every load while logged out. The exception is in `audit_denied_requests` and applies to this route only.
+  - A `401` for a **deactivated account** is still recorded as `access_denied` with that account as the actor.
+  - Every other denied request on every route is recorded as before.
+- Tests: `tests/test_me.py`, covering the unaudited anonymous check (while `/api/flagged-agents` is still audited) and the audited deactivated case. The masking sweep in `test_masking.py` picks the route up automatically.
+
+### Notes on review decisions (issue #13)
+
+- **Required on `POST /api/review-decisions`:** `notes`, a string, trimmed, 1 to 1000 characters after trimming. A missing, null, empty, non-string, too long or non-plain-text value returns `400` with a message naming the problem, and nothing is stored.
+- **Plain text:** newlines and tabs are allowed; other control characters are refused; CR LF is stored as LF. Notes are stored as written and never treated as HTML.
+- **Masking:** a run of seven or more digits (single spaces allowed, not straight after a letter or digit) is masked on the way in, keeping the last 3 digits, so a phone or national ID typed into a note is never stored or returned in full. Dates and ids such as `CUST12345678` are not touched.
+- **Stored** in the new nullable column `review_decisions.notes`; the migration adds it with `ADD COLUMN IF NOT EXISTS` (safe to run twice). Decisions made before this change keep `notes = null` and can still be listed and confirmed.
+- **Returned** in the propose response, the confirm response and every entry of `GET /api/review-decisions`.
+- **Audited:** `notes` is in the details of both the `propose_decision` and the `confirm_decision` entries, and so also in the audit-log CSV.
+- `POST /api/review-decisions` with no JSON body now returns `400` instead of `500`.
+- **`decision_outcome` is validated:**
+  - Only `"confirmed_fraud"` or `"legitimate"` are accepted (exact match, `DECISION_OUTCOMES` in `src/db.py`). Anything else, including a wrong case, padding, an empty string, null or a non-string, returns `400` naming both allowed values, and writes no decision and no audit entry.
+  - The check is in the API only; existing rows are not checked or changed.
+  - Tests: seven invalid values and both valid ones in `tests/test_review_notes.py`.
+- **Tests:**
+  - new `tests/test_review_notes.py`: missing, null, empty, whitespace only, non-string, too long, control character, trimming at the length limit, stored and returned, audit entries, old rows, migration twice, and phone and national ID numbers in notes masked, followed by the full masking sweep;
+  - `test_rbac_audit._propose` sends notes;
+  - the sweep in `test_masking.py` is now a reusable function.
+- **The frontend must send `notes`:** until it does, proposals from the current React page fail with `400`.
+
 ## Sprint 3, part 2: roles, audit, threat intelligence and reports (issue #18)
 
 Branch `sprint-3/backend-database`. The full endpoint reference, roles table and audit event types are in `docs/API.md`.

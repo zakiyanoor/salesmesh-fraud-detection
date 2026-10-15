@@ -38,7 +38,8 @@ def _audit_entries(client, admin_id):
 
 def _propose(client, flag_id):
     response = client.post(
-        "/api/review-decisions", json={"flag_id": flag_id, "decision_outcome": "confirmed_fraud"}
+        "/api/review-decisions",
+        json={"flag_id": flag_id, "decision_outcome": "confirmed_fraud", "notes": "Shared customers with two agents."},
     )
     assert response.status_code == 201, response.get_json()
     return response.get_json()

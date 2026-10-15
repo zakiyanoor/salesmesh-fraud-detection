@@ -68,3 +68,102 @@ def test_role_change(target, monkeypatch) -> None:
     monkeypatch.setenv("CLI_TEST_PASSWORD", ADMIN["password"])
     manage_accounts.main(["role", target, "compliance_officer", "--as", ADMIN["username"], "--password-env", "CLI_TEST_PASSWORD"])
     assert account(target).role == "compliance_officer"
+
+
+# --- Local recovery: reset-password (issue #19) ---
+
+NEW_PASSWORD = "FreshHarbourLantern93"
+
+
+def reset_entries(admin_id):
+    db_session = get_session()
+    try:
+        return [e for e in db_session.query(AdminActionLog).filter(AdminActionLog.action == "password_reset")
+                if json.loads(e.details or "{}").get("target_admin_id") == admin_id]
+    finally:
+        db_session.close()
+
+
+def stored_hash(admin_id):
+    return account(admin_id).password_hash
+
+
+@pytest.mark.parametrize("by", ["admin_id", "username"])
+def test_reset_password_sets_a_new_hashed_password(target, monkeypatch, capsys, by) -> None:
+    from src.auth import verify_login
+
+    monkeypatch.setenv("RECOVERY_TEST_PASSWORD", NEW_PASSWORD)
+    old_hash = stored_hash(target)
+    manage_accounts.main(["reset-password", target if by == "admin_id" else target.lower(),
+                          "--new-password-env", "RECOVERY_TEST_PASSWORD"])
+    output = capsys.readouterr()
+    assert f"Password reset for {target.lower()} ({target}, fraud_analyst)" in output.out
+    assert verify_login(target.lower(), NEW_PASSWORD)["admin_id"] == target
+    assert verify_login(target.lower(), PASSWORD) is None
+    new_hash = stored_hash(target)
+    assert new_hash != old_hash and new_hash != NEW_PASSWORD
+    # Same hashing as account creation (werkzeug's default method).
+    assert new_hash.split("$")[0] == old_hash.split("$")[0]
+    for text in (output.out, output.err):
+        assert NEW_PASSWORD not in text and new_hash not in text and "$" not in text
+
+
+def test_reset_password_writes_an_audit_entry_without_the_password(target, monkeypatch) -> None:
+    monkeypatch.setenv("RECOVERY_TEST_PASSWORD", NEW_PASSWORD)
+    manage_accounts.main(["reset-password", target, "--new-password-env", "RECOVERY_TEST_PASSWORD"])
+    entries = reset_entries(target)
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry.category == "admin" and entry.admin_id.startswith("local:")
+    assert json.loads(entry.details) == {"target_admin_id": target, "target_username": target.lower(), "channel": "local recovery"}
+    row = " ".join(str(getattr(entry, c)) for c in ("admin_id", "action", "details", "target_agent_id", "category"))
+    assert NEW_PASSWORD not in row and stored_hash(target) not in row and "password_hash" not in row
+
+
+def test_reset_password_refuses_an_unknown_account(database, monkeypatch) -> None:
+    monkeypatch.setenv("RECOVERY_TEST_PASSWORD", NEW_PASSWORD)
+    with pytest.raises(SystemExit, match="Account not found"):
+        manage_accounts.main(["reset-password", "NO_SUCH_ACCOUNT", "--new-password-env", "RECOVERY_TEST_PASSWORD"])
+    assert reset_entries("NO_SUCH_ACCOUNT") == []
+
+
+@pytest.mark.parametrize("weak", ["short", "elevenchars"])
+def test_reset_password_refuses_a_weak_password(target, monkeypatch, capsys, weak) -> None:
+    from src.auth import verify_login
+
+    monkeypatch.setenv("RECOVERY_TEST_PASSWORD", weak)
+    old_hash = stored_hash(target)
+    with pytest.raises(SystemExit, match="at least 12 characters") as refused:
+        manage_accounts.main(["reset-password", target, "--new-password-env", "RECOVERY_TEST_PASSWORD"])
+    assert weak not in str(refused.value) and weak not in capsys.readouterr().out
+    assert stored_hash(target) == old_hash and verify_login(target.lower(), PASSWORD) is not None
+    assert reset_entries(target) == []
+
+
+def test_reset_password_needs_the_variable_set(target, monkeypatch) -> None:
+    monkeypatch.delenv("RECOVERY_TEST_UNSET", raising=False)
+    with pytest.raises(SystemExit, match="RECOVERY_TEST_UNSET is not set or is empty"):
+        manage_accounts.main(["reset-password", target, "--new-password-env", "RECOVERY_TEST_UNSET"])
+
+
+def test_reset_password_takes_no_password_argument(target, capsys) -> None:
+    with pytest.raises(SystemExit):
+        manage_accounts.main(["reset-password", target, "--new-password", NEW_PASSWORD])
+    assert NEW_PASSWORD not in capsys.readouterr().out
+
+
+def test_reset_password_keeps_a_deactivated_account_deactivated(target, monkeypatch, capsys) -> None:
+    monkeypatch.setenv("CLI_TEST_PASSWORD", ADMIN["password"])
+    manage_accounts.main(["deactivate", target, "--as", ADMIN["username"], "--password-env", "CLI_TEST_PASSWORD"])
+    monkeypatch.setenv("RECOVERY_TEST_PASSWORD", NEW_PASSWORD)
+    manage_accounts.main(["reset-password", target, "--new-password-env", "RECOVERY_TEST_PASSWORD"])
+    assert account(target).is_active is False
+    assert "deactivated" in capsys.readouterr().out.splitlines()[-1]
+
+
+def test_help_says_no_admin_password_is_needed(capsys) -> None:
+    with pytest.raises(SystemExit):
+        manage_accounts.main(["reset-password", "--help"])
+    text = " ".join(capsys.readouterr().out.split())
+    assert "direct database access" in text and "does not need an admin password" in text
+    assert "never from the command line" in text

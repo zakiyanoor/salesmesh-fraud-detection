@@ -56,9 +56,14 @@ def create_admin_table():
     print("Administrators table created successfully.")
 
 
-def create_admin_user(admin_id, username, password, role):
-    if len(password) < MIN_PASSWORD_LENGTH:
+def validate_password(password):
+    """The password rule for new accounts and password resets; raises ValueError."""
+    if not isinstance(password, str) or len(password) < MIN_PASSWORD_LENGTH:
         raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters long")
+
+
+def create_admin_user(admin_id, username, password, role):
+    validate_password(password)
 
     db_session = get_session()
     try:

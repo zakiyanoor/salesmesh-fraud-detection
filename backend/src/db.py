@@ -39,6 +39,7 @@ Base = declarative_base()
 DECISION_PENDING = "pending_confirmation"
 DECISION_CONFIRMED = "confirmed"
 DECISION_STATUSES = (DECISION_PENDING, DECISION_CONFIRMED)
+DECISION_OUTCOMES = ("confirmed_fraud", "legitimate")
 
 
 # --- Entity: Agents ---
@@ -124,6 +125,8 @@ class ReviewDecision(Base):
     # effect once a different admin with the compliance_officer role confirms it.
     status = Column(String, nullable=False, default=DECISION_PENDING)
     confirmed_by = Column(String)
+    # Issue #13: the proposer's plain-text reason. Null for decisions made before notes existed.
+    notes = Column(Text)
 
     fraud_flag = relationship("FraudFlag", back_populates="review_decision")
 
@@ -298,6 +301,7 @@ def migrate_schema():
         conn.execute(text(
             "ALTER TABLE review_decisions ADD COLUMN IF NOT EXISTS confirmed_by VARCHAR"
         ))
+        conn.execute(text("ALTER TABLE review_decisions ADD COLUMN IF NOT EXISTS notes TEXT"))
         # admin_action_log is a new table, so create_all() creates it; nothing
         # to ALTER here.
         # v3 (issue #4): context columns from ml/data/synthetic.
