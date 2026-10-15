@@ -11,4 +11,10 @@ export default defineConfig({
       },
     },
   },
+  test: {
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.js',
+    // Interaction-heavy page tests type and click through whole flows.
+    testTimeout: 15000,
+  },
 })
