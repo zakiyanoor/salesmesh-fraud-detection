@@ -24,6 +24,7 @@ describe("Overview", () => {
     const attention = section("Needs attention");
     expect(within(attention).getByRole("link", { name: "A35485" })).toHaveAttribute("href", "/agents/A35485");
     expect(within(attention).getByRole("link", { name: "A10001" })).toBeInTheDocument();
+    expect(within(attention).getByRole("group", { name: "Score 5.564, percentile 98.9" })).toHaveTextContent("5.564 Top 2%");
     // Only high-risk agents are listed.
     expect(within(attention).queryByText("A20002")).not.toBeInTheDocument();
   });

@@ -11,7 +11,7 @@ const DETAIL = {
   features: { submission_frequency: 21, time_of_day_dist: 0.788, customer_similarity: 0.103, collusion_score: 0.464 },
   flag: { flag_id: "FL93b6b96d", flag_status: "flagged", model_version: "lof_v3_4f", suspicion_score: 5.564 },
   score: {
-    anomaly_score: 5.563827, threshold: 1.444799, flagged: true, rule_flagged: true, duplicate_pairs: 19,
+    anomaly_score: 5.563827, score_percentile: 98.9, threshold: 1.444799, flagged: true, rule_flagged: true, duplicate_pairs: 19,
     flag_source: "Both", risk_band: "high", reasons: "46% of customers also used by other agents vs typical 0%",
   },
   duplicate_evidence: [
@@ -50,6 +50,9 @@ describe("Agent detail", () => {
     expect(screen.getByText("High risk")).toBeInTheDocument();
     expect(screen.getByText("Model and rule")).toBeInTheDocument();
     expect(screen.getByText(/At or above the model cutoff of 1\.445/)).toBeInTheDocument();
+    expect(screen.getByText(
+      "Higher than 98.9% of agents scored in the latest run. This is a rank, not a probability.",
+    )).toBeInTheDocument();
 
     const features = screen.getByRole("region", { name: "Features" });
     for (const label of ["Submission frequency", "Time-of-day entropy", "Customer similarity", "Collusion score"]) {

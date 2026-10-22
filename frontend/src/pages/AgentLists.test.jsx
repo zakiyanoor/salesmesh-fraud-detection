@@ -3,16 +3,16 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { currentLocation, mockApi, renderApp, sessionRoutes } from "../test/server";
 
-const agent = (id, source, band, score, region = "Nairobi") => ({
+const agent = (id, source, band, score, percentile, region = "Nairobi") => ({
   agent_id: id, region, status: ["ML", "Both"].includes(source) ? "flagged" : "clear", flag_source: source,
-  risk_band: band, suspicion_score: score,
+  risk_band: band, suspicion_score: score, score_percentile: percentile,
 });
 
 const AGENTS = [
-  agent("A10001", "ML", "high", 3.2),
-  agent("A20002", "Rule", "review", 1.2, "Kisumu"),
-  agent("A30003", "Both", "high", 5.5),
-  agent("A40004", "None", "low", 1.01),
+  agent("A10001", "ML", "high", 3.2, 97.4),
+  agent("A20002", "Rule", "review", 1.2, null, "Kisumu"),
+  agent("A30003", "Both", "high", 5.5, 99.9),
+  agent("A40004", "None", "low", 1.01, 51.5),
 ];
 const DECISIONS = [
   { decision_id: "RD1", agent_id: "A10001", reviewer_id: "ADM_ANALYST_01", decision_outcome: "confirmed_fraud", decision_timestamp: "2026-10-13T15:10:00", status: "pending_confirmation", confirmed_by: null, notes: "x" },
@@ -44,6 +44,24 @@ describe("Flagged agents", () => {
     expect(document.title).toBe("Flagged agents · SalesMesh Fraud Detection");
   });
 
+  it("shows the rank beside the raw score, with the exact percentile in the label and tooltip", async () => {
+    mockApi(routes());
+    renderApp("/flagged");
+    const rows = await table("Flagged agents");
+    const top = within(rows).getByRole("group", { name: "Score 5.500, percentile 99.9" });
+    expect(within(top).getByText("5.500")).toBeInTheDocument();
+    expect(within(top).getByText("Top 1%")).toBeInTheDocument();
+    expect(within(rows).getByRole("group", { name: "Score 3.200, percentile 97.4" })).toHaveTextContent("3.200 Top 3%");
+    // No percentile from the API: the raw score alone, no rank.
+    expect(within(rows).getByText("1.200")).toBeInTheDocument();
+    expect(within(rows).queryByRole("group", { name: /^Score 1\.200/ })).not.toBeInTheDocument();
+
+    await userEvent.hover(within(top).getByText("Top 1%"));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "Percentile 99.9: higher than 99.9% of agents scored in the latest run. A rank, not a probability.",
+    );
+  });
+
   it("reads its filters from the URL", async () => {
     mockApi(routes());
     renderApp("/flagged?risk=review");
@@ -66,7 +84,7 @@ describe("Flagged agents", () => {
     expect(currentLocation()).toBe("/flagged?review=pending_confirmation");
 
     await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-    await userEvent.click(within(rows).getByRole("button", { name: "Score" }));
+    await userEvent.click(within(rows).getByRole("button", { name: "Score (rank)" }));
     expect(agentLinks(rows)).toEqual(["A20002", "A10001", "A30003"]);
     expect(currentLocation()).toBe("/flagged?dir=asc");
   });

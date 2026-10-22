@@ -19,7 +19,7 @@ const SHARING = {
   clusters: [{ size: 3, agent_ids: ["A57819", "A80697", "A95717"], client_ids: ["CL01", "CL02"], customer_count: 33, flagged_agents: 3 }],
 };
 const TOP = {
-  scores: [{ agent_id: "A35485", anomaly_score: 5.563827, flag_source: "Both", risk_band: "high", top_features: ["collusion_score", "submission_frequency"] }],
+  scores: [{ agent_id: "A35485", anomaly_score: 5.563827, score_percentile: 98.9, flag_source: "Both", risk_band: "high", top_features: ["collusion_score", "submission_frequency"] }],
 };
 
 function routes(role, extra = {}) {
@@ -50,6 +50,7 @@ describe("Threat intelligence", () => {
     const top = await card("Top risk agents");
     expect(within(top).getByRole("link", { name: "A35485" })).toHaveAttribute("href", "/agents/A35485");
     expect(within(top).getByText("Collusion score, Submission frequency")).toBeInTheDocument();
+    expect(within(top).getByRole("group", { name: "Score 5.564, percentile 98.9" })).toHaveTextContent("5.564 Top 2%");
     const groups = await card("Connected agents");
     expect(within(groups).getByRole("link", { name: "A80697" })).toBeInTheDocument();
     expect(within(groups).getByText(/279 customers/)).toBeInTheDocument();

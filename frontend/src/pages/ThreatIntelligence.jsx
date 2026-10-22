@@ -8,13 +8,14 @@ import AgentId from "../components/AgentId";
 import KpiCard from "../components/KpiCard";
 import PageHeader from "../components/PageHeader";
 import RiskBadge from "../components/RiskBadge";
+import ScoreWithRank from "../components/ScoreWithRank";
 import SectionCard from "../components/SectionCard";
 import { flagSourceTable, regionRateTable, timelineTable, topFeatureTable } from "../chartTables";
 import { DonutChart } from "../components/DonutCard";
 import { ActivationTimelineChart, RegionRateChart, SimpleBarChart } from "../components/charts";
 import { FlagSourceChip } from "../components/chips";
 import { useApi } from "../hooks/useApi";
-import { FLAG_SOURCE_LABELS, MODEL_FEATURE_LABELS, formatNumber, formatPercent } from "../format";
+import { FLAG_SOURCE_LABELS, MODEL_FEATURE_LABELS, formatPercent } from "../format";
 import { mono } from "../theme";
 import { api } from "../api";
 
@@ -30,7 +31,7 @@ function TopAgents({ scores }) {
         <TableHead>
           <TableRow>
             <TableCell>Agent ID</TableCell>
-            <TableCell>Score</TableCell>
+            <TableCell>Score (rank)</TableCell>
             <TableCell>Risk</TableCell>
             <TableCell>Flagged by</TableCell>
             <TableCell>Top features</TableCell>
@@ -40,7 +41,7 @@ function TopAgents({ scores }) {
           {scores.map((a) => (
             <TableRow key={a.agent_id} hover>
               <TableCell><AgentId id={a.agent_id} /></TableCell>
-              <TableCell sx={mono}>{formatNumber(a.anomaly_score, 3)}</TableCell>
+              <TableCell><ScoreWithRank score={a.anomaly_score} percentile={a.score_percentile} /></TableCell>
               <TableCell><RiskBadge band={a.risk_band} /></TableCell>
               <TableCell><FlagSourceChip source={a.flag_source} /></TableCell>
               <TableCell>{(a.top_features || []).map((f) => MODEL_FEATURE_LABELS[f] || f).join(", ") || "—"}</TableCell>

@@ -19,7 +19,7 @@ import { api } from "../api";
 
 const CONFIRM_PATH = PAGES.find((p) => p.key === "confirm").path;
 
-function ScoreCard({ score }) {
+function ScoreCard({ score, percentile }) {
   const above = score != null && score >= CUTOFF;
   // The bar runs from 0 to twice the cutoff, so the cutoff sits in the middle.
   const position = score == null ? 0 : Math.min(score / (2 * CUTOFF), 1) * 100;
@@ -32,6 +32,11 @@ function ScoreCard({ score }) {
           ? "Not scored in the latest run."
           : `${above ? "At or above" : "Below"} the model cutoff of ${CUTOFF.toFixed(3)}${above ? ", so the model flags this agent." : "."}`}
       </Typography>
+      {score != null && percentile != null && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          {`Higher than ${Number(percentile).toFixed(1)}% of agents scored in the latest run. This is a rank, not a probability.`}
+        </Typography>
+      )}
       <Box sx={{ position: "relative", height: 8, bgcolor: "divider", borderRadius: 4 }} aria-hidden="true">
         <Box sx={{ height: "100%", width: `${position}%`, bgcolor: above ? "risk.high" : "primary.main", borderRadius: 4 }} />
         <Box sx={{ position: "absolute", left: "50%", top: -4, bottom: -4, width: 2, bgcolor: "text.primary" }} />
@@ -187,7 +192,7 @@ export default function AgentDetail() {
 
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3, mb: 3, alignItems: "start" }}>
         <Box sx={{ display: "grid", gap: 3, minWidth: 0 }}>
-          <ScoreCard score={score} />
+          <ScoreCard score={score} percentile={detail.score?.score_percentile} />
           <Paper component="section" aria-label="Features" sx={{ p: 3 }}>
             <Typography variant="overline" color="text.secondary" component="h2">Features the model uses</Typography>
             <FeatureList features={detail.features} averages={analytics.platform_averages} />
