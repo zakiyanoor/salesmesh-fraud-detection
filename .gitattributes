@@ -26,3 +26,8 @@ ml/runs/20261013-093050_selection_s42/operating_point.json text eol=crlf
 # Binary: never converted.
 *.joblib binary
 *.png binary
+
+# Stress test (issue #26): run_info.json of runs/20261022-185935_stress_test_s201
+# records the sha256 of these files with LF line endings.
+ml/stress_test_rule.md text eol=lf
+ml/stress_test.py text eol=lf
