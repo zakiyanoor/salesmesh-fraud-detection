@@ -13,6 +13,10 @@ Flask REST API in `backend/src/api.py`, served by `python -m src.api` from `back
   - A typical agent scores about 1, and scores have no upper bound.
   - An agent is flagged when its score is at or above the cutoff (`threshold`, 1.444799), which was chosen on validation.
   - Scores are **not** probabilities.
+  - `score_percentile` (issue #26) is reported beside the score on every agent payload. It is the share of agents in the same detection run with a strictly lower score, from 0 to 100, rounded to 1 decimal place; tied scores share a percentile.
+    - With 1000 agents, the top agent is at 99.9.
+    - It is a rank within the latest run, not a probability, and it can change when the scored population changes.
+    - It is `null` for an agent the latest run did not score.
 - **Flags:** the model flag is the primary flag (`fraud_flags`, `flag_status`). The duplicate activation rule is reported beside it.
   - `flag_source` is `ML` (model only), `Rule` (rule only), `Both` or `None`.
   - The rule flags an agent when one of its (customer, client) pairs is also used by another agent, or is repeated after a completed activation.
@@ -149,7 +153,7 @@ The agents the **model** flagged in each agent's latest analysis period, highest
   "flagged_agents": [
     {"agent_id": "A63269", "analysis_period": "2026-08", "flag_id": "FL50ed0b2a", "flag_source": "ML", "risk_band": "high",
      "flag_status": "flagged", "model_version": "lof_v3_4f", "region": "Nairobi",
-     "suspicion_score": 9.804, "threshold": 1.444799}
+     "suspicion_score": 9.804, "score_percentile": 99.9, "threshold": 1.444799}
   ]
 }
 ```
@@ -163,7 +167,7 @@ Every agent once, with its latest features and status. `time_of_day_dist` holds 
   "count": 1000,
   "agents": [
     {"agent_id": "A10053", "account_status": "active", "region": "Kericho", "status": "clear", "flag_source": "None", "risk_band": "low",
-     "suspicion_score": 1.077, "submission_frequency": 12, "time_of_day_dist": 0.821,
+     "suspicion_score": 1.077, "score_percentile": 51.5, "submission_frequency": 12, "time_of_day_dist": 0.821,
      "customer_similarity": 0.102, "collusion_score": 0.0}
   ]
 }
@@ -195,7 +199,7 @@ Path parameter: `agent_id` (for example `A35485`). `404` if the agent does not e
   "flag": {"flag_id": "FL93b6b96d", "flag_status": "flagged", "model_version": "lof_v3_4f", "suspicion_score": 5.564},
   "score": {
     "run_id": "RUN202610131505039d5d93", "model_version": "lof_v3_4f",
-    "anomaly_score": 5.563827, "threshold": 1.444799, "flagged": true,
+    "anomaly_score": 5.563827, "score_percentile": 98.9, "threshold": 1.444799, "flagged": true,
     "rule_flagged": true, "duplicate_pairs": 19, "flag_source": "Both", "risk_band": "high",
     "top_features": ["collusion_score", "submission_frequency", "customer_similarity"],
     "reasons": "46% of customers also used by other agents vs typical 0% (higher than 96 percent of training agents); busiest 24 hours: 21 submissions vs typical 14 (higher than 82 percent of training agents)",
@@ -225,7 +229,7 @@ Query parameters:
   "run_id": "RUN202610131505039d5d93", "model_version": "lof_v3_4f", "threshold": 1.444799,
   "total": 73, "count": 2, "offset": 0,
   "scores": [
-    {"agent_id": "A35485", "anomaly_score": 5.563827, "threshold": 1.444799, "flagged": true, "rule_flagged": true,
+    {"agent_id": "A35485", "anomaly_score": 5.563827, "score_percentile": 98.9, "threshold": 1.444799, "flagged": true, "rule_flagged": true,
      "duplicate_pairs": 19, "flag_source": "Both", "risk_band": "high", "model_version": "lof_v3_4f", "run_id": "RUN202610131505039d5d93",
      "top_features": ["collusion_score", "submission_frequency", "customer_similarity"],
      "reasons": "46% of customers also used by other agents vs typical 0% (...)", "scored_at": "2026-10-13T15:05:11.267904"}

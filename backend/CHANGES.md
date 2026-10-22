@@ -1,5 +1,27 @@
 # Backend changes
 
+## Sprint 7: hybrid hardening (issue #26)
+
+Branch `sprint-7/hybrid-hardening`.
+
+### Score percentile beside the raw score
+
+- **New field `score_percentile`** next to the raw score:
+  - in `/api/agents/<id>` (`score.score_percentile`) and `/api/agent-scores`, through `score_payload`;
+  - in `/api/flagged-agents` and `/api/all-agents`.
+- **Definition** (`risk.score_percentiles`):
+  - The share of agents in the same detection run with a strictly lower score, from 0 to 100, rounded to 1 decimal place.
+  - Tied scores share a percentile.
+  - It is a rank within the run, not a probability.
+- **Computed on read** from the stored `agent_scores` of the latest run, and cached by `run_id` (8 runs at most).
+  - No schema change or migration.
+  - The model, the cutoff, `risk_band`, the stored scores and the sort order are unchanged.
+  - The CSV and PDF reports are unchanged.
+- **Tests** (`tests/test_score_percentile.py`):
+  - the definition on hand-made scores, including ties, a single agent and the top of 1000;
+  - percentiles that fall with the score on `/api/agent-scores`, with the top agent at (n − 1) / n × 100;
+  - the same value on all four endpoints.
+
 ## Sprint 4: backend additions for the frontend
 
 Branch `sprint-4/frontend-dashboard`. Reference in `docs/API.md`.
