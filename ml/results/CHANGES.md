@@ -718,3 +718,27 @@ Seed 42's test PR AUC (0.845) and ROC AUC (0.953) are about one SD above these m
 ## Model results
 
 Final. `lof_v3_4f` on test: PR AUC 0.845 (CI 0.684 to 0.960), recall 0.789, precision 0.600; every acceptance criterion passes. The model choice did not change after the test. The v3a choice (`if_v3_4f`) was made on earlier data and never tested. This section will be filled in after Step 11, with old and new numbers side by side, and it will state whether the model choice changed.
+
+## Stress test (issue #26, 2026-10-22)
+
+- **Rule written first:** `stress_test_rule.md`, committed in `1f812e7` before the script existed.
+- **Run once:** `runs/20261022-185935_stress_test_s201`, by `stress_test.py`. The script refuses to run a second time (`tests/test_stress_test.py`).
+- **What was compared:** the frozen `lof_v3_4f` (frozen cutoff), `duplicate_activation_rule` and their union, on new seed 201 data:
+  - control;
+  - shifted: ring sizes 7 to 12, sequential gaps 1 to 3, duplicate fraud over 60 days, doubled night share;
+  - Evasion A (rule aware);
+  - Evasion B (feature aware).
+- **Verdicts:**
+
+  | Test | Verdict | Δ (95% CI) |
+  |---|---|---|
+  | Shifted | No clear difference; the point estimate favours the rule | −0.103 (−0.239 to 0.027) |
+  | Evasion A | Model degrades more gracefully | 0.568 (0.460 to 0.674) |
+  | Evasion B | No clear difference | −0.005 (−0.128 to 0.111) |
+
+  Write-up: `results/STRESS_TEST_RESULTS.md`.
+- **No frozen file changed:**
+  - `data_generation.py` was not edited. The shifted settings that are module constants (`RING_SIZE_RANGE`, `LEGIT_PATTERN_SHARES`, `LEGIT_NIGHT_SHARE_RANGE`) were set in memory for one call and restored. The rest is post-processing of the generated records.
+  - The frozen hashes were checked before and after the run, and `tests/test_freeze.py` passes.
+- **Label-aware data, disclosed:** the stress transforms choose agents by their generated `profile` label. This applies only to the seed 201 stress data, never to the frozen seed 42 data, and no model, cutoff or setting was changed.
+- **Known deviation:** two shifted rings have 6 and 5 members instead of 7 to 12. The frozen generator's last-ring remainder rule causes this.

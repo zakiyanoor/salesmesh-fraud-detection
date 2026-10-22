@@ -1,0 +1,60 @@
+{
+  "run_id": "20261022-185935_stress_test_s201",
+  "kind": "stress_test",
+  "timestamp": "2026-10-22T18:59:35",
+  "seed": 201,
+  "parameters": {
+    "rule_file": "stress_test_rule.md",
+    "bundle": "runs\\20261013-100433_explain\\scoring_bundle.joblib",
+    "cutoff": 1.444799,
+    "shifted_constants": {
+      "RING_SIZE_RANGE": [
+        7,
+        12
+      ],
+      "LEGIT_PATTERN_SHARES": {
+        "legit_night": 0.16,
+        "legit_repeat": 0.08,
+        "legit_busy": 0.06
+      },
+      "LEGIT_NIGHT_SHARE_RANGE": [
+        0.2,
+        0.5
+      ]
+    },
+    "sequential_gaps": [
+      1,
+      2,
+      3
+    ],
+    "sequential_max_neighbour_gap": 50,
+    "duplicate_min_uses": 3,
+    "duplicate_spread_days": 60,
+    "bootstrap_draws": 2000,
+    "bootstrap_seed": 0
+  },
+  "data_files": {
+    "stress_test_rule.md": "7b58a56c0bf38374db769eeb3796f02ebe5572bd2baec74c00eb98f637b9a65d",
+    "stress_test.py": "b0641209876c26631d966b298a205b523aa4fc62a9bfb729805a5c97a9aff24f",
+    "data_generation.py": "7ad03d6e694ae5f0b54f58cfd3bba5111d1024bb46c87b40a31b2c85908f4521",
+    "scoring_bundle.joblib": "5cdd9d277c68a464b36ea7934d45276207f39ca03c95226cd6441919e695d67f"
+  },
+  "system": {
+    "python": "3.14.0",
+    "os": "Windows-11-10.0.26200-SP0",
+    "cpu": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+    "cpu_count": 12,
+    "ram_gb": 15.7,
+    "git_commit": "1f812e7c755da6943976332b687b2b268bf4c191"
+  },
+  "library_versions": {
+    "python": "3.14.0",
+    "numpy": "2.5.2",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.0",
+    "faker": "40.37.0",
+    "matplotlib": "3.11.1",
+    "joblib": "1.6.0",
+    "shap": null
+  }
+}

@@ -1,0 +1,473 @@
+{
+  "transforms": {
+    "rings_and_night_share": {
+      "control": {
+        "rings": {
+          "count": 17,
+          "sizes": [
+            3,
+            3,
+            2,
+            6,
+            6,
+            6,
+            2,
+            2,
+            5,
+            2,
+            4,
+            6,
+            2,
+            3,
+            3,
+            5,
+            2
+          ],
+          "strength": [
+            "strong",
+            "strong",
+            "strong",
+            "strong",
+            "strong",
+            "strong",
+            "strong",
+            "strong",
+            "strong",
+            "strong",
+            "strong",
+            "weak",
+            "weak",
+            "weak",
+            "weak",
+            "weak",
+            "weak"
+          ]
+        },
+        "honest_night_profile_agents": 70,
+        "their_records": 8309,
+        "their_night_hour_records": 1477
+      },
+      "shifted": {
+        "rings": {
+          "count": 8,
+          "sizes": [
+            8,
+            12,
+            8,
+            7,
+            6,
+            7,
+            9,
+            5
+          ],
+          "strength": [
+            "strong",
+            "strong",
+            "strong",
+            "strong",
+            "strong",
+            "weak",
+            "weak",
+            "weak"
+          ]
+        },
+        "honest_night_profile_agents": 139,
+        "their_records": 16497,
+        "their_night_hour_records": 5766
+      }
+    },
+    "sequential_gaps": {
+      "agents": 21,
+      "records_identified": 4413,
+      "records_renumbered": 4397
+    },
+    "duplicate_spread": {
+      "agents": 21,
+      "pairs_used_3_plus": 452,
+      "records_identified": 3742,
+      "records_moved": 3684,
+      "records_outside_window": 1866,
+      "cleaning_removed_outside_window": 1866
+    },
+    "evasion_a": {
+      "fraud_agents_by_pattern": {
+        "ring": 41,
+        "weak": 26,
+        "sequential": 21,
+        "duplicate": 21,
+        "weak_ring": 21
+      },
+      "records_dropped": 4879,
+      "records_dropped_by_pattern": {
+        "ring": 1034,
+        "weak_ring": 40,
+        "sequential": 0,
+        "duplicate": 3312,
+        "weak": 493
+      }
+    },
+    "evasion_b": {
+      "agents": 62,
+      "records_given_new_hour": 8551,
+      "records_hour_changed": 8039
+    }
+  },
+  "cleaning": {
+    "control": {
+      "rows_in": 135841,
+      "agents_table": {
+        "rows": 1000,
+        "nulls": 0,
+        "duplicate_agent_id": 0,
+        "malformed_agent_id": 0,
+        "unparseable_registration": 0,
+        "registration_after_window": 0,
+        "region_not_a_county": 0
+      },
+      "clients_table": {
+        "rows": 20,
+        "nulls": 0,
+        "duplicate_client_id": 0,
+        "malformed_client_id": 0
+      },
+      "missing_columns": [],
+      "nulls_per_column": {
+        "record_id": 0,
+        "agent_id": 0,
+        "timestamp": 0,
+        "customer_id": 0,
+        "activation_status": 0,
+        "client_id": 0,
+        "category": 0,
+        "quality_score": 0,
+        "commission_kes": 0
+      },
+      "removed_missing_required": 0,
+      "removed_exact_duplicate_rows": 0,
+      "removed_duplicate_record_ids": 0,
+      "invalid": {
+        "malformed_record_id": 0,
+        "malformed_agent_id": 0,
+        "unknown_agent_id": 0,
+        "malformed_customer_id": 0,
+        "unknown_client_id": 0,
+        "category_not_client_category": 0,
+        "invalid_activation_status": 0,
+        "unparseable_timestamp": 0,
+        "timestamp_outside_window": 0,
+        "timestamp_before_registration": 0
+      },
+      "removed_invalid": 0,
+      "flags": {
+        "duplicate_event": {
+          "records": 1,
+          "agents": 1,
+          "max_per_agent": 1
+        },
+        "near_duplicate_one_digit_customer": {
+          "records": 604,
+          "agents": 21,
+          "max_per_agent": 61
+        },
+        "near_duplicate_same_customer": {
+          "records": 86,
+          "agents": 37,
+          "max_per_agent": 7
+        }
+      },
+      "status_share": {
+        "completed": 0.915,
+        "failed": 0.054,
+        "pending": 0.031
+      },
+      "outliers_per_agent_total": {
+        "n": 1000,
+        "min": "38",
+        "median": 121.5,
+        "max": "469",
+        "iqr_upper_fence": 242.0,
+        "iqr_outliers": 69,
+        "robust_z_outliers": 52
+      },
+      "outliers_per_agent_day": {
+        "n": 23962,
+        "min": "1",
+        "median": 4.0,
+        "max": "53",
+        "iqr_upper_fence": 13.0,
+        "iqr_outliers": 1408,
+        "robust_z_outliers": 1129
+      },
+      "agents_with_no_records": 0,
+      "rows_out": 135841,
+      "rows_removed": 0
+    },
+    "shifted": {
+      "rows_in": 135772,
+      "agents_table": {
+        "rows": 1000,
+        "nulls": 0,
+        "duplicate_agent_id": 0,
+        "malformed_agent_id": 0,
+        "unparseable_registration": 0,
+        "registration_after_window": 0,
+        "region_not_a_county": 0
+      },
+      "clients_table": {
+        "rows": 20,
+        "nulls": 0,
+        "duplicate_client_id": 0,
+        "malformed_client_id": 0
+      },
+      "missing_columns": [],
+      "nulls_per_column": {
+        "record_id": 0,
+        "agent_id": 0,
+        "timestamp": 0,
+        "customer_id": 0,
+        "activation_status": 0,
+        "client_id": 0,
+        "category": 0,
+        "quality_score": 0,
+        "commission_kes": 0
+      },
+      "removed_missing_required": 0,
+      "removed_exact_duplicate_rows": 0,
+      "removed_duplicate_record_ids": 0,
+      "invalid": {
+        "malformed_record_id": 0,
+        "malformed_agent_id": 0,
+        "unknown_agent_id": 0,
+        "malformed_customer_id": 0,
+        "unknown_client_id": 0,
+        "category_not_client_category": 0,
+        "invalid_activation_status": 0,
+        "unparseable_timestamp": 0,
+        "timestamp_outside_window": 1866,
+        "timestamp_before_registration": 0
+      },
+      "removed_invalid": 1866,
+      "flags": {
+        "near_duplicate_one_digit_customer": {
+          "records": 797,
+          "agents": 21,
+          "max_per_agent": 98
+        },
+        "near_duplicate_same_customer": {
+          "records": 21,
+          "agents": 18,
+          "max_per_agent": 3
+        },
+        "duplicate_event": {
+          "records": 0,
+          "agents": 0,
+          "max_per_agent": 0
+        }
+      },
+      "status_share": {
+        "completed": 0.916,
+        "failed": 0.054,
+        "pending": 0.03
+      },
+      "outliers_per_agent_total": {
+        "n": 1000,
+        "min": "29",
+        "median": 121.0,
+        "max": "573",
+        "iqr_upper_fence": 249.625,
+        "iqr_outliers": 49,
+        "robust_z_outliers": 41
+      },
+      "outliers_per_agent_day": {
+        "n": 23908,
+        "min": "1",
+        "median": 4.0,
+        "max": "79",
+        "iqr_upper_fence": 13.0,
+        "iqr_outliers": 1306,
+        "robust_z_outliers": 1048
+      },
+      "agents_with_no_records": 0,
+      "rows_out": 133906,
+      "rows_removed": 1866
+    },
+    "evasion_a": {
+      "rows_in": 130962,
+      "agents_table": {
+        "rows": 1000,
+        "nulls": 0,
+        "duplicate_agent_id": 0,
+        "malformed_agent_id": 0,
+        "unparseable_registration": 0,
+        "registration_after_window": 0,
+        "region_not_a_county": 0
+      },
+      "clients_table": {
+        "rows": 20,
+        "nulls": 0,
+        "duplicate_client_id": 0,
+        "malformed_client_id": 0
+      },
+      "missing_columns": [],
+      "nulls_per_column": {
+        "record_id": 0,
+        "agent_id": 0,
+        "timestamp": 0,
+        "customer_id": 0,
+        "activation_status": 0,
+        "client_id": 0,
+        "category": 0,
+        "quality_score": 0,
+        "commission_kes": 0
+      },
+      "removed_missing_required": 0,
+      "removed_exact_duplicate_rows": 0,
+      "removed_duplicate_record_ids": 0,
+      "invalid": {
+        "malformed_record_id": 0,
+        "malformed_agent_id": 0,
+        "unknown_agent_id": 0,
+        "malformed_customer_id": 0,
+        "unknown_client_id": 0,
+        "category_not_client_category": 0,
+        "invalid_activation_status": 0,
+        "unparseable_timestamp": 0,
+        "timestamp_outside_window": 0,
+        "timestamp_before_registration": 0
+      },
+      "removed_invalid": 0,
+      "flags": {
+        "near_duplicate_one_digit_customer": {
+          "records": 604,
+          "agents": 21,
+          "max_per_agent": 61
+        },
+        "duplicate_event": {
+          "records": 0,
+          "agents": 0,
+          "max_per_agent": 0
+        },
+        "near_duplicate_same_customer": {
+          "records": 0,
+          "agents": 0,
+          "max_per_agent": 0
+        }
+      },
+      "status_share": {
+        "completed": 0.915,
+        "failed": 0.054,
+        "pending": 0.03
+      },
+      "outliers_per_agent_total": {
+        "n": 1000,
+        "min": "38",
+        "median": 118.0,
+        "max": "469",
+        "iqr_upper_fence": 228.5,
+        "iqr_outliers": 61,
+        "robust_z_outliers": 47
+      },
+      "outliers_per_agent_day": {
+        "n": 23894,
+        "min": "1",
+        "median": 4.0,
+        "max": "53",
+        "iqr_upper_fence": 14.5,
+        "iqr_outliers": 980,
+        "robust_z_outliers": 980
+      },
+      "agents_with_no_records": 0,
+      "rows_out": 130962,
+      "rows_removed": 0
+    },
+    "evasion_b": {
+      "rows_in": 135841,
+      "agents_table": {
+        "rows": 1000,
+        "nulls": 0,
+        "duplicate_agent_id": 0,
+        "malformed_agent_id": 0,
+        "unparseable_registration": 0,
+        "registration_after_window": 0,
+        "region_not_a_county": 0
+      },
+      "clients_table": {
+        "rows": 20,
+        "nulls": 0,
+        "duplicate_client_id": 0,
+        "malformed_client_id": 0
+      },
+      "missing_columns": [],
+      "nulls_per_column": {
+        "record_id": 0,
+        "agent_id": 0,
+        "timestamp": 0,
+        "customer_id": 0,
+        "activation_status": 0,
+        "client_id": 0,
+        "category": 0,
+        "quality_score": 0,
+        "commission_kes": 0
+      },
+      "removed_missing_required": 0,
+      "removed_exact_duplicate_rows": 0,
+      "removed_duplicate_record_ids": 0,
+      "invalid": {
+        "malformed_record_id": 0,
+        "malformed_agent_id": 0,
+        "unknown_agent_id": 0,
+        "malformed_customer_id": 0,
+        "unknown_client_id": 0,
+        "category_not_client_category": 0,
+        "invalid_activation_status": 0,
+        "unparseable_timestamp": 0,
+        "timestamp_outside_window": 0,
+        "timestamp_before_registration": 0
+      },
+      "removed_invalid": 0,
+      "flags": {
+        "duplicate_event": {
+          "records": 1,
+          "agents": 1,
+          "max_per_agent": 1
+        },
+        "near_duplicate_one_digit_customer": {
+          "records": 604,
+          "agents": 21,
+          "max_per_agent": 61
+        },
+        "near_duplicate_same_customer": {
+          "records": 78,
+          "agents": 32,
+          "max_per_agent": 7
+        }
+      },
+      "status_share": {
+        "completed": 0.915,
+        "failed": 0.054,
+        "pending": 0.031
+      },
+      "outliers_per_agent_total": {
+        "n": 1000,
+        "min": "38",
+        "median": 121.5,
+        "max": "469",
+        "iqr_upper_fence": 242.0,
+        "iqr_outliers": 69,
+        "robust_z_outliers": 52
+      },
+      "outliers_per_agent_day": {
+        "n": 23962,
+        "min": "1",
+        "median": 4.0,
+        "max": "53",
+        "iqr_upper_fence": 13.0,
+        "iqr_outliers": 1408,
+        "robust_z_outliers": 1129
+      },
+      "agents_with_no_records": 0,
+      "rows_out": 135841,
+      "rows_removed": 0
+    }
+  }
+}
