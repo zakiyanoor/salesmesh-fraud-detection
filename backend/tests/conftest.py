@@ -8,6 +8,8 @@ import pytest
 # Tests run against their own database, never the development one. Set before
 # any src module creates its engine.
 os.environ.setdefault("DB_NAME", "salesmesh_fraud_detection_test")
+# Local http: the test client does not send Secure cookies back, so tests always run with APP_ENV=test.
+os.environ["APP_ENV"] = "test"
 if not os.environ["DB_NAME"].endswith("_test"):
     raise pytest.UsageError(f"tests must use a *_test database, not {os.environ['DB_NAME']!r}")
 

@@ -54,10 +54,19 @@ from src.auth import (
 )
 from src import accounts, reports, threat_intel
 from src import audit
+from src.config import load_config
 from src.pipeline import compute_client_category_breakdown
 
+# Debug, CORS and the session cookie flags come from the environment (src/config.py; issue #26).
+CONFIG = load_config(os.environ)
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=["http://localhost:5173"])
+app.config.update(
+    SESSION_COOKIE_SECURE=CONFIG["SESSION_COOKIE_SECURE"],
+    SESSION_COOKIE_HTTPONLY=CONFIG["SESSION_COOKIE_HTTPONLY"],
+    SESSION_COOKIE_SAMESITE=CONFIG["SESSION_COOKIE_SAMESITE"],
+    PERMANENT_SESSION_LIFETIME=CONFIG["PERMANENT_SESSION_LIFETIME"],
+)
+CORS(app, supports_credentials=True, origins=CONFIG["CORS_ORIGINS"])
 
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
 if not FLASK_SECRET_KEY:
@@ -272,6 +281,8 @@ def login():
                    else "This account has no valid role; an admin must assign one")
         return jsonify({"error": message}), 401
 
+    # Permanent, so PERMANENT_SESSION_LIFETIME (SESSION_LIFETIME_MINUTES) ends the session.
+    session.permanent = True
     session["admin_id"] = admin["admin_id"]
     session["username"] = admin["username"]
     session["role"] = admin["role"]
@@ -928,4 +939,4 @@ def health_check():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=CONFIG["DEBUG"], port=5000)
