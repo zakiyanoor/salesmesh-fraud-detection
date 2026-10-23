@@ -99,6 +99,13 @@ Branch `sprint-7/hybrid-hardening`.
   - none of the seven unused packages, nor matplotlib in the backend, is installed;
   - the ml suite (192) and the backend suite (234) pass.
 
+### Known issue: frontend test timeouts on a busy computer
+
+- **Some frontend tests sometimes time out when the computer is busy.**
+- **A fix was tried and did not hold up, so it was not kept.** It preloaded the lazy page modules before the first test in each file. The first render got faster, but under heavy load failures still spread to other tests, and the preload itself could time out.
+- **Locally:** close heavy programs before running the frontend tests, or run `npx vitest run --maxWorkers=6`.
+- **Left for later:** the AuditLog filters test and the AgentDetail proposal test are slow under heavy load, because they type one keystroke at a time.
+
 ## Sprint 4: backend additions for the frontend
 
 Branch `sprint-4/frontend-dashboard`. Reference in `docs/API.md`.
