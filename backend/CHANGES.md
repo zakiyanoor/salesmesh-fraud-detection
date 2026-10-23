@@ -61,6 +61,25 @@ Branch `sprint-7/hybrid-hardening`.
   - `tests/test_config.py` covers the defaults, the refusals, the cookie flags and expiry on login, and CORS answering only configured origins.
 - **`backend/.env.example`** lists every variable the backend reads, with no secrets. The README setup points to it.
 
+### Demo accounts gated, passwords out of the code
+
+- **`python -m src.auth` (`auth.seed_demo_accounts`):**
+  - It runs only when `APP_ENV` is `development` or `test`, and refuses in production (or when `APP_ENV` is unset).
+  - The passwords come from `DEMO_ANALYST_PASSWORD`, `DEMO_COMPLIANCE_PASSWORD` and `DEMO_ADMIN_PASSWORD`. It names any variable that is missing.
+  - Every password must pass `validate_password` before anything is created.
+- **No demo password is in the code any more:**
+  - `src/auth.py` no longer holds them;
+  - the `tests/helpers.py` fallbacks are removed;
+  - the frontend's mocked logins type a placeholder.
+- **Backend tests:** `tests/conftest.py` loads `backend/.env` and stops with a clear message if a `DEMO_*_PASSWORD` is missing. CI generates them per run.
+- **The previous demo passwords remain in git history**, which was not rewritten. Treat them as public. The local development accounts were reset with `manage_accounts reset-password`. Reset them on any other database that still uses them.
+- **Tests** (`tests/test_demo_accounts.py`):
+  - refused in production, unset and unknown `APP_ENV`;
+  - names the missing variables;
+  - rejects a weak password before creating anything;
+  - succeeds in test;
+  - no password literal in `src/auth.py`.
+
 ## Sprint 4: backend additions for the frontend
 
 Branch `sprint-4/frontend-dashboard`. Reference in `docs/API.md`.

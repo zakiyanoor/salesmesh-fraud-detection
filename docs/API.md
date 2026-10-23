@@ -514,7 +514,7 @@ All commands run from `backend/`.
 | `python -m src.load_data` | Reloads the five v3 files from `ml/data/synthetic`. Checks their hashes against `ml/results/FREEZE.md` and the row counts (1000 / 135,494 / 20 clients / 12 categories); reports "unchanged" when nothing changed; never reads `labels.csv` or `rings.csv` |
 | `python -m src.pipeline` | One detection run with the frozen model |
 | `python -m src.scheduler` | Runs detection now and then every `DETECTION_INTERVAL_MINUTES` (default 1440); set `DETECTION_RUN_ON_START=false` to wait one interval first |
-| `python -m src.auth` | Creates the demo accounts analyst_01, compliance_01 and admin_01 (demo and test only) |
+| `python -m src.auth` | Creates the demo accounts analyst_01, compliance_01 and admin_01. Only when `APP_ENV` is `development` or `test`; it refuses in production. The passwords come from `DEMO_ANALYST_PASSWORD`, `DEMO_COMPLIANCE_PASSWORD` and `DEMO_ADMIN_PASSWORD` (at least 12 characters), and none is in the code. Existing usernames are left unchanged. |
 | `python -m src.manage_accounts deactivate <admin_id> --as <admin>` | Account changes from the command line (`deactivate`, `reactivate`, `role <admin_id> <role>`), as an active admin who gives a password; same rules and audit as the API |
 | `python -m src.manage_accounts reset-password <admin_id or username> --new-password-env <VARIABLE>` | Local recovery for a forgotten password; needs direct database access, not an admin password (see below) |
 | `pytest` | Runs the tests on `salesmesh_fraud_detection_test`, never on the development database |

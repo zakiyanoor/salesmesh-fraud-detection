@@ -4,14 +4,12 @@ import os
 
 import pytest
 
-# Demo/test accounts created by `python -m src.auth` (and by the test session fixture).
-# CI supplies the passwords through DEMO_*_PASSWORD; the fallbacks are removed in a later commit (#26).
-ANALYST = {"username": "analyst_01", "password": os.getenv("DEMO_ANALYST_PASSWORD", "RiverbankTrader42"),
-           "admin_id": "ADM_ANALYST_01"}
-COMPLIANCE = {"username": "compliance_01", "password": os.getenv("DEMO_COMPLIANCE_PASSWORD", "MarigoldStation17"),
+# Demo/test accounts created by `python -m src.auth` (and by the test session fixture). The passwords
+# come only from DEMO_*_PASSWORD (backend/.env locally, generated per run in CI); conftest.py checks them.
+ANALYST = {"username": "analyst_01", "password": os.getenv("DEMO_ANALYST_PASSWORD"), "admin_id": "ADM_ANALYST_01"}
+COMPLIANCE = {"username": "compliance_01", "password": os.getenv("DEMO_COMPLIANCE_PASSWORD"),
               "admin_id": "ADM_COMPLIANCE_01"}
-ADMIN = {"username": "admin_01", "password": os.getenv("DEMO_ADMIN_PASSWORD", "LanternHarbour58"),
-         "admin_id": "ADM_ADMIN_01"}
+ADMIN = {"username": "admin_01", "password": os.getenv("DEMO_ADMIN_PASSWORD"), "admin_id": "ADM_ADMIN_01"}
 TEST_ADMIN_IDS = (ANALYST["admin_id"], COMPLIANCE["admin_id"], ADMIN["admin_id"])
 ALL_ACCOUNTS = (ANALYST, COMPLIANCE, ADMIN)
 

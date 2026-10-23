@@ -4,6 +4,14 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+from dotenv import load_dotenv
+
+# backend/.env first (it never overrides variables already set, as in CI), so the
+# demo passwords below are available to tests/helpers.py.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+_missing = [v for v in ("DEMO_ANALYST_PASSWORD", "DEMO_COMPLIANCE_PASSWORD", "DEMO_ADMIN_PASSWORD") if not os.environ.get(v)]
+if _missing:
+    raise pytest.UsageError(f"set {', '.join(_missing)} (backend/.env locally; see backend/.env.example)")
 
 # Tests run against their own database, never the development one. Set before
 # any src module creates its engine.

@@ -146,7 +146,7 @@ Then, from `backend/`:
 ```bash
 python -m src.migrate      # create the database, tables and columns if missing (safe to repeat)
 python -m src.load_data    # reload the five v3 files from ml/data/synthetic (hash and count checked; never labels.csv)
-python -m src.auth         # demo accounts analyst_01, compliance_01 and admin_01 (demo and test only)
+python -m src.auth         # demo accounts analyst_01, compliance_01, admin_01 (APP_ENV development/test; DEMO_*_PASSWORD)
 python -m src.pipeline     # one detection run with the frozen lof_v3_4f model
 python -m src.scheduler    # detection now and then every DETECTION_INTERVAL_MINUTES
 python -m src.api          # the API on port 5000

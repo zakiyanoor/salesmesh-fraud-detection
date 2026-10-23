@@ -156,26 +156,42 @@ def role_required(*roles):
     return decorator
 
 
-if __name__ == "__main__":
+# Demo and test accounts (issue #26): development and test only, passwords from the environment.
+DEMO_ACCOUNTS = (
+    ("ADM_ANALYST_01", "analyst_01", ROLE_FRAUD_ANALYST, "DEMO_ANALYST_PASSWORD"),
+    ("ADM_COMPLIANCE_01", "compliance_01", ROLE_COMPLIANCE_OFFICER, "DEMO_COMPLIANCE_PASSWORD"),
+    ("ADM_ADMIN_01", "admin_01", ROLE_ADMIN, "DEMO_ADMIN_PASSWORD"),
+)
+DEMO_APP_ENVS = ("development", "test")
+
+
+def seed_demo_accounts(environ):
+    """
+    Creates analyst_01, compliance_01 and admin_01 (existing usernames are left as they are).
+    Refused unless APP_ENV is development or test; each password comes from its DEMO_*_PASSWORD
+    variable and must meet validate_password. Checks everything before creating anything.
+    """
+    app_env = environ.get("APP_ENV", "production").strip().lower()
+    if app_env not in DEMO_APP_ENVS:
+        raise RuntimeError(f"Demo accounts are for development and test only; APP_ENV is {app_env!r}")
+    missing = [variable for *_, variable in DEMO_ACCOUNTS if not environ.get(variable)]
+    if missing:
+        raise RuntimeError(f"Set {', '.join(missing)} (in backend/.env) before creating the demo accounts")
+    for *_, variable in DEMO_ACCOUNTS:
+        try:
+            validate_password(environ[variable])
+        except ValueError as error:
+            raise RuntimeError(f"{variable}: {error}") from None
     create_admin_table()
-    # DEMO / TEST ACCOUNTS ONLY. These credentials are committed to the repo and
-    # are used by the integration tests -- never seed them into a production
-    # database.
-    create_admin_user(
-        admin_id="ADM_ANALYST_01",
-        username="analyst_01",
-        password="RiverbankTrader42",
-        role=ROLE_FRAUD_ANALYST,
-    )
-    create_admin_user(
-        admin_id="ADM_COMPLIANCE_01",
-        username="compliance_01",
-        password="MarigoldStation17",
-        role=ROLE_COMPLIANCE_OFFICER,
-    )
-    create_admin_user(
-        admin_id="ADM_ADMIN_01",
-        username="admin_01",
-        password="LanternHarbour58",
-        role=ROLE_ADMIN,
-    )
+    for admin_id, username, role, variable in DEMO_ACCOUNTS:
+        create_admin_user(admin_id=admin_id, username=username, password=environ[variable], role=role)
+
+
+if __name__ == "__main__":
+    import os
+    import sys
+
+    try:
+        seed_demo_accounts(os.environ)
+    except RuntimeError as error:
+        sys.exit(str(error))
