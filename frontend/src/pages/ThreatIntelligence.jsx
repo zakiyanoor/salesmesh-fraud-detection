@@ -92,6 +92,48 @@ function Clusters({ data }) {
   );
 }
 
+function RingCandidates({ data }) {
+  return (
+    <>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {data.candidates_total} {data.candidates_total === 1 ? "group" : "groups"} among the {data.flagged_agents} agents
+        the model flagged.
+      </Typography>
+      <TableContainer>
+        <Table size="small" aria-label="Ring candidate groups">
+          <TableHead>
+            <TableRow>
+              <TableCell>Candidate</TableCell>
+              <TableCell>Agents</TableCell>
+              <TableCell>Size</TableCell>
+              <TableCell>Shared customers</TableCell>
+              <TableCell>Clients</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {data.candidates.map((c) => (
+              <TableRow key={c.candidate_id}>
+                <TableCell sx={mono}>{c.candidate_id}</TableCell>
+                <TableCell>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", columnGap: 1.5, rowGap: 0.5 }}>
+                    {c.agent_ids.map((id) => <AgentId key={id} id={id} />)}
+                  </Box>
+                </TableCell>
+                <TableCell sx={mono}>{c.size}</TableCell>
+                <TableCell sx={mono}>{c.shared_customers}</TableCell>
+                <TableCell sx={mono}>{(c.client_ids || []).join(", ")}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1.5 }}>
+        A candidate is a lead for review, not a confirmed ring. No labels are used.
+      </Typography>
+    </>
+  );
+}
+
 /** Threat intelligence for every role, from the latest successful detection run. */
 export default function ThreatIntelligence() {
   const theme = useTheme();
@@ -100,6 +142,7 @@ export default function ThreatIntelligence() {
   const regions = useApi(api.getThreatByRegion);
   const top = useApi(loadTopAgents);
   const sharing = useApi(api.getCustomerSharing);
+  const rings = useApi(api.getRingCandidates);
   const s = summary.data;
 
   return (
@@ -190,6 +233,17 @@ export default function ThreatIntelligence() {
         sx={{ mb: 3 }}
       >
         {(d) => <TopAgents scores={d.scores} />}
+      </SectionCard>
+
+      <SectionCard
+        title="Ring candidates"
+        subtitle="Agents the model flagged that share at least 3 customers, joined into groups"
+        result={rings}
+        isEmpty={(d) => !d?.candidates?.length}
+        emptyText="No flagged agents share 3 or more customers."
+        sx={{ mb: 3 }}
+      >
+        {(d) => <RingCandidates data={d} />}
       </SectionCard>
 
       <SectionCard
