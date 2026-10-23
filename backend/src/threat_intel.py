@@ -20,6 +20,11 @@ TOP_REGIONS = 10
 MIN_REGION_AGENTS = 5
 TOP_CLUSTERS = 50
 TOP_CUSTOMERS = 50
+# The Step 11 ring-candidate rule (ml/final_evaluation.py, RING_MIN_SHARED_CUSTOMERS), unchanged (issue #26).
+RING_MIN_SHARED_CUSTOMERS = 3
+RING_RULE = ("Agents the model flagged (flag_source ML or Both) are linked when two of them share at least "
+             f"{RING_MIN_SHARED_CUSTOMERS} customers, for any client; linked agents are joined into groups, "
+             "and every group of 2 or more is a ring candidate. No label is used.")
 
 
 def latest_run(db_session):
@@ -179,5 +184,31 @@ def customer_sharing(db_session, run):
             "limits": {"customers": TOP_CUSTOMERS, "clusters": TOP_CLUSTERS}}
 
 
+def ring_candidate_groups(customers_by_agent, min_shared=RING_MIN_SHARED_CUSTOMERS):
+    """Groups (size >= 2) of agents joined by sharing >= min_shared customers; customers_by_agent = {agent: set}."""
+    agents = sorted(customers_by_agent)
+    edges = [(a, b) for i, a in enumerate(agents) for b in agents[i + 1:]
+             if len(customers_by_agent[a] & customers_by_agent[b]) >= min_shared]
+    return [g for g in components(edges) if len(g) >= 2]
+
+
+def ring_candidates(db_session, run):
+    flagged = scores(db_session, run).query("model_flagged")["agent_id"].tolist()
+    records = read(db_session, "SELECT agent_id, customer_id, client_id FROM activation_records "
+                               "WHERE agent_id = ANY(:agents)", agents=flagged)
+    customers = records.groupby("agent_id")["customer_id"].agg(set).to_dict()
+    groups = sorted((sorted(g) for g in ring_candidate_groups(customers)), key=lambda g: (-len(g), g[0]))
+    candidates = []
+    for i, members in enumerate(groups, start=1):
+        rows = records[records["agent_id"].isin(members)]
+        owners = rows.groupby("customer_id")["agent_id"].nunique()
+        shared = set(owners[owners >= 2].index)
+        candidates.append({"candidate_id": f"cand_{i:02d}", "size": len(members), "agent_ids": members,
+                           "shared_customers": len(shared),
+                           "client_ids": sorted(set(rows.loc[rows["customer_id"].isin(shared), "client_id"]))})
+    return {"run": run_info(run), "rule": RING_RULE, "min_shared_customers": RING_MIN_SHARED_CUSTOMERS,
+            "flagged_agents": len(flagged), "candidates_total": len(candidates), "candidates": candidates}
+
+
 VIEWS = {"summary": summary, "by-region": by_region, "by-client": by_client, "by-category": by_category,
-         "timeline": timeline, "customer-sharing": customer_sharing}
+         "timeline": timeline, "customer-sharing": customer_sharing, "ring-candidates": ring_candidates}

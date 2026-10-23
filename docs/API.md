@@ -98,6 +98,7 @@ Each entry has:
 | GET | `/api/threat-intelligence/by-category` | all | Flagged agents' activations per category |
 | GET | `/api/threat-intelligence/timeline` | all | Daily activations, flagged agents against others |
 | GET | `/api/threat-intelligence/customer-sharing` | all | Customers shared by agents, and clusters of connected agents |
+| GET | `/api/threat-intelligence/ring-candidates` | all | Groups of model-flagged agents that share at least 3 customers |
 | POST | `/api/review-decisions` | fraud_analyst | Propose a review decision |
 | POST | `/api/review-decisions/<decision_id>/confirm` | compliance_officer | Confirm someone else's decision |
 | GET | `/api/review-decisions` | all | Review decisions, newest first |
@@ -417,6 +418,35 @@ One entry per day from the first to the last record, including days without acti
   "customers": [{"customer_id": "CUST23683207", "agent_count": 4, "agent_ids": ["A23396", "A62923", "A72493", "A88135"], "client_ids": ["CL01", "CL05"]}],
   "clusters": [{"size": 3, "agent_ids": ["A57819", "A80697", "A95717"], "client_ids": ["CL01", "CL02"],
                 "customer_count": 33, "flagged_agents": 3}]
+}
+```
+
+#### GET /api/threat-intelligence/ring-candidates
+
+Ring candidates (issue #26), by the Step 11 rule in `ml/final_evaluation.py` (`ring_candidates`, `RING_MIN_SHARED_CUSTOMERS` 3), unchanged. No label is used.
+
+**The rule:**
+1. Start from the agents the model flagged in the latest run (`flag_source` `ML` or `Both`). Agents flagged by the rule alone are not included.
+2. Two of them are linked when they share at least 3 distinct customers, across all their activation records and any client.
+3. Linked agents are joined transitively into groups. Every group of 2 or more agents is a candidate.
+
+A candidate is a lead for review, not a confirmed ring.
+
+**Differences from `customer-sharing`:** that view links any agents, flagged or not, through a single shared (customer, client) pair from the duplicate rule's evidence.
+
+**Fields:**
+- `candidate_id`: numbered by size, then by the first agent ID. The numbers are not the ids in the Step 11 file.
+- `shared_customers`: customers used by at least 2 members.
+- `client_ids`: the clients of those shared activations.
+
+**Check:** on the loaded v3 data, the groups are the same 14 as the Step 11 file `ml/runs/20261013-103859_final_evaluation_s42/ring_candidates.csv` (`tests/test_threat_intel.py`).
+
+```json
+{
+  "rule": "Agents the model flagged (flag_source ML or Both) are linked when two of them share at least 3 customers, ...",
+  "min_shared_customers": 3, "flagged_agents": 145, "candidates_total": 14,
+  "candidates": [{"candidate_id": "cand_12", "size": 2, "agent_ids": ["A23833", "A65723"], "shared_customers": 4,
+                  "client_ids": ["CL01", "CL02", "CL09"]}]
 }
 ```
 

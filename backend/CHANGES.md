@@ -22,6 +22,24 @@ Branch `sprint-7/hybrid-hardening`.
   - percentiles that fall with the score on `/api/agent-scores`, with the top agent at (n − 1) / n × 100;
   - the same value on all four endpoints.
 
+### Ring candidates in threat intelligence
+
+- **New view `GET /api/threat-intelligence/ring-candidates`** (`threat_intel.ring_candidates`), open to every role like the other views.
+- **The Step 11 rule** from `ml/final_evaluation.py`, unchanged:
+  - agents the model flagged (`ML` or `Both`) in the latest run;
+  - linked when two share at least 3 customers (any client);
+  - joined transitively into groups of 2 or more.
+  - The backend applies the rule to the run's stored flags, instead of rescoring with the bundle as Step 11 did.
+- **Parity:** the backend's groups are exactly the 14 candidates in the frozen `ml/runs/20261013-103859_final_evaluation_s42/ring_candidates.csv`.
+  - Step 11 read `activation_records_clean.csv` and the backend reads the loaded `activation_records`; the groups are the same.
+  - `tests/test_threat_intel.py` checks this.
+- **Tests:**
+  - the rule by hand: 2 shared customers do not link agents, and 3 do; groups join transitively; a lone agent is not a candidate;
+  - every member is model-flagged; groups do not overlap;
+  - `shared_customers` matches SQL;
+  - the ids are ordered.
+- **Unchanged:** the `customer-sharing` view, the model, the cutoff, the stored scores and the agent detail page.
+
 ## Sprint 4: backend additions for the frontend
 
 Branch `sprint-4/frontend-dashboard`. Reference in `docs/API.md`.

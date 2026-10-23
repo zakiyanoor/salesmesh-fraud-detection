@@ -1,14 +1,16 @@
 """Threat intelligence views (issue #18): numbers checked against direct SQL on the latest successful run."""
 
 from datetime import date
+from pathlib import Path
 
+import pandas as pd
 import pytest
 from sqlalchemy import text
 
 from src.db import engine
 from tests.helpers import ALL_ACCOUNTS, ANALYST, login
 
-VIEWS = ["summary", "by-region", "by-client", "by-category", "timeline", "customer-sharing"]
+VIEWS = ["summary", "by-region", "by-client", "by-category", "timeline", "customer-sharing", "ring-candidates"]
 
 
 def sql(statement, **params):
@@ -122,3 +124,51 @@ def test_customer_sharing_matches_sql(client) -> None:
         holders = [m for m in members if a in m or b in m]
         assert len(holders) <= 1 and (not holders or {a, b} <= holders[0])
     assert all(c["size"] == len(c["agent_ids"]) >= 2 for c in clusters)
+
+
+# --- Ring candidates (issue #26): the Step 11 rule, on the run's model flags ---
+
+FROZEN_RING_CANDIDATES = (Path(__file__).resolve().parents[2] / "ml" / "runs" / "20261013-103859_final_evaluation_s42"
+                          / "ring_candidates.csv")
+
+
+def test_ring_candidate_rule_by_hand() -> None:
+    from src.threat_intel import ring_candidate_groups
+
+    customers = {
+        "A": {"c1", "c2", "c3", "x"}, "B": {"c1", "c2", "c3"},  # 3 shared: linked
+        "C": {"c3", "d1", "d2", "d3"}, "D": {"d1", "d2", "d3"},  # C-D linked; C-B share only c3
+        "E": {"e1", "e2"}, "F": {"e1", "e2", "f"},  # 2 shared: not linked
+        "G": {"g1"},  # alone: never a candidate
+    }
+    groups = sorted(sorted(g) for g in ring_candidate_groups(customers))
+    assert groups == [["A", "B"], ["C", "D"]]
+    customers["D"] |= {"c1", "c2", "c3"}  # D now shares c1, c2, c3 with B: everything joins transitively
+    assert sorted(sorted(g) for g in ring_candidate_groups(customers)) == [["A", "B", "C", "D"]]
+
+
+def test_ring_candidates_match_step_11(client) -> None:
+    body = view(client, "ring-candidates")
+    frozen = pd.read_csv(FROZEN_RING_CANDIDATES)
+    expected = {frozenset(g["agent_id"]) for _, g in frozen.groupby("candidate_id")}
+    assert {frozenset(c["agent_ids"]) for c in body["candidates"]} == expected
+    assert body["candidates_total"] == len(body["candidates"]) == 14
+    assert body["min_shared_customers"] == 3
+
+
+def test_ring_candidates_are_model_flagged_and_share_customers(client) -> None:
+    body = view(client, "ring-candidates")
+    run = latest_run_id()
+    flagged = {r[0] for r in sql("SELECT agent_id FROM agent_scores WHERE run_id = :r AND flag_source IN ('ML', 'Both')",
+                                 r=run)}
+    assert body["flagged_agents"] == len(flagged)
+    members = [set(c["agent_ids"]) for c in body["candidates"]]
+    assert all(m <= flagged for m in members)
+    assert all(a.isdisjoint(b) for i, a in enumerate(members) for b in members[i + 1:])
+    for c in body["candidates"]:
+        assert c["size"] == len(c["agent_ids"]) >= 2
+        shared = sql("SELECT count(*) FROM (SELECT customer_id FROM activation_records WHERE agent_id = ANY(:a) "
+                     "GROUP BY customer_id HAVING count(DISTINCT agent_id) >= 2) s", a=c["agent_ids"])[0][0]
+        assert c["shared_customers"] == shared >= 3
+    assert [c["candidate_id"] for c in body["candidates"]] == [f"cand_{i:02d}" for i in range(1, 15)]
+    assert [c["size"] for c in body["candidates"]] == sorted((c["size"] for c in body["candidates"]), reverse=True)
