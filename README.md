@@ -70,7 +70,7 @@ Full write-up: `ml/results/FINAL_TEST_RESULTS.md`.
 
 ## Reproduce, score, retrain
 
-From `ml/`, using the repository's virtual environment (`venv\Scripts\activate`):
+From `ml/`, using the repository's virtual environment (`venv\Scripts\activate`), after `pip install -r requirements.txt` (the ML pipeline's own dependencies, `ml/requirements.txt`):
 
 ```bash
 python run_pipeline.py                 # Steps 1-10: generate, clean, split, EDA, features, baselines, models, selection, explanations, system checks
@@ -132,7 +132,7 @@ All backend commands run from inside `backend/`. The virtual environment lives a
 python -m venv venv
 venv\Scripts\activate          # Windows (macOS/Linux: source venv/bin/activate)
 cd backend
-pip install -r requirements.txt
+pip install -r requirements.txt   # backend/requirements.txt: the API, database, scheduler, reports, and the frozen ML code it imports
 ```
 
 Copy `backend/.env.example` to `backend/.env` and fill in the empty values:

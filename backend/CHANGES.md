@@ -80,6 +80,25 @@ Branch `sprint-7/hybrid-hardening`.
   - succeeds in test;
   - no password literal in `src/auth.py`.
 
+### Requirements split
+
+- **`backend/requirements.txt` now lists direct dependencies only, at the versions already in use:**
+  - Flask, Werkzeug, flask-cors, Flask-Limiter;
+  - SQLAlchemy, psycopg2-binary, python-dotenv;
+  - APScheduler, reportlab;
+  - pytest;
+  - numpy, pandas, scikit-learn, joblib and Faker, for the frozen ML code imported through `src/ml_bridge.py` (`feature_engineering` imports `data_generation`, which imports Faker).
+- **Removed:**
+  - packages no code imports: streamlit, uvicorn, starlette, altair, pydeck, websockets, matplotlib;
+  - packages only those pulled in: pyarrow, protobuf, httptools, watchdog, toml, jsonschema and their dependencies.
+  - `narwhals` is no longer pinned, but it is still installed, because scikit-learn 1.9 depends on it.
+- **New `ml/requirements.txt`:** numpy, pandas, scikit-learn, scipy, joblib, Faker, matplotlib, pytest.
+- **CI:** the ml job installs it.
+- **Checked in fresh Python 3.14 virtual environments:**
+  - `pip check` is clean in both;
+  - none of the seven unused packages, nor matplotlib in the backend, is installed;
+  - the ml suite (192) and the backend suite (234) pass.
+
 ## Sprint 4: backend additions for the frontend
 
 Branch `sprint-4/frontend-dashboard`. Reference in `docs/API.md`.
