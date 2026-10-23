@@ -135,7 +135,13 @@ cd backend
 pip install -r requirements.txt
 ```
 
-Create `backend/.env` with `DB_PASSWORD` and `FLASK_SECRET_KEY`. Optional: `DB_NAME` (default `salesmesh_fraud_detection`), `DB_USER`, `DB_HOST`, `DB_PORT`, `DETECTION_INTERVAL_MINUTES` (default 1440) and `DETECTION_RUN_ON_START` (default true). Then, from `backend/`:
+Copy `backend/.env.example` to `backend/.env` and fill in the empty values:
+- **Required:** `FLASK_SECRET_KEY`, `DB_PASSWORD`, and the three `DEMO_*_PASSWORD` values (at least 12 characters each).
+- **`APP_ENV`:** the example sets `development`. If it is unset, the backend runs as `production`: no debug, `Secure` cookies and no CORS origin.
+- **Optional:** the other settings (CORS origins, the cookie flags, a 60-minute session lifetime, the database and the scheduler) are explained in the file.
+- **Never commit `backend/.env`.**
+
+Then, from `backend/`:
 
 ```bash
 python -m src.migrate      # create the database, tables and columns if missing (safe to repeat)

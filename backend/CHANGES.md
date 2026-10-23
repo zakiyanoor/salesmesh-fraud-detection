@@ -40,6 +40,27 @@ Branch `sprint-7/hybrid-hardening`.
   - the ids are ordered.
 - **Unchanged:** the `customer-sharing` view, the model, the cutoff, the stored scores and the agent detail page.
 
+### Settings from the environment
+
+- **New `src/config.py` (`load_config`)** reads these settings:
+
+  | Variable | Default | Notes |
+  |---|---|---|
+  | `APP_ENV` | `production` | `development`, `test` or `production` |
+  | `FLASK_DEBUG` | `false` | Refused in production |
+  | `CORS_ORIGINS` | `http://localhost:5173` in development and test; none in production | `*` is refused |
+  | `SESSION_COOKIE_SECURE` | `true`; `false` in development and test | |
+  | `SESSION_COOKIE_SAMESITE` | `Lax` | `Lax` or `Strict` |
+  | `SESSION_LIFETIME_MINUTES` | 60 | |
+
+- **The session cookie is always `HttpOnly`.**
+- **Login marks the session permanent**, so the lifetime applies. Before, the cookie lasted until the browser closed.
+- **`app.run` no longer forces `debug=True`.**
+- **Tests:**
+  - they always run with `APP_ENV=test`;
+  - `tests/test_config.py` covers the defaults, the refusals, the cookie flags and expiry on login, and CORS answering only configured origins.
+- **`backend/.env.example`** lists every variable the backend reads, with no secrets. The README setup points to it.
+
 ## Sprint 4: backend additions for the frontend
 
 Branch `sprint-4/frontend-dashboard`. Reference in `docs/API.md`.
