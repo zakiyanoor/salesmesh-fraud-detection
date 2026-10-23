@@ -16,6 +16,7 @@ Output: <data-dir>/feature_vectors.csv and ml/runs/<run_id>/ (run_info.json, fea
 """
 
 import argparse
+import re
 from pathlib import Path
 
 import numpy as np
@@ -53,15 +54,31 @@ def time_of_day_entropy(timestamps):
     return float(-(p * np.log2(p)).sum() / np.log2(24))
 
 
+_ID_PREFIX = re.compile(r"^\D+(?=\d)")
+
+
 def identifier_similarity(customer_ids):
-    """Mean over all unordered pairs of submissions of the share of matching digit positions."""
-    digits = np.array([list(str(c)[4:]) for c in customer_ids])
-    n = len(digits)
-    if n < 2:
+    """
+    Mean over all unordered pairs of submissions of the share of matching character positions.
+
+    Each id loses its leading run of non-digit characters (CUST, C, ACC-) when a digit follows;
+    an id with no digit is kept whole. Ids are aligned on the right, so numbers of different
+    lengths line up on their last digits, and a shorter id is padded on the left with a filler
+    that never matches. The denominator is the longest length times the number of pairs. For
+    CUST plus 8 digits (all v3 data) this is the same arithmetic as before (issue #26).
+    """
+    ids = [_ID_PREFIX.sub("", str(c)) for c in customer_ids]
+    n = len(ids)
+    width = max((len(i) for i in ids), default=0)
+    if n < 2 or width == 0:
         return 0.0
-    matches = sum(int((counts * (counts - 1) // 2).sum())
-                  for counts in (np.unique(digits[:, pos], return_counts=True)[1] for pos in range(digits.shape[1])))
-    return matches / (digits.shape[1] * n * (n - 1) / 2)
+    chars = np.array([[None] * (width - len(i)) + list(i) for i in ids], dtype=object)
+    matches = 0
+    for pos in range(width):
+        column = [c for c in chars[:, pos] if c is not None]
+        counts = np.unique(np.array(column, dtype=str), return_counts=True)[1] if column else np.array([], dtype=int)
+        matches += int((counts * (counts - 1) // 2).sum())
+    return matches / (width * n * (n - 1) / 2)
 
 
 def collusion_scores(records):
