@@ -742,3 +742,22 @@ Final. `lof_v3_4f` on test: PR AUC 0.845 (CI 0.684 to 0.960), recall 0.789, prec
   - The frozen hashes were checked before and after the run, and `tests/test_freeze.py` passes.
 - **Label-aware data, disclosed:** the stress transforms choose agents by their generated `profile` label. This applies only to the seed 201 stress data, never to the frozen seed 42 data, and no model, cutoff or setting was changed.
 - **Known deviation:** two shifted rings have 6 and 5 members instead of 7 to 12. The frozen generator's last-ring remainder rule causes this.
+
+## identifier_similarity on any id format (issue #26, 2026-10-23)
+
+- **The bug:** `feature_engineering.identifier_similarity` (the `customer_similarity` feature) assumed every id was a 4-character prefix plus equal-length digits.
+  - Ids of different lengths crashed it (ragged array).
+  - A shorter prefix crashed it (`C001`: division by zero).
+  - Ids with no prefix were scored wrongly: `12345678` against `12345679` gave 0.75, because the first 4 digits were cut off.
+  - `data_checks.py` re-exports the same function; there is no second copy.
+- **The new rule:**
+  1. Each id loses its leading run of non-digit characters when a digit follows. An id with no digit is kept whole.
+  2. Ids are aligned on the right, and a shorter id is padded with a filler that never matches.
+  3. The denominator is the longest length times the number of pairs, as before.
+- **No frozen value or result changed:**
+  - For the v3 data (`CUST` plus 8 digits), the new function returns exactly the old values for all 1000 agents (difference 0.0).
+  - `tests/test_identifier_similarity.py` recomputes `customer_similarity`, passes it through the pipeline's CSV write and read, and requires an exact match (difference 0) with the frozen `data/synthetic/feature_vectors.csv`.
+  - A freshly computed value can differ from its CSV copy in the last binary digit (up to 9.7e-17 here, for the old code too), hence the round trip.
+  - The model, the cutoff, the data, the test set and every hash in `results/FREEZE.md` are unchanged.
+  - This is not a generator change, and it is not label-aware.
+- **Model card:** it now states that `collusion_score` is computed across all agents' records, in every split, without labels. The "13 of 14" rings that span splits was checked against `runs/20261013-103859_final_evaluation_s42/ring_candidates.csv` joined with the frozen split: 13 of the 14 candidates have members in more than one split.
