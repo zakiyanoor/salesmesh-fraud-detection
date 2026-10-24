@@ -6,7 +6,8 @@ Agents, Activation Records, Feature Vectors, Fraud Flags, Review Decisions,
 plus the Admin Action Log audit trail, and the v3 tables: clients,
 agent_identity (fictional personal data, never a model input), agent_categories,
 agent_scores and duplicate_evidence (one row set per detection run),
-detection_runs (scheduler status) and data_loads (loader provenance).
+detection_runs (scheduler status), threat_views (the threat intelligence
+views computed once per run) and data_loads (loader provenance).
 
 DB_NAME (default salesmesh_fraud_detection) and the other DB_* settings come
 from the environment, so the tests can use their own database.
@@ -249,6 +250,20 @@ class DuplicateEvidence(Base):
         return value
 
 
+class ThreatView(Base):
+    """
+    A threat intelligence view computed once for a detection run (issue #28), as the JSON the API returns.
+    view_version is the code version that computed it (src.threat_intel.VIEW_VERSIONS).
+    """
+    __tablename__ = "threat_views"
+
+    run_id = Column(String, ForeignKey("detection_runs.run_id"), primary_key=True)
+    view = Column(String, primary_key=True)
+    view_version = Column(Integer, nullable=False)
+    payload = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class DataLoad(Base):
     __tablename__ = "data_loads"
 
@@ -337,6 +352,8 @@ def migrate_schema():
         conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_admin_action_log_timestamp ON admin_action_log (timestamp)"
         ))
+        # Issue #28: a detection run only calls migrate_schema(), so the new table is created here too.
+        ThreatView.__table__.create(conn, checkfirst=True)
 
 
 def create_all_tables():
