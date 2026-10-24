@@ -820,9 +820,12 @@ def test_agent_detail_says_whether_the_flag_can_be_reviewed(client, source, revi
 def test_agent_detail_shows_the_open_proposal_then_the_final_decision(client) -> None:
     decision_id, flag_id, agent_id = proposed(client)
     block = review_of(client, agent_id)
-    assert (block["reviewable"], block["open_decision_id"], block["open_proposed_by"]) == (
-        False, decision_id, ANALYST["admin_id"])
+    assert (block["reviewable"], block["open_decision_id"], block["open_proposed_by"], block["open_is_mine"]) == (
+        False, decision_id, ANALYST["admin_id"], False)
     assert "open proposal" in block["reason"]
+    as_role(client, ANALYST)
+    assert review_of(client, agent_id)["open_is_mine"] is True
+    as_role(client, COMPLIANCE)
     client.post(f"/api/review-decisions/{decision_id}/overrule", json={"final_outcome": "legitimate", "notes": "No."})
     block = review_of(client, agent_id)
     assert (block["reviewable"], block["open_decision_id"], block["final_decision_id"], block["effective_outcome"]) == (

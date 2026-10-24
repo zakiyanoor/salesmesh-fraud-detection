@@ -33,6 +33,10 @@ export const FIXTURES = {
     ...AGENT, registration_timestamp: "2026-06-11T20:56:24",
     features: { submission_frequency: 20, time_of_day_dist: 0.8, customer_similarity: 0.1, collusion_score: 0.3 },
     flag: { flag_id: "FL1", flag_status: "flagged", model_version: "lof_v3_4f", suspicion_score: 3.2 },
+    review: {
+      reviewable: true, reason: null, flag_id: "FL1", flag_source: "ML", open_decision_id: null, open_proposed_by: null,
+      open_is_mine: false, final_decision_id: null, effective_outcome: null,
+    },
   },
   "POST /api/logout": { message: "Logged out successfully" },
   "GET /api/threat-intelligence/summary": {

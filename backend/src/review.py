@@ -116,12 +116,15 @@ def decision_payload(decision, agent_id=None, still_flagged=None, now=None):
     }
 
 
-def review_block(db_session, vector, flag, run=None):
-    """Agent detail (issue #28): whether the agent's flag can be reviewed now, and its open and final decisions."""
+def review_block(db_session, vector, flag, run=None, viewer_id=None):
+    """
+    Agent detail (issue #28): whether the agent's flag can be reviewed now, and its open and final decisions.
+    open_is_mine tells the screen whether the viewer proposed the open proposal (only they can withdraw it).
+    """
     if vector is None or flag is None:
         return {"reviewable": False, "reason": "This agent has no flag to review", "flag_id": None,
-                "flag_source": None, "open_decision_id": None, "open_proposed_by": None, "final_decision_id": None,
-                "effective_outcome": None}
+                "flag_source": None, "open_decision_id": None, "open_proposed_by": None, "open_is_mine": False,
+                "final_decision_id": None, "effective_outcome": None}
     source, reason = eligibility(db_session, vector, run)
     pending, final = open_and_final(db_session, flag.flag_id)
     if reason is None and pending is not None:
@@ -131,6 +134,7 @@ def review_block(db_session, vector, flag, run=None):
     return {"reviewable": reason is None, "reason": reason, "flag_id": flag.flag_id, "flag_source": source,
             "open_decision_id": pending.decision_id if pending else None,
             "open_proposed_by": pending.reviewer_id if pending else None,
+            "open_is_mine": bool(pending) and pending.reviewer_id == viewer_id,
             "final_decision_id": final.decision_id if final else None,
             "effective_outcome": effective_outcome(final) if final else None}
 

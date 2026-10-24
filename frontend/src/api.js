@@ -101,11 +101,22 @@ export const api = {
   getCustomerSharing: () => request("/threat-intelligence/customer-sharing"),
   getRingCandidates: () => request("/threat-intelligence/ring-candidates"),
 
-  // Review decisions (propose: fraud_analyst; confirm: compliance_officer)
+  // Review decisions (issue #28). Analyst: propose, withdraw. Compliance officer: agree, overrule, correct.
   proposeDecision: ({ flagId, decisionOutcome, notes }) =>
     request("/review-decisions", {
       method: "POST",
       body: { flag_id: flagId, decision_outcome: decisionOutcome, notes },
+    }),
+  withdrawDecision: ({ decisionId, notes }) =>
+    request(`/review-decisions/${id(decisionId)}/withdraw`, { method: "POST", body: { notes } }),
+  agreeDecision: ({ decisionId, notes }) =>
+    request(`/review-decisions/${id(decisionId)}/agree`, { method: "POST", body: notes ? { notes } : {} }),
+  overruleDecision: ({ decisionId, finalOutcome, notes }) =>
+    request(`/review-decisions/${id(decisionId)}/overrule`, { method: "POST", body: { final_outcome: finalOutcome, notes } }),
+  correctDecision: ({ decisionId, newOutcome, expectedCurrentOutcome, notes }) =>
+    request(`/review-decisions/${id(decisionId)}/corrections`, {
+      method: "POST",
+      body: { new_outcome: newOutcome, expected_current_outcome: expectedCurrentOutcome, notes },
     }),
   confirmDecision: (decisionId) => request(`/review-decisions/${id(decisionId)}/confirm`, { method: "POST" }),
   getReviewDecisions: () => request("/review-decisions"),

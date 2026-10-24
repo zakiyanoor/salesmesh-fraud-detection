@@ -487,7 +487,7 @@ def get_agent_detail(agent_id):
             } if flag else None,
             # Issue #28: whether this agent's flag can be reviewed now (any flag_source but None in the
             # latest run), with its open and final decisions. The screen uses this, not the flag object.
-            "review": review.review_block(db_session, vector, flag, run),
+            "review": review.review_block(db_session, vector, flag, run, viewer_id=session.get("admin_id")),
             # Pass-through context from other SalesMesh modules -- not used as a
             # detection feature, kept separate from "features" for that reason.
             # An agent can work across several clients/categories, so this is a
