@@ -785,14 +785,15 @@ def list_clients():
         db_session.close()
 
 
-def _threat_view(name, compute):
+def _threat_view(name):
     def view():
         db_session = get_session()
         try:
             run = threat_intel.latest_run(db_session)
             if run is None:
                 return jsonify({"error": "No successful detection run yet"}), 404
-            return jsonify(compute(db_session, run))
+            # Stored with the run (issue #28); computed now only for a run without a current stored copy.
+            return jsonify(threat_intel.view_payload(db_session, run, name))
         finally:
             db_session.close()
 
@@ -801,8 +802,8 @@ def _threat_view(name, compute):
 
 
 # Read only, any authenticated role (issue #18).
-for _name, _compute in threat_intel.VIEWS.items():
-    app.add_url_rule(f"/api/threat-intelligence/{_name}", view_func=_threat_view(_name, _compute), methods=["GET"])
+for _name in threat_intel.VIEWS:
+    app.add_url_rule(f"/api/threat-intelligence/{_name}", view_func=_threat_view(_name), methods=["GET"])
 
 
 def _download(name, extension, mimetype, build):

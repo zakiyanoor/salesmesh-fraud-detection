@@ -8,9 +8,13 @@ flag; the duplicate rule is reported beside it as "rule flagged".
 Issue #28: every view is computed once, at the end of each detection run, and
 stored in threat_views with the run (store_views). VIEW_VERSIONS is the code
 version of each view; bump a view's number whenever its output changes.
+view_payload serves the stored copy; a run without a stored copy at the current
+version (older runs, or a view whose version changed) is computed with the
+current code and kept in memory.
 """
 
 import json
+import threading
 from collections import Counter
 
 import pandas as pd
@@ -226,3 +230,25 @@ def store_views(db_session, run):
     for name, compute in VIEWS.items():
         db_session.add(ThreatView(run_id=run.run_id, view=name, view_version=VIEW_VERSIONS[name],
                                   payload=json.dumps(compute(db_session, run))))
+
+
+_COMPUTED = {}
+_COMPUTED_RUNS = 8
+_COMPUTED_LOCK = threading.Lock()
+
+
+def view_payload(db_session, run, name):
+    """A view for a run: the stored copy when its version is current, else computed now and kept in memory."""
+    version = VIEW_VERSIONS[name]
+    row = db_session.get(ThreatView, (run.run_id, name))
+    if row is not None and row.view_version == version:
+        return json.loads(row.payload)
+    key = (run.run_id, name, version)
+    payload = _COMPUTED.get(key)
+    if payload is None:
+        payload = VIEWS[name](db_session, run)
+        with _COMPUTED_LOCK:
+            while len(_COMPUTED) >= _COMPUTED_RUNS * len(VIEWS):
+                _COMPUTED.pop(next(iter(_COMPUTED)))
+            _COMPUTED[key] = payload
+    return payload
