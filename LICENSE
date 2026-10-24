@@ -1,0 +1,8 @@
+Copyright (c) 2026 Zakiya Noor. All rights reserved.
+
+No part of this repository (source code, data, models, documentation or images) may be
+used, copied, modified, merged, published or distributed, in whole or in part, without
+the prior written permission of the copyright holder.
+
+Third-party packages listed in backend/requirements.txt, ml/requirements.txt and
+frontend/package.json remain under their own licences.
