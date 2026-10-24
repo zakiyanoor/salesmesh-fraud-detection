@@ -45,7 +45,7 @@ from flask_limiter.util import get_remote_address
 from sqlalchemy import and_, func
 from src.db import (
     get_session, Agent, ActivationRecord, FeatureVector, FraudFlag, ReviewDecision,
-    AdminActionLog, DECISION_PENDING, DECISION_CONFIRMED, DECISION_OUTCOMES, AgentCategory, AgentIdentity, AgentScore, Client,
+    AdminActionLog, DECISION_PENDING, DECISION_AGREED, DECISION_OUTCOMES, AgentCategory, AgentIdentity, AgentScore, Client,
     DetectionRun, DuplicateEvidence, FLAG_SOURCES,
 )
 from src.auth import (
@@ -569,8 +569,11 @@ def confirm_review_decision(decision_id):
         if decision.status != DECISION_PENDING:
             return jsonify({"error": f"Decision is already {decision.status}"}), 409
 
-        decision.status = DECISION_CONFIRMED
-        decision.confirmed_by = session["admin_id"]
+        # Issue #28: closing columns, written once (an agreed decision used to be stored as "confirmed").
+        decision.status = DECISION_AGREED
+        decision.final_outcome = decision.decision_outcome
+        decision.closed_by = session["admin_id"]
+        decision.closed_at = datetime.utcnow()
         log_admin_action(
             db_session, session["admin_id"], "confirm_decision",
             target_agent_id=agent_id_for_flag(db_session, decision.flag_id),
@@ -583,7 +586,7 @@ def confirm_review_decision(decision_id):
             "message": "Review decision confirmed",
             "decision_id": decision.decision_id,
             "status": decision.status,
-            "confirmed_by": decision.confirmed_by,
+            "confirmed_by": decision.closed_by,
             "notes": decision.notes,
         })
     except Exception as e:
@@ -617,7 +620,7 @@ def list_review_decisions():
                 "decision_outcome": d.decision_outcome,
                 "decision_timestamp": d.decision_timestamp.isoformat(),
                 "status": d.status,
-                "confirmed_by": d.confirmed_by,
+                "confirmed_by": d.closed_by or d.confirmed_by,
                 "notes": d.notes,
             })
         return jsonify({"count": len(results), "decisions": results})

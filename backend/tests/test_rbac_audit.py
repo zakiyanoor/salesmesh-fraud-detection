@@ -110,14 +110,14 @@ def test_analyst_proposal_is_pending_until_compliance_confirms(client) -> None:
     response = client.post(f"/api/review-decisions/{proposed['decision_id']}/confirm")
     assert response.status_code == 200
     body = response.get_json()
-    assert body["status"] == "confirmed"
+    assert body["status"] == "agreed"
     assert body["confirmed_by"] == COMPLIANCE["admin_id"]
 
     listed = next(
         d for d in client.get("/api/review-decisions").get_json()["decisions"]
         if d["decision_id"] == proposed["decision_id"]
     )
-    assert listed["status"] == "confirmed"
+    assert listed["status"] == "agreed"
     assert listed["reviewer_id"] == ANALYST["admin_id"]
     assert listed["confirmed_by"] == COMPLIANCE["admin_id"]
 
