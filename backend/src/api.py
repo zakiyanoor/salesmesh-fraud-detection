@@ -683,6 +683,56 @@ def overrule_review_decision(decision_id):
     return close_review_decision(decision_id, final_outcome, notes)
 
 
+@app.route("/api/review-decisions/<decision_id>/corrections", methods=["POST"])
+@role_required(ROLE_COMPLIANCE_OFFICER)
+def correct_review_decision(decision_id):
+    """
+    Issue #28: a compliance officer other than the proposer corrects an agreed or overruled decision, with a
+    note. The decision itself is never changed; the correction is a new row, and the history shows both.
+    """
+    data, notes, invalid = review_body()
+    if invalid:
+        return invalid
+    new_outcome, expected = data.get("new_outcome"), data.get("expected_current_outcome")
+    for name, value in (("new_outcome", new_outcome), ("expected_current_outcome", expected)):
+        if value not in DECISION_OUTCOMES:
+            return jsonify({"error": f"{name} must be one of {list(DECISION_OUTCOMES)}, got {str(value)[:50]!r}"}), 400
+    if new_outcome == expected:
+        return jsonify({"error": "new_outcome must differ from the current outcome"}), 400
+    db_session = get_session()
+    try:
+        try:
+            decision, correction = review.correct(db_session, session["admin_id"], decision_id, new_outcome,
+                                                  expected, notes)
+        except review.ReviewError as e:
+            db_session.rollback()
+            return review_refused(e, decision_id=decision_id)
+        log_admin_action(
+            db_session, session["admin_id"], "correct_decision",
+            target_agent_id=agent_id_for_flag(db_session, decision.flag_id),
+            details={"decision_id": decision_id, "correction_id": correction.correction_id,
+                     "flag_id": decision.flag_id, "previous_outcome": correction.previous_outcome,
+                     "new_outcome": correction.new_outcome, "notes": notes},
+        )
+        db_session.commit()
+        return jsonify({
+            "message": "Correction recorded",
+            "decision_id": decision_id,
+            "correction_id": correction.correction_id,
+            "previous_outcome": correction.previous_outcome,
+            "new_outcome": correction.new_outcome,
+            "corrected_by": correction.corrected_by,
+            "corrected_at": correction.corrected_at.isoformat(),
+            "note": correction.note,
+            "effective_outcome": correction.new_outcome,
+        }), 201
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+
 @app.route("/api/review-decisions", methods=["GET"])
 @login_required
 def list_review_decisions():

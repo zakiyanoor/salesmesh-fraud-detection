@@ -545,3 +545,176 @@ def test_withdrawing_and_agreeing_at_the_same_moment_closes_the_proposal_once(da
         assert len(closing) == 1 and len(audit_entries("review_refused", decision_id=decision_id)) == 1
     finally:
         delete_review_rows(flag_id)
+
+
+# --- Corrections (rule 6) ---
+
+def correct(client, decision_id, new, expected, notes="The customer list was from the wrong month."):
+    return client.post(f"/api/review-decisions/{decision_id}/corrections",
+                       json={"new_outcome": new, "expected_current_outcome": expected, "notes": notes})
+
+
+def agreed(client, sources=("ML", "Both")):
+    decision_id, flag_id, agent_id = proposed(client, sources)
+    assert client.post(f"/api/review-decisions/{decision_id}/agree").status_code == 200
+    return decision_id, flag_id, agent_id
+
+
+def test_the_deciding_officer_records_corrections_and_the_history_keeps_every_step(client) -> None:
+    decision_id, flag_id, agent_id = agreed(client)
+    first = correct(client, decision_id, "legitimate", "confirmed_fraud")
+    assert first.status_code == 201, first.get_json()
+    assert first.get_json()["effective_outcome"] == "legitimate"
+    second = correct(client, decision_id, "confirmed_fraud", "legitimate", notes="Second review restored it.")
+    assert second.status_code == 201
+
+    db_session = get_session()
+    try:
+        decision = db_session.get(ReviewDecision, decision_id)
+        assert (decision.status, decision.final_outcome) == ("agreed", "confirmed_fraud")  # never changed
+        assert [(c.previous_outcome, c.new_outcome, c.corrected_by) for c in decision.corrections] == [
+            ("confirmed_fraud", "legitimate", COMPLIANCE["admin_id"]),
+            ("legitimate", "confirmed_fraud", COMPLIANCE["admin_id"])]
+    finally:
+        db_session.close()
+    entries = audit_entries("correct_decision", decision_id=decision_id)
+    assert [(d["previous_outcome"], d["new_outcome"], d["notes"]) for _, d in entries] == [
+        ("confirmed_fraud", "legitimate", "The customer list was from the wrong month."),
+        ("legitimate", "confirmed_fraud", "Second review restored it.")]
+    assert all(e.target_agent_id == agent_id and e.admin_id == COMPLIANCE["admin_id"] for e, _ in entries)
+
+
+def test_an_overruled_decision_can_be_corrected(client) -> None:
+    decision_id, _, _ = proposed(client)
+    client.post(f"/api/review-decisions/{decision_id}/overrule",
+                json={"final_outcome": "legitimate", "notes": "One family."})
+    assert correct(client, decision_id, "confirmed_fraud", "legitimate").status_code == 201
+
+
+@pytest.mark.parametrize("body, message", [
+    ({"new_outcome": "legitimate", "expected_current_outcome": "confirmed_fraud"}, "notes is required"),
+    ({"new_outcome": "maybe", "expected_current_outcome": "confirmed_fraud", "notes": "x"}, "new_outcome must be one of"),
+    ({"new_outcome": "legitimate", "notes": "x"}, "expected_current_outcome must be one of"),
+    ({"new_outcome": "confirmed_fraud", "expected_current_outcome": "confirmed_fraud", "notes": "x"},
+     "must differ from the current outcome"),
+])
+def test_a_correction_needs_a_note_and_a_different_outcome(client, body, message) -> None:
+    decision_id, _, _ = agreed(client)
+    response = client.post(f"/api/review-decisions/{decision_id}/corrections", json=body)
+    assert response.status_code == 400 and message in response.get_json()["error"]
+
+
+def test_a_correction_based_on_an_outdated_outcome_is_refused(client) -> None:
+    decision_id, _, _ = agreed(client)
+    assert correct(client, decision_id, "legitimate", "confirmed_fraud").status_code == 201
+    stale = correct(client, decision_id, "legitimate", "confirmed_fraud")
+    assert stale.status_code == 409 and "is now legitimate" in stale.get_json()["error"]
+    assert audit_entries("review_refused", decision_id=decision_id)
+
+
+def test_open_and_withdrawn_decisions_cannot_be_corrected(client) -> None:
+    decision_id, _, _ = proposed(client)
+    response = correct(client, decision_id, "legitimate", "confirmed_fraud")
+    assert response.status_code == 409 and "pending_confirmation" in response.get_json()["error"]
+    as_role(client, ANALYST)
+    client.post(f"/api/review-decisions/{decision_id}/withdraw", json={"notes": "No longer needed."})
+    as_role(client, COMPLIANCE)
+    assert correct(client, decision_id, "legitimate", "confirmed_fraud").status_code == 409
+    assert correct(client, "RD_NONE", "legitimate", "confirmed_fraud").status_code == 404
+
+
+def test_a_proposer_moved_to_the_compliance_role_cannot_correct_their_own_decision(client) -> None:
+    decision_id, _, _ = agreed(client)
+    login(client, ADMIN)
+    assert client.patch(f"/api/admin/accounts/{ANALYST['admin_id']}/role",
+                        json={"role": "compliance_officer"}).status_code == 200
+    try:
+        as_role(client, ANALYST)
+        response = correct(client, decision_id, "legitimate", "confirmed_fraud")
+        assert response.status_code == 403 and "proposed it" in response.get_json()["error"]
+    finally:
+        as_role(client, ADMIN)
+        client.patch(f"/api/admin/accounts/{ANALYST['admin_id']}/role", json={"role": "fraud_analyst"})
+
+
+def test_two_corrections_at_the_same_moment_record_one(database) -> None:
+    from src.api import app
+
+    flag_id, _ = reviewable_flag()
+    with app.test_client() as c:
+        login(c, ANALYST)
+        decision_id = propose(c, flag_id).get_json()["decision_id"]
+        as_role(c, COMPLIANCE)
+        assert c.post(f"/api/review-decisions/{decision_id}/agree").status_code == 200
+
+    def correction(c):
+        login(c, COMPLIANCE)
+        return lambda: correct(c, decision_id, "legitimate", "confirmed_fraud")
+
+    try:
+        assert at_the_same_moment([correction, correction]) == [201, 409]
+        with engine.connect() as conn:
+            assert conn.execute(text("SELECT count(*) FROM review_corrections WHERE decision_id = :d"),
+                                {"d": decision_id}).scalar() == 1
+    finally:
+        delete_review_rows(flag_id)
+
+
+# --- Separation of duties on the server (rule 5) ---
+
+ACTIONS = {
+    "propose": ("/api/review-decisions", "fraud_analyst"),
+    "withdraw": ("/api/review-decisions/RD_ANY/withdraw", "fraud_analyst"),
+    "agree": ("/api/review-decisions/RD_ANY/agree", "compliance_officer"),
+    "overrule": ("/api/review-decisions/RD_ANY/overrule", "compliance_officer"),
+    "correct": ("/api/review-decisions/RD_ANY/corrections", "compliance_officer"),
+}
+ACCOUNTS = {"fraud_analyst": ANALYST, "compliance_officer": COMPLIANCE, "admin": ADMIN}
+
+
+@pytest.mark.parametrize("action", ACTIONS)
+@pytest.mark.parametrize("role", ACCOUNTS)
+def test_each_review_action_is_open_to_one_role_only(client, action, role) -> None:
+    route, allowed = ACTIONS[action]
+    login(client, ACCOUNTS[role])
+    before = len(audit_entries("access_denied", route=route))
+    response = client.post(route, json={"flag_id": "FL_ANY", "decision_outcome": "legitimate", "notes": "x",
+                                        "final_outcome": "legitimate", "new_outcome": "legitimate",
+                                        "expected_current_outcome": "confirmed_fraud"})
+    if role == allowed:
+        assert response.status_code == 404  # past the role check; the flag or decision does not exist
+    else:
+        assert response.status_code == 403
+        assert len(audit_entries("access_denied", route=route)) == before + 1
+
+
+# --- No effect on the model (rule 9) ---
+
+def model_state(agent_id):
+    """The agent's scores, flags and every stored threat view, as plain rows."""
+    with engine.connect() as conn:
+        return {
+            "scores": conn.execute(text("SELECT * FROM agent_scores WHERE agent_id = :a ORDER BY run_id"),
+                                   {"a": agent_id}).all(),
+            "flags": conn.execute(text("SELECT f.* FROM fraud_flags f JOIN feature_vectors v USING (vector_id) "
+                                       "WHERE v.agent_id = :a ORDER BY f.flag_id"), {"a": agent_id}).all(),
+            "all_flags": conn.execute(text("SELECT flag_status, count(*) FROM fraud_flags GROUP BY 1 ORDER BY 1")).all(),
+            "views": conn.execute(text("SELECT run_id, view, view_version, payload FROM threat_views "
+                                       "ORDER BY run_id, view")).all(),
+            "runs": conn.execute(text("SELECT run_id, status FROM detection_runs ORDER BY run_id")).all(),
+        }
+
+
+def test_no_review_action_changes_a_score_a_flag_or_a_view(client) -> None:
+    flag_id, agent_id = reviewable_flag()
+    before = model_state(agent_id)
+    login(client, ANALYST)
+    first = propose(client, flag_id).get_json()["decision_id"]
+    client.post(f"/api/review-decisions/{first}/withdraw", json={"notes": "Withdrawn."})
+    assert model_state(agent_id) == before
+    second = propose(client, flag_id).get_json()["decision_id"]
+    as_role(client, COMPLIANCE)
+    client.post(f"/api/review-decisions/{second}/overrule", json={"final_outcome": "legitimate", "notes": "No."})
+    assert model_state(agent_id) == before
+    assert correct(client, second, "confirmed_fraud", "legitimate").status_code == 201
+    assert model_state(agent_id) == before

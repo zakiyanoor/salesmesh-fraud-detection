@@ -163,10 +163,11 @@ def test_unknown_account_and_bad_role(client) -> None:
     assert client.patch(f"/api/admin/accounts/{ANALYST['admin_id']}/role", json={}).status_code == 400
 
 
-def test_admin_cannot_propose_or_confirm_review_decisions(client) -> None:
+def test_admin_cannot_take_any_review_action(client) -> None:
     login(client, ADMIN)
     assert client.post("/api/review-decisions", json={"flag_id": "x", "decision_outcome": "y"}).status_code == 403
-    assert client.post("/api/review-decisions/ANY/agree").status_code == 403
+    for action in ("withdraw", "agree", "overrule", "corrections"):
+        assert client.post(f"/api/review-decisions/ANY/{action}").status_code == 403, action
 
 
 def test_admin_can_view_detection_run_status(client) -> None:

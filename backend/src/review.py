@@ -22,7 +22,7 @@ from sqlalchemy import func
 from src import threat_intel
 from src.db import (
     DECISION_AGREED, DECISION_FINAL, DECISION_OUTCOMES, DECISION_OVERRULED, DECISION_PENDING, DECISION_WITHDRAWN,
-    AgentScore, FeatureVector, FraudFlag, ReviewDecision,
+    AgentScore, FeatureVector, FraudFlag, ReviewCorrection, ReviewDecision,
 )
 
 REVIEWABLE_SOURCES = ("ML", "Rule", "Both")
@@ -71,6 +71,13 @@ def open_and_final(db_session, flag_id):
     pending = next((d for d in decisions if d.status == DECISION_PENDING), None)
     final = [d for d in decisions if d.status in DECISION_FINAL]
     return pending, (max(final, key=lambda d: (d.closed_at or d.decision_timestamp)) if final else None)
+
+
+def effective_outcome(decision):
+    """The outcome in force: the newest correction, else the final outcome (None while open or withdrawn)."""
+    if decision.status not in DECISION_FINAL:
+        return None
+    return decision.corrections[-1].new_outcome if decision.corrections else decision.final_outcome
 
 
 def locked_decision(db_session, decision_id):
@@ -129,4 +136,26 @@ def close(db_session, officer_id, decision_id, final_outcome, note):
     return decision
 
 
-__all__ = ["DECISION_OUTCOMES", "ReviewError", "close", "eligibility", "open_and_final", "propose", "withdraw"]
+def correct(db_session, officer_id, decision_id, new_outcome, expected_outcome, note):
+    """
+    A new review_corrections row for an agreed or overruled decision. expected_outcome is the outcome the
+    officer saw; if another correction changed it meanwhile, the correction is refused.
+    """
+    decision = locked_decision(db_session, decision_id)
+    if decision.reviewer_id == officer_id:
+        raise ReviewError(403, "A decision cannot be corrected by the admin who proposed it")
+    if decision.status not in DECISION_FINAL:
+        raise ReviewError(409, f"Only an agreed or overruled decision can be corrected; this one is {decision.status}")
+    current = effective_outcome(decision)
+    if expected_outcome != current:
+        raise ReviewError(409, f"The decision's outcome is now {current}, not {expected_outcome}; reload and try again")
+    correction = ReviewCorrection(
+        correction_id=f"RC{uuid.uuid4().hex[:8]}", decision_id=decision_id, corrected_by=officer_id,
+        corrected_at=datetime.utcnow(), previous_outcome=current, new_outcome=new_outcome, note=note,
+    )
+    db_session.add(correction)
+    return decision, correction
+
+
+__all__ = ["DECISION_OUTCOMES", "ReviewError", "close", "correct", "effective_outcome", "eligibility",
+           "open_and_final", "propose", "withdraw"]

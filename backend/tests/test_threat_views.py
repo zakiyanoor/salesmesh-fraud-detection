@@ -7,11 +7,9 @@ import pytest
 from sqlalchemy import inspect
 
 from src import scoring_service, threat_intel
-from src.db import (
-    AgentScore, DetectionRun, FeatureVector, FraudFlag, ThreatView, engine, get_session, migrate_schema,
-)
+from src.db import AgentScore, DetectionRun, ThreatView, engine, get_session, migrate_schema
 from src.scoring_service import run_detection_cycle
-from tests.helpers import ANALYST, COMPLIANCE, login
+from tests.helpers import ANALYST, COMPLIANCE, login, reviewable_flag
 
 
 def latest_succeeded_run_id():
@@ -200,24 +198,31 @@ def test_views_follow_each_new_run_and_never_a_failed_or_running_one(client, mon
         assert without_run(body) == without_run(before[name]), name
 
 
-def test_a_review_decision_changes_no_view(client) -> None:
+def test_no_review_action_changes_a_view(client) -> None:
+    """Propose, agree, overrule and correct (issue #28): the views and their stored rows stay byte-identical."""
     db_session = get_session()
     try:
-        flag_id = (db_session.query(FraudFlag.flag_id).join(FeatureVector, FraudFlag.vector_id == FeatureVector.vector_id)
-                   .filter(FraudFlag.flag_status == "flagged").first()[0])
         stored_rows = db_session.query(ThreatView).count()
     finally:
         db_session.close()
     before = served(client)
 
-    login(client, ANALYST)
-    proposed = client.post("/api/review-decisions", json={"flag_id": flag_id, "decision_outcome": "confirmed_fraud",
-                                                           "notes": "Views must not change."})
-    assert proposed.status_code == 201, proposed.get_json()
-    client.post("/api/logout")
+    decisions = []
+    for skip in (0, 1):
+        flag_id, _ = reviewable_flag(skip=skip)
+        login(client, ANALYST)
+        proposed = client.post("/api/review-decisions", json={"flag_id": flag_id, "decision_outcome": "confirmed_fraud",
+                                                               "notes": "Views must not change."})
+        assert proposed.status_code == 201, proposed.get_json()
+        decisions.append(proposed.get_json()["decision_id"])
+        client.post("/api/logout")
     login(client, COMPLIANCE)
-    confirmed = client.post(f"/api/review-decisions/{proposed.get_json()['decision_id']}/agree")
-    assert confirmed.status_code == 200, confirmed.get_json()
+    assert client.post(f"/api/review-decisions/{decisions[0]}/agree").status_code == 200
+    assert client.post(f"/api/review-decisions/{decisions[1]}/overrule",
+                       json={"final_outcome": "legitimate", "notes": "Not fraud."}).status_code == 200
+    assert client.post(f"/api/review-decisions/{decisions[0]}/corrections",
+                       json={"new_outcome": "legitimate", "expected_current_outcome": "confirmed_fraud",
+                             "notes": "Corrected."}).status_code == 201
     client.post("/api/logout")
 
     assert served(client) == before
