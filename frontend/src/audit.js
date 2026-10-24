@@ -15,7 +15,13 @@ export const AUDIT_ACTIONS = {
   logout: "Signed out",
   access_denied: "Access denied",
   propose_decision: "Decision proposed",
-  confirm_decision: "Decision confirmed",
+  withdraw_decision: "Proposal withdrawn",
+  agree_decision: "Proposal agreed",
+  overrule_decision: "Proposal overruled",
+  correct_decision: "Decision corrected",
+  review_refused: "Review action refused",
+  // Before issue #28 an agreement was called a confirmation; older entries keep that action.
+  confirm_decision: "Decision confirmed (agreed)",
   role_change: "Role changed",
   account_deactivated: "Account deactivated",
   account_reactivated: "Account reactivated",
@@ -27,7 +33,7 @@ export const AUDIT_ACTIONS = {
 
 /** Whether the event was a refusal or failure. Derived for display only; the API has no outcome field. */
 export function auditResult(entry) {
-  if (entry.action === "access_denied") return "refused";
+  if (entry.action === "access_denied" || entry.action === "review_refused") return "refused";
   if (entry.action === "login_failure") return "failed";
   if (entry.action === "ai_detection_run" && entry.details?.status === "failed") return "failed";
   return "ok";

@@ -1,5 +1,5 @@
 // Review workflow wording and rules, shared by agent detail, the confirm queue and review history.
-// A decision has no effect until a compliance officer confirms it (dual control), so the wording
+// A proposal has no effect until a compliance officer agrees or overrules it (issue #28), so the wording
 // never calls a proposal saved, recorded or final.
 
 export const NOTES_MAX = 1000;
@@ -18,8 +18,8 @@ export function otherOutcome(outcome) {
   return outcome === "confirmed_fraud" ? "legitimate" : "confirmed_fraud";
 }
 
-export function confirmedMessage(agentId) {
-  return `Decision for ${agentId} confirmed. It is now final.`;
+export function closedMessage(agentId, status, outcomeLabel) {
+  return `Proposal for ${agentId} ${status === "overruled" ? "overruled" : "agreed"}. The final outcome is ${outcomeLabel}.`;
 }
 
 export const NOTES_HINT =

@@ -118,7 +118,6 @@ export const api = {
       method: "POST",
       body: { new_outcome: newOutcome, expected_current_outcome: expectedCurrentOutcome, notes },
     }),
-  confirmDecision: (decisionId) => request(`/review-decisions/${id(decisionId)}/confirm`, { method: "POST" }),
   getReviewDecisions: () => request("/review-decisions"),
 
   // Audit log: filters category, actor, agent_id, date_from, date_to; paging limit, offset

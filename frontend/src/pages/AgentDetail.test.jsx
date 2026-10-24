@@ -40,7 +40,8 @@ const MY_OPEN = withReview({ reason: "This flag already has an open proposal", o
 const FINAL = withReview({ reason: "This flag already has a final decision", final_decision_id: "RD1", effective_outcome: "confirmed_fraud" });
 const PAST = {
   decision_id: "RD1", agent_id: "A35485", reviewer_id: "ADM_ANALYST_01", decision_outcome: "confirmed_fraud",
-  decision_timestamp: "2026-10-13T15:10:00", status: "confirmed", confirmed_by: "ADM_COMPLIANCE_01",
+  decision_timestamp: "2026-10-13T15:10:00", status: "agreed", closed_by: "ADM_COMPLIANCE_01",
+  closed_at: "2026-10-13T16:00:00", final_outcome: "confirmed_fraud", effective_outcome: "confirmed_fraud", corrections: [],
   notes: "Shares customers with two agents.",
 };
 
@@ -90,9 +91,9 @@ describe("Agent detail", () => {
     renderApp("/agents/A35485");
     const history = await screen.findByRole("list", { name: "Decision history" });
     expect(within(history).getByText("Confirmed fraud")).toBeInTheDocument();
-    expect(within(history).getByText("Confirmed")).toBeInTheDocument();
+    expect(within(history).getByText("Agreed")).toBeInTheDocument();
     expect(within(history).getByText(/Proposed by ADM_ANALYST_01/)).toBeInTheDocument();
-    expect(within(history).getByText("Confirmed by ADM_COMPLIANCE_01")).toBeInTheDocument();
+    expect(within(history).getByText(/Agreed by ADM_COMPLIANCE_01/)).toBeInTheDocument();
     expect(within(history).getByText("Shares customers with two agents.")).toBeInTheDocument();
   });
 

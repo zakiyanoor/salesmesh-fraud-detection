@@ -32,6 +32,29 @@ function useChartStyle() {
   };
 }
 
+function ReviewOutcomes({ review }) {
+  if (!review) return <Typography variant="body2" color="text.secondary">No review data.</Typography>;
+  const decided = review.agreed + review.overruled;
+  const counts = [["Open", review.open], ["Overdue", review.overdue], ["Withdrawn", review.withdrawn],
+    ["Agreed", review.agreed], ["Overruled", review.overruled], ["Corrections", review.corrections]];
+  return (
+    <>
+      <Typography variant="h5" component="p" sx={mono}>
+        {review.overrule_rate == null ? "No compliance decisions yet" : `${(review.overrule_rate * 100).toFixed(1)}% overruled`}
+      </Typography>
+      {review.overrule_rate != null && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{`${review.overruled} of ${decided} compliance decisions`}</Typography>
+      )}
+      <Box component="dl" sx={{ m: 0, mt: 1, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 2, rowGap: 0.5 }}>
+        {counts.map(([label, value]) => [
+          <Typography key={`${label}-t`} component="dt" variant="body2" color="text.secondary">{label}</Typography>,
+          <Typography key={`${label}-d`} component="dd" variant="body2" sx={{ ...mono, m: 0 }}>{value}</Typography>,
+        ])}
+      </Box>
+    </>
+  );
+}
+
 export default function Analytics() {
   const analytics = useApi(api.getAnalytics);
   const timeline = useApi(api.getThreatTimeline);
@@ -116,6 +139,14 @@ export default function Analytics() {
             </BarChart>
           </ResponsiveContainer>
         )}
+      </SectionCard>
+
+      <SectionCard
+        title="Review outcomes"
+        subtitle="Overrule rate: the share of compliance decisions that overruled the analyst. Withdrawn and open proposals are left out; corrections are counted separately."
+        result={analytics}
+      >
+        {(data) => <ReviewOutcomes review={data.review} />}
       </SectionCard>
 
       <SectionCard title="Platform average behaviour" subtitle="Mean of each model feature over all agents" result={analytics}>

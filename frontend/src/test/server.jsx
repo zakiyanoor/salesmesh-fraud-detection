@@ -27,6 +27,7 @@ export const FIXTURES = {
     score_distribution: [{ bucket: "1.0-1.5", count: 1 }],
     region_breakdown: [{ region: "Nairobi", flagged: 1, total: 1 }],
     platform_averages: { submission_frequency: 14, time_of_day_dist: 0.78, customer_similarity: 0.102 },
+    review: { proposals: 6, open: 2, overdue: 1, withdrawn: 1, agreed: 2, overruled: 1, corrections: 1, overrule_rate: 0.3333, overdue_hours: 72 },
   },
   "GET /api/review-decisions": { count: 0, decisions: [] },
   "GET /api/agents/A10001": {
