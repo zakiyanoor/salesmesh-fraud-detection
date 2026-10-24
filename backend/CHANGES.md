@@ -1,5 +1,111 @@
 # Backend changes
 
+## Sprint 7: hybrid hardening (issue #26)
+
+Branch `sprint-7/hybrid-hardening`.
+
+### Score percentile beside the raw score
+
+- **New field `score_percentile`** next to the raw score:
+  - in `/api/agents/<id>` (`score.score_percentile`) and `/api/agent-scores`, through `score_payload`;
+  - in `/api/flagged-agents` and `/api/all-agents`.
+- **Definition** (`risk.score_percentiles`):
+  - The share of agents in the same detection run with a strictly lower score, from 0 to 100, rounded to 1 decimal place.
+  - Tied scores share a percentile.
+  - It is a rank within the run, not a probability.
+- **Computed on read** from the stored `agent_scores` of the latest run, and cached by `run_id` (8 runs at most).
+  - No schema change or migration.
+  - The model, the cutoff, `risk_band`, the stored scores and the sort order are unchanged.
+  - The CSV and PDF reports are unchanged.
+- **Tests** (`tests/test_score_percentile.py`):
+  - the definition on hand-made scores, including ties, a single agent and the top of 1000;
+  - percentiles that fall with the score on `/api/agent-scores`, with the top agent at (n − 1) / n × 100;
+  - the same value on all four endpoints.
+
+### Ring candidates in threat intelligence
+
+- **New view `GET /api/threat-intelligence/ring-candidates`** (`threat_intel.ring_candidates`), open to every role like the other views.
+- **The Step 11 rule** from `ml/final_evaluation.py`, unchanged:
+  - agents the model flagged (`ML` or `Both`) in the latest run;
+  - linked when two share at least 3 customers (any client);
+  - joined transitively into groups of 2 or more.
+  - The backend applies the rule to the run's stored flags, instead of rescoring with the bundle as Step 11 did.
+- **Parity:** the backend's groups are exactly the 14 candidates in the frozen `ml/runs/20261013-103859_final_evaluation_s42/ring_candidates.csv`.
+  - Step 11 read `activation_records_clean.csv` and the backend reads the loaded `activation_records`; the groups are the same.
+  - `tests/test_threat_intel.py` checks this.
+- **Tests:**
+  - the rule by hand: 2 shared customers do not link agents, and 3 do; groups join transitively; a lone agent is not a candidate;
+  - every member is model-flagged; groups do not overlap;
+  - `shared_customers` matches SQL;
+  - the ids are ordered.
+- **Unchanged:** the `customer-sharing` view, the model, the cutoff, the stored scores and the agent detail page.
+
+### Settings from the environment
+
+- **New `src/config.py` (`load_config`)** reads these settings:
+
+  | Variable | Default | Notes |
+  |---|---|---|
+  | `APP_ENV` | `production` | `development`, `test` or `production` |
+  | `FLASK_DEBUG` | `false` | Refused in production |
+  | `CORS_ORIGINS` | `http://localhost:5173` in development and test; none in production | `*` is refused |
+  | `SESSION_COOKIE_SECURE` | `true`; `false` in development and test | |
+  | `SESSION_COOKIE_SAMESITE` | `Lax` | `Lax` or `Strict` |
+  | `SESSION_LIFETIME_MINUTES` | 60 | |
+
+- **The session cookie is always `HttpOnly`.**
+- **Login marks the session permanent**, so the lifetime applies. Before, the cookie lasted until the browser closed.
+- **`app.run` no longer forces `debug=True`.**
+- **Tests:**
+  - they always run with `APP_ENV=test`;
+  - `tests/test_config.py` covers the defaults, the refusals, the cookie flags and expiry on login, and CORS answering only configured origins.
+- **`backend/.env.example`** lists every variable the backend reads, with no secrets. The README setup points to it.
+
+### Demo accounts gated, passwords out of the code
+
+- **`python -m src.auth` (`auth.seed_demo_accounts`):**
+  - It runs only when `APP_ENV` is `development` or `test`, and refuses in production (or when `APP_ENV` is unset).
+  - The passwords come from `DEMO_ANALYST_PASSWORD`, `DEMO_COMPLIANCE_PASSWORD` and `DEMO_ADMIN_PASSWORD`. It names any variable that is missing.
+  - Every password must pass `validate_password` before anything is created.
+- **No demo password is in the code any more:**
+  - `src/auth.py` no longer holds them;
+  - the `tests/helpers.py` fallbacks are removed;
+  - the frontend's mocked logins type a placeholder.
+- **Backend tests:** `tests/conftest.py` loads `backend/.env` and stops with a clear message if a `DEMO_*_PASSWORD` is missing. CI generates them per run.
+- **The previous demo passwords remain in git history**, which was not rewritten. Treat them as public. The local development accounts were reset with `manage_accounts reset-password`. Reset them on any other database that still uses them.
+- **Tests** (`tests/test_demo_accounts.py`):
+  - refused in production, unset and unknown `APP_ENV`;
+  - names the missing variables;
+  - rejects a weak password before creating anything;
+  - succeeds in test;
+  - no password literal in `src/auth.py`.
+
+### Requirements split
+
+- **`backend/requirements.txt` now lists direct dependencies only, at the versions already in use:**
+  - Flask, Werkzeug, flask-cors, Flask-Limiter;
+  - SQLAlchemy, psycopg2-binary, python-dotenv;
+  - APScheduler, reportlab;
+  - pytest;
+  - numpy, pandas, scikit-learn, joblib and Faker, for the frozen ML code imported through `src/ml_bridge.py` (`feature_engineering` imports `data_generation`, which imports Faker).
+- **Removed:**
+  - packages no code imports: streamlit, uvicorn, starlette, altair, pydeck, websockets, matplotlib;
+  - packages only those pulled in: pyarrow, protobuf, httptools, watchdog, toml, jsonschema and their dependencies.
+  - `narwhals` is no longer pinned, but it is still installed, because scikit-learn 1.9 depends on it.
+- **New `ml/requirements.txt`:** numpy, pandas, scikit-learn, scipy, joblib, Faker, matplotlib, pytest.
+- **CI:** the ml job installs it.
+- **Checked in fresh Python 3.14 virtual environments:**
+  - `pip check` is clean in both;
+  - none of the seven unused packages, nor matplotlib in the backend, is installed;
+  - the ml suite (192) and the backend suite (234) pass.
+
+### Known issue: frontend test timeouts on a busy computer
+
+- **Some frontend tests sometimes time out when the computer is busy.**
+- **A fix was tried and did not hold up, so it was not kept.** It preloaded the lazy page modules before the first test in each file. The first render got faster, but under heavy load failures still spread to other tests, and the preload itself could time out.
+- **Locally:** close heavy programs before running the frontend tests, or run `npx vitest run --maxWorkers=6`.
+- **Left for later:** the AuditLog filters test and the AgentDetail proposal test are slow under heavy load, because they type one keystroke at a time.
+
 ## Sprint 4: backend additions for the frontend
 
 Branch `sprint-4/frontend-dashboard`. Reference in `docs/API.md`.

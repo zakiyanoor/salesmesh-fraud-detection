@@ -99,6 +99,7 @@ export const api = {
   getThreatByCategory: () => request("/threat-intelligence/by-category"),
   getThreatTimeline: () => request("/threat-intelligence/timeline"),
   getCustomerSharing: () => request("/threat-intelligence/customer-sharing"),
+  getRingCandidates: () => request("/threat-intelligence/ring-candidates"),
 
   // Review decisions (propose: fraud_analyst; confirm: compliance_officer)
   proposeDecision: ({ flagId, decisionOutcome, notes }) =>

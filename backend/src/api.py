@@ -54,10 +54,19 @@ from src.auth import (
 )
 from src import accounts, reports, threat_intel
 from src import audit
+from src.config import load_config
 from src.pipeline import compute_client_category_breakdown
 
+# Debug, CORS and the session cookie flags come from the environment (src/config.py; issue #26).
+CONFIG = load_config(os.environ)
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=["http://localhost:5173"])
+app.config.update(
+    SESSION_COOKIE_SECURE=CONFIG["SESSION_COOKIE_SECURE"],
+    SESSION_COOKIE_HTTPONLY=CONFIG["SESSION_COOKIE_HTTPONLY"],
+    SESSION_COOKIE_SAMESITE=CONFIG["SESSION_COOKIE_SAMESITE"],
+    PERMANENT_SESSION_LIFETIME=CONFIG["PERMANENT_SESSION_LIFETIME"],
+)
+CORS(app, supports_credentials=True, origins=CONFIG["CORS_ORIGINS"])
 
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
 if not FLASK_SECRET_KEY:
@@ -143,7 +152,7 @@ def round_or_none(value, digits: int = 3):
 MASK_VISIBLE = 3
 SCORE_EDGES = (1.1, 1.3, 2.0)
 MAX_PAGE = 1000
-from src.risk import REVIEW_SCORE, RISK_BANDS, risk_band  # noqa: E402,F401
+from src.risk import REVIEW_SCORE, RISK_BANDS, risk_band, score_percentiles  # noqa: E402,F401
 
 
 def mask_tail(value, visible: int = MASK_VISIBLE):
@@ -216,13 +225,30 @@ def latest_scores_by_agent(db_session, run=None):
     return {s.agent_id: s for s in db_session.query(AgentScore).filter(AgentScore.run_id == run.run_id)}
 
 
-def score_payload(score):
+_PERCENTILE_CACHE = {}
+_PERCENTILE_CACHE_RUNS = 8
+
+
+def run_percentiles(db_session, run):
+    """{agent_id: score_percentile} for a finished run (cached by run_id; a finished run never changes)."""
+    if run is None:
+        return {}
+    if run.run_id not in _PERCENTILE_CACHE:
+        rows = db_session.query(AgentScore.agent_id, AgentScore.anomaly_score).filter(AgentScore.run_id == run.run_id)
+        if len(_PERCENTILE_CACHE) >= _PERCENTILE_CACHE_RUNS:
+            _PERCENTILE_CACHE.pop(next(iter(_PERCENTILE_CACHE)))
+        _PERCENTILE_CACHE[run.run_id] = score_percentiles(dict(rows.all()))
+    return _PERCENTILE_CACHE[run.run_id]
+
+
+def score_payload(score, percentile=None):
     if score is None:
         return None
     return {
         "run_id": score.run_id,
         "model_version": score.model_version,
         "anomaly_score": round(score.anomaly_score, 6),
+        "score_percentile": percentile,
         "threshold": round(score.threshold, 6),
         "flagged": score.flagged,
         "rule_flagged": score.rule_flagged,
@@ -255,6 +281,8 @@ def login():
                    else "This account has no valid role; an admin must assign one")
         return jsonify({"error": message}), 401
 
+    # Permanent, so PERMANENT_SESSION_LIFETIME (SESSION_LIFETIME_MINUTES) ends the session.
+    session.permanent = True
     session["admin_id"] = admin["admin_id"]
     session["username"] = admin["username"]
     session["role"] = admin["role"]
@@ -306,7 +334,8 @@ def get_flagged_agents():
             .all()
         )
 
-        scores = latest_scores_by_agent(db_session)
+        run = latest_run(db_session)
+        scores, percentiles = latest_scores_by_agent(db_session, run), run_percentiles(db_session, run)
         flagged_agents = []
         for flag, vector, agent in results:
             score = scores.get(agent.agent_id)
@@ -316,6 +345,7 @@ def get_flagged_agents():
                 "region": agent.region,
                 "analysis_period": vector.analysis_period,
                 "suspicion_score": round_or_none(flag.suspicion_score),
+                "score_percentile": percentiles.get(agent.agent_id),
                 "flag_status": flag.flag_status,
                 "model_version": flag.model_version,
                 "flag_source": score.flag_source if score else None,
@@ -348,7 +378,8 @@ def get_all_agents():
             .all()
         )
 
-        scores = latest_scores_by_agent(db_session)
+        run = latest_run(db_session)
+        scores, percentiles = latest_scores_by_agent(db_session, run), run_percentiles(db_session, run)
         results = []
         for agent, vector, flag in rows:
             score = scores.get(agent.agent_id)
@@ -358,6 +389,7 @@ def get_all_agents():
                 "account_status": agent.account_status,
                 "status": "flagged" if flag and flag.flag_status == "flagged" else "clear",
                 "suspicion_score": round_or_none(flag.suspicion_score) if flag else None,
+                "score_percentile": percentiles.get(agent.agent_id),
                 "flag_source": score.flag_source if score else None,
                 "risk_band": risk_band(score.flag_source, score.anomaly_score, score.threshold) if score else None,
                 "submission_frequency": vector.submission_frequency if vector else None,
@@ -432,7 +464,7 @@ def get_agent_detail(agent_id):
                 "certified_at": c.certified_at.isoformat(),
             } for c in certifications],
             # Model result (primary flag) with the duplicate rule beside it.
-            "score": score_payload(score),
+            "score": score_payload(score, run_percentiles(db_session, run).get(agent_id)),
             "duplicate_evidence": [{
                 "customer_id": e.customer_id,
                 "client_id": e.client_id,
@@ -701,10 +733,11 @@ def list_agent_scores():
             query = query.filter(AgentScore.flag_source == flag_source)
         total = query.count()
         rows = query.order_by(AgentScore.anomaly_score.desc(), AgentScore.agent_id).offset(offset).limit(limit).all()
+        percentiles = run_percentiles(db_session, run)
         return jsonify({
             "run_id": run.run_id, "model_version": run.model_version, "threshold": round_or_none(run.threshold, 6),
             "total": total, "count": len(rows), "offset": offset,
-            "scores": [{"agent_id": s.agent_id, **score_payload(s)} for s in rows],
+            "scores": [{"agent_id": s.agent_id, **score_payload(s, percentiles.get(s.agent_id))} for s in rows],
         })
     finally:
         db_session.close()
@@ -906,4 +939,4 @@ def health_check():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=CONFIG["DEBUG"], port=5000)

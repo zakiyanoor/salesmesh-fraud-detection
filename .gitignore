@@ -2,3 +2,24 @@ venv/
 .env
 __pycache__/
 *.pyc
+
+# Test and coverage caches
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Frontend build output and packages
+node_modules/
+dist/
+
+# Logs (the Step 11 test-read log is a tracked record and stays)
+*.log
+!ml/results/test_read_attempts.log
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Editor folders
+.vscode/
+.idea/

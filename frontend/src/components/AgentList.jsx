@@ -4,11 +4,12 @@ import { Box, Button, Divider, InputAdornment, Link, MenuItem, TextField } from 
 import SearchIcon from "@mui/icons-material/SearchOutlined";
 import DataTable from "./DataTable";
 import RiskBadge from "./RiskBadge";
+import ScoreWithRank from "./ScoreWithRank";
 import { DecisionStatusChip, FlagSourceChip } from "./chips";
 import { filterWidth } from "./filters";
 import { nextSort, paging } from "./tableState";
 import { useQueryParams } from "../hooks/useQueryParams";
-import { FLAG_SOURCE_LABELS, REVIEW_STATUS_LABELS, formatNumber, latestDecisionByAgent } from "../format";
+import { FLAG_SOURCE_LABELS, REVIEW_STATUS_LABELS, latestDecisionByAgent } from "../format";
 import { RISK_BANDS, mono } from "../theme";
 
 const AGENT_FILTER_DEFAULTS = { q: "", risk: "all", source: "all", review: "all", sort: "score", dir: "desc", page: "0", size: "25" };
@@ -56,9 +57,9 @@ export default function AgentList({ label, agents, decisions, sources, emptyText
       { key: "region", label: "Region", sortValue: (a) => a.region, render: (a) => a.region ?? "—" },
       {
         key: "score",
-        label: "Score",
+        label: "Score (rank)",
         sortValue: (a) => a.suspicion_score,
-        render: (a) => <Box component="span" sx={mono}>{formatNumber(a.suspicion_score, 3)}</Box>,
+        render: (a) => <ScoreWithRank score={a.suspicion_score} percentile={a.score_percentile} />,
       },
       { key: "risk", label: "Risk", sortValue: (a) => RISK_RANK[a.risk_band], render: (a) => <RiskBadge band={a.risk_band} /> },
       { key: "source", label: "Flagged by", sortValue: (a) => FLAG_SOURCE_LABELS[a.flag_source], render: (a) => <FlagSourceChip source={a.flag_source} /> },

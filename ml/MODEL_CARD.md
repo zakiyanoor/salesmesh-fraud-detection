@@ -119,6 +119,6 @@ Combined with the model (either flagging), validation recall is 1.00 at 25 flags
 - **Small evaluation sets:** test has 19 fraud agents and validation 20 (3 to 6 per pattern), so every figure has a wide CI (test PR AUC 0.684 to 0.960).
 - **Some patterns are separable on one feature:** strong rings (`collusion_score`), and sequential and duplicate agents (`customer_similarity`). Results on those patterns mostly reflect these signatures.
 - **Honest false positives:** 10 of the 25 test flags (and 5 of 20 on validation) are honest: busy agents, quiet agents with concentrated hours (LOF flags unusually quiet agents too), and honest shared customers.
-- **Platform-wide features:** `collusion_score` uses all agents' records, across splits, as in deployment; rings span splits (13 of 14).
+- **Platform-wide features:** `collusion_score` is computed across all agents' records, in every split, without labels, as in deployment; rings span splits (13 of 14).
 - **The generator was changed after seeing labelled summaries: four label-aware changes, plus the integrity fix (change 5)** (DATA_CARD.md). The integrity fix came after validation results had been seen.
 - **Scores are not probabilities,** and the cutoff assumes a 5:1 cost ratio that is not measured.

@@ -35,7 +35,7 @@ describe("session restore", () => {
     mockApi({ ...sessionRoutes(null), "POST /api/login": { message: "Login successful", ...ACCOUNTS.admin } });
     renderApp("/accounts");
     await userEvent.type(await screen.findByLabelText("Username"), "admin_01");
-    await userEvent.type(screen.getByLabelText("Password"), "LanternHarbour58");
+    await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
     expect(await screen.findByRole("heading", { name: "Accounts" })).toBeInTheDocument();
     expect(await screen.findByRole("table", { name: "Accounts" })).toBeInTheDocument();
@@ -168,7 +168,7 @@ describe("storage", () => {
       mockApi({ ...sessionRoutes(null), "POST /api/login": { message: "Login successful", ...ACCOUNTS.fraud_analyst } });
       renderApp("/");
       await userEvent.type(await screen.findByLabelText("Username"), "analyst_01");
-      await userEvent.type(screen.getByLabelText("Password"), "RiverbankTrader42");
+      await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
       await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
       await screen.findByRole("heading", { name: "Overview" });
       await userEvent.click(within(menu()).getByRole("button", { name: "Switch to dark mode" }));
@@ -198,7 +198,7 @@ describe("console", () => {
     });
     renderApp("/agents/A10001");
     await userEvent.type(await screen.findByLabelText("Username"), "analyst_01");
-    await userEvent.type(screen.getByLabelText("Password"), "RiverbankTrader42");
+    await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
     const panel = await screen.findByRole("region", { name: "Propose a decision" });
     await userEvent.click(within(panel).getByLabelText("Legitimate"));

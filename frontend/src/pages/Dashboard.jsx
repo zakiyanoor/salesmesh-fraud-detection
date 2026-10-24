@@ -10,12 +10,12 @@ import AgentId from "../components/AgentId";
 import KpiCard from "../components/KpiCard";
 import PageHeader from "../components/PageHeader";
 import RiskBadge from "../components/RiskBadge";
+import ScoreWithRank from "../components/ScoreWithRank";
 import SectionCard from "../components/SectionCard";
 import { flagSourceTable, riskBandTable } from "../chartTables";
 import { DonutChart } from "../components/DonutCard";
 import { useApi } from "../hooks/useApi";
-import { FLAG_SOURCE_LABELS, formatDateTime, formatNumber } from "../format";
-import { mono } from "../theme";
+import { FLAG_SOURCE_LABELS, formatDateTime } from "../format";
 import { api } from "../api";
 
 const NEEDS_ATTENTION = 8;
@@ -135,7 +135,7 @@ export default function Dashboard() {
               <TableHead>
                 <TableRow>
                   <TableCell>Agent ID</TableCell>
-                  <TableCell>Score</TableCell>
+                  <TableCell>Score (rank)</TableCell>
                   <TableCell>Risk</TableCell>
                   <TableCell>Flagged by</TableCell>
                 </TableRow>
@@ -147,7 +147,7 @@ export default function Dashboard() {
                   .map((agent) => (
                     <TableRow key={agent.agent_id} hover>
                       <TableCell><AgentId id={agent.agent_id} /></TableCell>
-                      <TableCell sx={mono}>{formatNumber(agent.anomaly_score, 3)}</TableCell>
+                      <TableCell><ScoreWithRank score={agent.anomaly_score} percentile={agent.score_percentile} /></TableCell>
                       <TableCell><RiskBadge band={agent.risk_band} /></TableCell>
                       <TableCell>{FLAG_SOURCE_LABELS[agent.flag_source] || agent.flag_source}</TableCell>
                     </TableRow>

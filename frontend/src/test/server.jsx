@@ -52,9 +52,9 @@ export const FIXTURES = {
   "GET /api/agent-scores": {
     total: 3, count: 3, offset: 0, threshold: 1.444799,
     scores: [
-      { agent_id: "A35485", anomaly_score: 5.563827, flag_source: "Both", risk_band: "high" },
-      { agent_id: "A10001", anomaly_score: 3.2, flag_source: "ML", risk_band: "high" },
-      { agent_id: "A20002", anomaly_score: 1.35, flag_source: "Rule", risk_band: "review" },
+      { agent_id: "A35485", anomaly_score: 5.563827, score_percentile: 98.9, flag_source: "Both", risk_band: "high" },
+      { agent_id: "A10001", anomaly_score: 3.2, score_percentile: 97.4, flag_source: "ML", risk_band: "high" },
+      { agent_id: "A20002", anomaly_score: 1.35, score_percentile: 80.6, flag_source: "Rule", risk_band: "review" },
     ],
   },
 };

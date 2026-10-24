@@ -718,3 +718,46 @@ Seed 42's test PR AUC (0.845) and ROC AUC (0.953) are about one SD above these m
 ## Model results
 
 Final. `lof_v3_4f` on test: PR AUC 0.845 (CI 0.684 to 0.960), recall 0.789, precision 0.600; every acceptance criterion passes. The model choice did not change after the test. The v3a choice (`if_v3_4f`) was made on earlier data and never tested. This section will be filled in after Step 11, with old and new numbers side by side, and it will state whether the model choice changed.
+
+## Stress test (issue #26, 2026-10-22)
+
+- **Rule written first:** `stress_test_rule.md`, committed in `1f812e7` before the script existed.
+- **Run once:** `runs/20261022-185935_stress_test_s201`, by `stress_test.py`. The script refuses to run a second time (`tests/test_stress_test.py`).
+- **What was compared:** the frozen `lof_v3_4f` (frozen cutoff), `duplicate_activation_rule` and their union, on new seed 201 data:
+  - control;
+  - shifted: ring sizes 7 to 12, sequential gaps 1 to 3, duplicate fraud over 60 days, doubled night share;
+  - Evasion A (rule aware);
+  - Evasion B (feature aware).
+- **Verdicts:**
+
+  | Test | Verdict | Δ (95% CI) |
+  |---|---|---|
+  | Shifted | No clear difference; the point estimate favours the rule | −0.103 (−0.239 to 0.027) |
+  | Evasion A | Model degrades more gracefully | 0.568 (0.460 to 0.674) |
+  | Evasion B | No clear difference | −0.005 (−0.128 to 0.111) |
+
+  Write-up: `results/STRESS_TEST_RESULTS.md`.
+- **No frozen file changed:**
+  - `data_generation.py` was not edited. The shifted settings that are module constants (`RING_SIZE_RANGE`, `LEGIT_PATTERN_SHARES`, `LEGIT_NIGHT_SHARE_RANGE`) were set in memory for one call and restored. The rest is post-processing of the generated records.
+  - The frozen hashes were checked before and after the run, and `tests/test_freeze.py` passes.
+- **Label-aware data, disclosed:** the stress transforms choose agents by their generated `profile` label. This applies only to the seed 201 stress data, never to the frozen seed 42 data, and no model, cutoff or setting was changed.
+- **Known deviation:** two shifted rings have 6 and 5 members instead of 7 to 12. The frozen generator's last-ring remainder rule causes this.
+
+## identifier_similarity on any id format (issue #26, 2026-10-23)
+
+- **The bug:** `feature_engineering.identifier_similarity` (the `customer_similarity` feature) assumed every id was a 4-character prefix plus equal-length digits.
+  - Ids of different lengths crashed it (ragged array).
+  - A shorter prefix crashed it (`C001`: division by zero).
+  - Ids with no prefix were scored wrongly: `12345678` against `12345679` gave 0.75, because the first 4 digits were cut off.
+  - `data_checks.py` re-exports the same function; there is no second copy.
+- **The new rule:**
+  1. Each id loses its leading run of non-digit characters when a digit follows. An id with no digit is kept whole.
+  2. Ids are aligned on the right, and a shorter id is padded with a filler that never matches.
+  3. The denominator is the longest length times the number of pairs, as before.
+- **No frozen value or result changed:**
+  - For the v3 data (`CUST` plus 8 digits), the new function returns exactly the old values for all 1000 agents (difference 0.0).
+  - `tests/test_identifier_similarity.py` recomputes `customer_similarity`, passes it through the pipeline's CSV write and read, and requires an exact match (difference 0) with the frozen `data/synthetic/feature_vectors.csv`.
+  - A freshly computed value can differ from its CSV copy in the last binary digit (up to 9.7e-17 here, for the old code too), hence the round trip.
+  - The model, the cutoff, the data, the test set and every hash in `results/FREEZE.md` are unchanged.
+  - This is not a generator change, and it is not label-aware.
+- **Model card:** it now states that `collusion_score` is computed across all agents' records, in every split, without labels. The "13 of 14" rings that span splits was checked against `runs/20261013-103859_final_evaluation_s42/ring_candidates.csv` joined with the frozen split: 13 of the 14 candidates have members in more than one split.

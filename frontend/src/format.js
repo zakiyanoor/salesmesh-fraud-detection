@@ -58,6 +58,16 @@ export function formatPercent(share, digits = 1) {
   return share == null ? "—" : `${(share * 100).toFixed(digits)}%`;
 }
 
+/**
+ * score_percentile (0-100, from the API) as a rank for tables: "Top X%", X = 100 - percentile rounded up
+ * to a whole percent, at least 1. 99.9 -> "Top 1%", 92.0 -> "Top 8%", 51.5 -> "Top 49%".
+ */
+export function formatPercentile(percentile) {
+  if (percentile == null || Number.isNaN(percentile)) return "—";
+  // toFixed(1) first: 100 - 99.9 is 0.0999... in floating point.
+  return `Top ${Math.max(1, Math.ceil(Number((100 - percentile).toFixed(1))))}%`;
+}
+
 export function formatNumber(value, digits = 0) {
   return value == null || Number.isNaN(value) ? "—" : Number(value).toFixed(digits);
 }

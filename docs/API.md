@@ -13,6 +13,10 @@ Flask REST API in `backend/src/api.py`, served by `python -m src.api` from `back
   - A typical agent scores about 1, and scores have no upper bound.
   - An agent is flagged when its score is at or above the cutoff (`threshold`, 1.444799), which was chosen on validation.
   - Scores are **not** probabilities.
+  - `score_percentile` (issue #26) is reported beside the score on every agent payload. It is the share of agents in the same detection run with a strictly lower score, from 0 to 100, rounded to 1 decimal place; tied scores share a percentile.
+    - With 1000 agents, the top agent is at 99.9.
+    - It is a rank within the latest run, not a probability, and it can change when the scored population changes.
+    - It is `null` for an agent the latest run did not score.
 - **Flags:** the model flag is the primary flag (`fraud_flags`, `flag_status`). The duplicate activation rule is reported beside it.
   - `flag_source` is `ML` (model only), `Rule` (rule only), `Both` or `None`.
   - The rule flags an agent when one of its (customer, client) pairs is also used by another agent, or is repeated after a completed activation.
@@ -94,6 +98,7 @@ Each entry has:
 | GET | `/api/threat-intelligence/by-category` | all | Flagged agents' activations per category |
 | GET | `/api/threat-intelligence/timeline` | all | Daily activations, flagged agents against others |
 | GET | `/api/threat-intelligence/customer-sharing` | all | Customers shared by agents, and clusters of connected agents |
+| GET | `/api/threat-intelligence/ring-candidates` | all | Groups of model-flagged agents that share at least 3 customers |
 | POST | `/api/review-decisions` | fraud_analyst | Propose a review decision |
 | POST | `/api/review-decisions/<decision_id>/confirm` | compliance_officer | Confirm someone else's decision |
 | GET | `/api/review-decisions` | all | Review decisions, newest first |
@@ -149,7 +154,7 @@ The agents the **model** flagged in each agent's latest analysis period, highest
   "flagged_agents": [
     {"agent_id": "A63269", "analysis_period": "2026-08", "flag_id": "FL50ed0b2a", "flag_source": "ML", "risk_band": "high",
      "flag_status": "flagged", "model_version": "lof_v3_4f", "region": "Nairobi",
-     "suspicion_score": 9.804, "threshold": 1.444799}
+     "suspicion_score": 9.804, "score_percentile": 99.9, "threshold": 1.444799}
   ]
 }
 ```
@@ -163,7 +168,7 @@ Every agent once, with its latest features and status. `time_of_day_dist` holds 
   "count": 1000,
   "agents": [
     {"agent_id": "A10053", "account_status": "active", "region": "Kericho", "status": "clear", "flag_source": "None", "risk_band": "low",
-     "suspicion_score": 1.077, "submission_frequency": 12, "time_of_day_dist": 0.821,
+     "suspicion_score": 1.077, "score_percentile": 51.5, "submission_frequency": 12, "time_of_day_dist": 0.821,
      "customer_similarity": 0.102, "collusion_score": 0.0}
   ]
 }
@@ -195,7 +200,7 @@ Path parameter: `agent_id` (for example `A35485`). `404` if the agent does not e
   "flag": {"flag_id": "FL93b6b96d", "flag_status": "flagged", "model_version": "lof_v3_4f", "suspicion_score": 5.564},
   "score": {
     "run_id": "RUN202610131505039d5d93", "model_version": "lof_v3_4f",
-    "anomaly_score": 5.563827, "threshold": 1.444799, "flagged": true,
+    "anomaly_score": 5.563827, "score_percentile": 98.9, "threshold": 1.444799, "flagged": true,
     "rule_flagged": true, "duplicate_pairs": 19, "flag_source": "Both", "risk_band": "high",
     "top_features": ["collusion_score", "submission_frequency", "customer_similarity"],
     "reasons": "46% of customers also used by other agents vs typical 0% (higher than 96 percent of training agents); busiest 24 hours: 21 submissions vs typical 14 (higher than 82 percent of training agents)",
@@ -225,7 +230,7 @@ Query parameters:
   "run_id": "RUN202610131505039d5d93", "model_version": "lof_v3_4f", "threshold": 1.444799,
   "total": 73, "count": 2, "offset": 0,
   "scores": [
-    {"agent_id": "A35485", "anomaly_score": 5.563827, "threshold": 1.444799, "flagged": true, "rule_flagged": true,
+    {"agent_id": "A35485", "anomaly_score": 5.563827, "score_percentile": 98.9, "threshold": 1.444799, "flagged": true, "rule_flagged": true,
      "duplicate_pairs": 19, "flag_source": "Both", "risk_band": "high", "model_version": "lof_v3_4f", "run_id": "RUN202610131505039d5d93",
      "top_features": ["collusion_score", "submission_frequency", "customer_similarity"],
      "reasons": "46% of customers also used by other agents vs typical 0% (...)", "scored_at": "2026-10-13T15:05:11.267904"}
@@ -416,6 +421,35 @@ One entry per day from the first to the last record, including days without acti
 }
 ```
 
+#### GET /api/threat-intelligence/ring-candidates
+
+Ring candidates (issue #26), by the Step 11 rule in `ml/final_evaluation.py` (`ring_candidates`, `RING_MIN_SHARED_CUSTOMERS` 3), unchanged. No label is used.
+
+**The rule:**
+1. Start from the agents the model flagged in the latest run (`flag_source` `ML` or `Both`). Agents flagged by the rule alone are not included.
+2. Two of them are linked when they share at least 3 distinct customers, across all their activation records and any client.
+3. Linked agents are joined transitively into groups. Every group of 2 or more agents is a candidate.
+
+A candidate is a lead for review, not a confirmed ring.
+
+**Differences from `customer-sharing`:** that view links any agents, flagged or not, through a single shared (customer, client) pair from the duplicate rule's evidence.
+
+**Fields:**
+- `candidate_id`: numbered by size, then by the first agent ID. The numbers are not the ids in the Step 11 file.
+- `shared_customers`: customers used by at least 2 members.
+- `client_ids`: the clients of those shared activations.
+
+**Check:** on the loaded v3 data, the groups are the same 14 as the Step 11 file `ml/runs/20261013-103859_final_evaluation_s42/ring_candidates.csv` (`tests/test_threat_intel.py`).
+
+```json
+{
+  "rule": "Agents the model flagged (flag_source ML or Both) are linked when two of them share at least 3 customers, ...",
+  "min_shared_customers": 3, "flagged_agents": 145, "candidates_total": 14,
+  "candidates": [{"candidate_id": "cand_12", "size": 2, "agent_ids": ["A23833", "A65723"], "shared_customers": 4,
+                  "client_ids": ["CL01", "CL02", "CL09"]}]
+}
+```
+
 ### Reports (admin only)
 
 Every download is sent as an attachment with a dated file name (for example `flagged-agents_2026-10-13.csv`) and `Cache-Control: no-store`. Each is audited as `report_download` (category `report`) with the filters, row count, size and the sha256 of the file sent.
@@ -480,7 +514,7 @@ All commands run from `backend/`.
 | `python -m src.load_data` | Reloads the five v3 files from `ml/data/synthetic`. Checks their hashes against `ml/results/FREEZE.md` and the row counts (1000 / 135,494 / 20 clients / 12 categories); reports "unchanged" when nothing changed; never reads `labels.csv` or `rings.csv` |
 | `python -m src.pipeline` | One detection run with the frozen model |
 | `python -m src.scheduler` | Runs detection now and then every `DETECTION_INTERVAL_MINUTES` (default 1440); set `DETECTION_RUN_ON_START=false` to wait one interval first |
-| `python -m src.auth` | Creates the demo accounts analyst_01, compliance_01 and admin_01 (demo and test only) |
+| `python -m src.auth` | Creates the demo accounts analyst_01, compliance_01 and admin_01. Only when `APP_ENV` is `development` or `test`; it refuses in production. The passwords come from `DEMO_ANALYST_PASSWORD`, `DEMO_COMPLIANCE_PASSWORD` and `DEMO_ADMIN_PASSWORD` (at least 12 characters), and none is in the code. Existing usernames are left unchanged. |
 | `python -m src.manage_accounts deactivate <admin_id> --as <admin>` | Account changes from the command line (`deactivate`, `reactivate`, `role <admin_id> <role>`), as an active admin who gives a password; same rules and audit as the API |
 | `python -m src.manage_accounts reset-password <admin_id or username> --new-password-env <VARIABLE>` | Local recovery for a forgotten password; needs direct database access, not an admin password (see below) |
 | `pytest` | Runs the tests on `salesmesh_fraud_detection_test`, never on the development database |

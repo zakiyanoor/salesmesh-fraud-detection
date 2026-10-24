@@ -1,0 +1,9 @@
+# ML pipeline and tests (issue #26). Direct dependencies only; pip resolves the rest.
+numpy==2.5.2
+pandas==3.0.5
+scikit-learn==1.9.0
+scipy==1.18.1
+joblib==1.6.0
+Faker==40.37.0
+matplotlib==3.11.1
+pytest==9.1.1
