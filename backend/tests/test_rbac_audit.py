@@ -13,23 +13,13 @@ from src.auth import (
     Administrator, create_admin_user, role_required,
     ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER,
 )
-from src.db import get_session, FeatureVector, FraudFlag, ReviewDecision
-from tests.helpers import ADMIN, ANALYST, COMPLIANCE, login
+from src.db import get_session, ReviewDecision
+from tests.helpers import ADMIN, ANALYST, COMPLIANCE, login, reviewable_flag
 
 
 def _any_flag():
-    """(flag_id, agent_id) of some fraud flag in the database."""
-    db_session = get_session()
-    try:
-        row = (
-            db_session.query(FraudFlag.flag_id, FeatureVector.agent_id)
-            .join(FeatureVector, FraudFlag.vector_id == FeatureVector.vector_id)
-            .first()
-        )
-        assert row is not None, "tests need at least one fraud flag in the database"
-        return row
-    finally:
-        db_session.close()
+    """(flag_id, agent_id) of a model flag with no review decision (issue #28: only flagged agents can be reviewed)."""
+    return reviewable_flag()
 
 
 def _audit_entries(client, admin_id):

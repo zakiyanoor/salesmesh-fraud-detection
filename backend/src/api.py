@@ -36,13 +36,13 @@ action are recorded in the admin_action_log table.
 
 import os
 import re
-import uuid
 from datetime import datetime
 from flask import Flask, g, jsonify, request, session
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from sqlalchemy import and_, func
+from sqlalchemy.exc import IntegrityError
 from src.db import (
     get_session, Agent, ActivationRecord, FeatureVector, FraudFlag, ReviewDecision,
     AdminActionLog, DECISION_PENDING, DECISION_AGREED, DECISION_OUTCOMES, AgentCategory, AgentIdentity, AgentScore, Client,
@@ -52,7 +52,7 @@ from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER, ROLE_ADMIN, DEACTIVATED,
     VALID_ROLES,
 )
-from src import accounts, reports, threat_intel
+from src import accounts, reports, review, threat_intel
 from src import audit
 from src.config import load_config
 from src.pipeline import compute_client_category_breakdown
@@ -497,9 +497,30 @@ def get_agent_detail(agent_id):
         db_session.close()
 
 
+def review_refused(error, **details):
+    """
+    The response for a broken review rule (issue #28). A 409 is recorded as review_refused, in its own
+    transaction because the action's is rolled back; a 403 is recorded as access_denied by
+    audit_denied_requests.
+    """
+    if error.status == 409:
+        audit.record_now(session["admin_id"], "review_refused", "review",
+                         details={"route": request.path, "reason": error.message, **details},
+                         request_ip=request.remote_addr)
+    return jsonify({"error": error.message}), error.status
+
+
+def review_body():
+    """(body, notes, error response): the JSON body and its cleaned notes, or a 400."""
+    data = request.get_json(silent=True) or {}
+    notes, notes_error = clean_notes(data.get("notes"))
+    return data, notes, ((jsonify({"error": notes_error}), 400) if notes_error else None)
+
+
 @app.route("/api/review-decisions", methods=["POST"])
 @role_required(ROLE_FRAUD_ANALYST)
 def submit_review_decision():
+    """Issue #28: a flagged agent (ML, Rule or Both in the latest run), one open proposal per flag, a note."""
     db_session = get_session()
     try:
         data = request.get_json(silent=True) or {}
@@ -511,38 +532,73 @@ def submit_review_decision():
         if data["decision_outcome"] not in DECISION_OUTCOMES:
             return jsonify({"error": f"decision_outcome must be one of {list(DECISION_OUTCOMES)}, "
                                      f"got {str(data['decision_outcome'])[:50]!r}"}), 400
-        notes, notes_error = clean_notes(data.get("notes"))
-        if notes_error:
-            return jsonify({"error": notes_error}), 400
+        _, notes, invalid = review_body()
+        if invalid:
+            return invalid
+        flag_id = str(data["flag_id"])
 
-        flag = db_session.query(FraudFlag).filter(FraudFlag.flag_id == data["flag_id"]).first()
-        if not flag:
-            return jsonify({"error": "Fraud flag not found"}), 404
-
-        decision = ReviewDecision(
-            decision_id=f"RD{uuid.uuid4().hex[:8]}",
-            flag_id=data["flag_id"],
-            reviewer_id=session["admin_id"],
-            decision_outcome=data["decision_outcome"],
-            decision_timestamp=datetime.utcnow(),
-            status=DECISION_PENDING,
-            notes=notes,
-        )
-        db_session.add(decision)
-        log_admin_action(
-            db_session, session["admin_id"], "propose_decision",
-            target_agent_id=agent_id_for_flag(db_session, data["flag_id"]),
-            details={"decision_id": decision.decision_id, "flag_id": data["flag_id"],
-                     "decision_outcome": data["decision_outcome"], "notes": notes},
-        )
-        db_session.commit()
+        try:
+            decision, agent_id = review.propose(db_session, session["admin_id"], flag_id,
+                                                data["decision_outcome"], notes)
+            log_admin_action(
+                db_session, session["admin_id"], "propose_decision", target_agent_id=agent_id,
+                details={"decision_id": decision.decision_id, "flag_id": flag_id,
+                         "decision_outcome": data["decision_outcome"], "notes": notes,
+                         "run_id": decision.run_id, "flag_source": decision.flag_source},
+            )
+            db_session.commit()
+        except review.ReviewError as e:
+            db_session.rollback()
+            return review_refused(e, flag_id=flag_id)
+        except IntegrityError:
+            # Two proposals at the same moment: the one-open-proposal index refuses the second.
+            db_session.rollback()
+            return review_refused(review.ReviewError(409, "This flag already has an open proposal"), flag_id=flag_id)
 
         return jsonify({
             "message": "Review decision proposed; awaiting compliance confirmation",
             "decision_id": decision.decision_id,
             "status": decision.status,
             "notes": decision.notes,
+            "run_id": decision.run_id,
+            "flag_source": decision.flag_source,
         }), 201
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+
+@app.route("/api/review-decisions/<decision_id>/withdraw", methods=["POST"])
+@role_required(ROLE_FRAUD_ANALYST)
+def withdraw_review_decision(decision_id):
+    """Issue #28: the proposing analyst withdraws their open proposal, with a note."""
+    db_session = get_session()
+    try:
+        _, notes, invalid = review_body()
+        if invalid:
+            return invalid
+        try:
+            decision = review.withdraw(db_session, session["admin_id"], decision_id, notes)
+        except review.ReviewError as e:
+            db_session.rollback()
+            return review_refused(e, decision_id=decision_id)
+        log_admin_action(
+            db_session, session["admin_id"], "withdraw_decision",
+            target_agent_id=agent_id_for_flag(db_session, decision.flag_id),
+            details={"decision_id": decision.decision_id, "flag_id": decision.flag_id,
+                     "decision_outcome": decision.decision_outcome, "notes": notes},
+        )
+        db_session.commit()
+        return jsonify({
+            "message": "Proposal withdrawn",
+            "decision_id": decision.decision_id,
+            "status": decision.status,
+            "closed_by": decision.closed_by,
+            "closed_at": decision.closed_at.isoformat(),
+            "close_note": decision.close_note,
+        })
     except Exception as e:
         db_session.rollback()
         return jsonify({"error": str(e)}), 500

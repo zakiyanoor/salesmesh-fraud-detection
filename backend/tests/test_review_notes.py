@@ -6,23 +6,17 @@ from datetime import datetime
 import pytest
 from sqlalchemy import inspect as sa_inspect
 
-from src.db import FeatureVector, FraudFlag, ReviewDecision, engine, get_session, migrate_schema
-from tests.helpers import ANALYST, COMPLIANCE, login
+from src.db import ReviewDecision, engine, get_session, migrate_schema
+from tests.helpers import ANALYST, COMPLIANCE, login, reviewable_flag
 from tests.test_masking import identities, sweep_every_get_route  # noqa: F401  (identities is a fixture)
 
 NOTES = "Two agents activated the same customer within an hour."
 
 
 @pytest.fixture
-def flag():
-    db_session = get_session()
-    try:
-        row = (db_session.query(FraudFlag.flag_id, FeatureVector.agent_id)
-               .join(FeatureVector, FraudFlag.vector_id == FeatureVector.vector_id).first())
-        assert row is not None
-        return row
-    finally:
-        db_session.close()
+def flag(database):
+    """(flag_id, agent_id) of a model flag with no review decision (issue #28: only flagged agents can be reviewed)."""
+    return reviewable_flag()
 
 
 def propose(client, flag_id, **extra):
