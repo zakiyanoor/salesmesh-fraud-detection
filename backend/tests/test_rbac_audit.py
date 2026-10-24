@@ -109,7 +109,7 @@ def test_analyst_proposal_is_pending_until_compliance_confirms(client) -> None:
     )
     assert listed["status"] == "agreed"
     assert listed["reviewer_id"] == ANALYST["admin_id"]
-    assert listed["confirmed_by"] == COMPLIANCE["admin_id"]
+    assert listed["closed_by"] == COMPLIANCE["admin_id"]
 
 
 def test_analyst_cannot_confirm_own_decision(client) -> None:

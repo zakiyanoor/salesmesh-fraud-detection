@@ -718,3 +718,133 @@ def test_no_review_action_changes_a_score_a_flag_or_a_view(client) -> None:
     assert model_state(agent_id) == before
     assert correct(client, second, "confirmed_fraud", "legitimate").status_code == 201
     assert model_state(agent_id) == before
+
+
+# --- What the API shows (GET /api/review-decisions, agent detail, analytics) ---
+
+def listed(client, decision_id):
+    return next(d for d in client.get("/api/review-decisions").get_json()["decisions"] if d["decision_id"] == decision_id)
+
+
+def insert_decision(flag_id, **values):
+    """A decision written directly (for backdated or historical cases); the caller removes it with delete_review_rows."""
+    row = decision_row(flag_id, **values)
+    with engine.begin() as conn:
+        conn.execute(insert(ReviewDecision.__table__).values(**row))
+    return row["decision_id"]
+
+
+def test_the_history_lists_closing_fields_corrections_and_the_outcome_in_force(client) -> None:
+    decision_id, flag_id, agent_id = agreed(client)
+    correct(client, decision_id, "legitimate", "confirmed_fraud")
+    d = listed(client, decision_id)
+    assert (d["agent_id"], d["flag_id"], d["status"], d["decision_outcome"], d["final_outcome"]) == (
+        agent_id, flag_id, "agreed", "confirmed_fraud", "confirmed_fraud")
+    assert d["effective_outcome"] == "legitimate" and d["closed_by"] == COMPLIANCE["admin_id"] and d["closed_at"]
+    assert [(c["previous_outcome"], c["new_outcome"], c["corrected_by"]) for c in d["corrections"]] == [
+        ("confirmed_fraud", "legitimate", COMPLIANCE["admin_id"])]
+    assert d["run_id"] == latest_run_id() and d["flag_source"] in ("ML", "Both")
+    assert d["overdue"] is False and d["still_flagged"] is True
+
+
+def test_a_withdrawn_decision_has_no_outcome_in_force(client) -> None:
+    flag_id, _ = reviewable_flag()
+    login(client, ANALYST)
+    decision_id = propose(client, flag_id).get_json()["decision_id"]
+    client.post(f"/api/review-decisions/{decision_id}/withdraw", json={"notes": "Not needed."})
+    d = listed(client, decision_id)
+    assert (d["status"], d["final_outcome"], d["effective_outcome"], d["close_note"]) == (
+        "withdrawn", None, None, "Not needed.")
+
+
+def test_overdue_starts_just_after_72_hours(client) -> None:
+    flag_ids = [reviewable_flag(skip=i)[0] for i in range(2)]
+    now = datetime.utcnow()
+    early = insert_decision(flag_ids[0], decision_timestamp=now - timedelta(hours=72) + timedelta(minutes=5))
+    late = insert_decision(flag_ids[1], decision_timestamp=now - timedelta(hours=72) - timedelta(minutes=5))
+    try:
+        login(client, COMPLIANCE)
+        body = client.get("/api/review-decisions").get_json()
+        assert body["overdue_hours"] == 72
+        assert listed(client, early)["overdue"] is False and listed(client, late)["overdue"] is True
+    finally:
+        for flag_id in flag_ids:
+            delete_review_rows(flag_id)
+
+
+def test_nothing_decides_an_overdue_proposal_not_even_a_detection_run(client) -> None:
+    from src.scoring_service import run_detection_cycle
+
+    flag_id, _ = reviewable_flag()
+    decision_id = insert_decision(flag_id, decision_timestamp=datetime.utcnow() - timedelta(days=5))
+    try:
+        run_detection_cycle(trigger="test-overdue")
+        login(client, COMPLIANCE)
+        d = listed(client, decision_id)
+        assert (d["status"], d["overdue"], d["final_outcome"], d["closed_by"]) == ("pending_confirmation", True, None, None)
+        for action in ("withdraw_decision", "agree_decision", "overrule_decision"):
+            assert audit_entries(action, decision_id=decision_id) == []
+    finally:
+        delete_review_rows(flag_id)
+
+
+def test_a_proposal_on_an_agent_no_longer_flagged_stays_open_and_says_so(client) -> None:
+    flag_id, _ = reviewable_flag(("None",))  # as if a later run cleared the flag after the proposal
+    decision_id = insert_decision(flag_id, flag_source="ML")
+    try:
+        login(client, COMPLIANCE)
+        d = listed(client, decision_id)
+        assert (d["status"], d["still_flagged"], d["flag_source"]) == ("pending_confirmation", False, "ML")
+        assert client.post(f"/api/review-decisions/{decision_id}/agree").status_code == 200
+    finally:
+        delete_review_rows(flag_id)
+
+
+def review_of(client, agent_id):
+    response = client.get(f"/api/agents/{agent_id}")
+    assert response.status_code == 200
+    return response.get_json()["review"]
+
+
+@pytest.mark.parametrize("source, reviewable", [("ML", True), ("Rule", True), ("Both", True), ("None", False)])
+def test_agent_detail_says_whether_the_flag_can_be_reviewed(client, source, reviewable) -> None:
+    flag_id, agent_id = reviewable_flag((source,))
+    login(client, ANALYST)
+    block = review_of(client, agent_id)
+    assert (block["reviewable"], block["flag_id"], block["flag_source"]) == (reviewable, flag_id, source)
+    assert (block["reason"] is None) == reviewable
+    if not reviewable:
+        assert "not flagged in the latest detection run" in block["reason"]
+
+
+def test_agent_detail_shows_the_open_proposal_then_the_final_decision(client) -> None:
+    decision_id, flag_id, agent_id = proposed(client)
+    block = review_of(client, agent_id)
+    assert (block["reviewable"], block["open_decision_id"], block["open_proposed_by"]) == (
+        False, decision_id, ANALYST["admin_id"])
+    assert "open proposal" in block["reason"]
+    client.post(f"/api/review-decisions/{decision_id}/overrule", json={"final_outcome": "legitimate", "notes": "No."})
+    block = review_of(client, agent_id)
+    assert (block["reviewable"], block["open_decision_id"], block["final_decision_id"], block["effective_outcome"]) == (
+        False, None, decision_id, "legitimate")
+    assert "correction" in block["reason"]
+
+
+def test_analytics_reports_counts_and_the_overrule_rate(client) -> None:
+    login(client, ANALYST)
+    empty = client.get("/api/analytics").get_json()["review"]
+    assert empty["agreed"] == empty["overruled"] == 0 and empty["overrule_rate"] is None
+
+    flags = [reviewable_flag(skip=i)[0] for i in range(5)]
+    ids = [propose(client, f).get_json()["decision_id"] for f in flags]
+    client.post(f"/api/review-decisions/{ids[4]}/withdraw", json={"notes": "Not needed."})
+    as_role(client, COMPLIANCE)
+    client.post(f"/api/review-decisions/{ids[0]}/agree")
+    client.post(f"/api/review-decisions/{ids[1]}/agree")
+    client.post(f"/api/review-decisions/{ids[2]}/overrule", json={"final_outcome": "legitimate", "notes": "No."})
+    correct(client, ids[0], "legitimate", "confirmed_fraud")
+
+    stats = client.get("/api/analytics").get_json()["review"]
+    assert {k: stats[k] for k in ("proposals", "open", "withdrawn", "agreed", "overruled", "corrections")} == {
+        "proposals": 5, "open": 1, "withdrawn": 1, "agreed": 2, "overruled": 1, "corrections": 1}
+    assert stats["overrule_rate"] == round(1 / 3, 4) and stats["overdue"] == 0 and stats["overdue_hours"] == 72

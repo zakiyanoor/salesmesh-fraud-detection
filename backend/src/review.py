@@ -26,6 +26,8 @@ from src.db import (
 )
 
 REVIEWABLE_SOURCES = ("ML", "Rule", "Both")
+# A proposal waiting longer than this is overdue. It is only shown; nothing decides it.
+OVERDUE_HOURS = 72
 
 
 class ReviewError(Exception):
@@ -78,6 +80,82 @@ def effective_outcome(decision):
     if decision.status not in DECISION_FINAL:
         return None
     return decision.corrections[-1].new_outcome if decision.corrections else decision.final_outcome
+
+
+def is_overdue(decision, now=None):
+    """An open proposal waiting more than OVERDUE_HOURS, by the server's clock (UTC)."""
+    now = now or datetime.utcnow()
+    return (decision.status == DECISION_PENDING
+            and (now - decision.decision_timestamp).total_seconds() > OVERDUE_HOURS * 3600)
+
+
+def decision_payload(decision, agent_id=None, still_flagged=None, now=None):
+    """A decision with its closing fields, corrections and the outcome in force, for the API."""
+    return {
+        "decision_id": decision.decision_id,
+        "flag_id": decision.flag_id,
+        "agent_id": agent_id,
+        "reviewer_id": decision.reviewer_id,
+        "decision_outcome": decision.decision_outcome,
+        "decision_timestamp": decision.decision_timestamp.isoformat(),
+        "notes": decision.notes,
+        "run_id": decision.run_id,
+        "flag_source": decision.flag_source,
+        "status": decision.status,
+        "final_outcome": decision.final_outcome,
+        "closed_by": decision.closed_by,
+        "closed_at": decision.closed_at.isoformat() if decision.closed_at else None,
+        "close_note": decision.close_note,
+        "corrections": [{
+            "correction_id": c.correction_id, "previous_outcome": c.previous_outcome, "new_outcome": c.new_outcome,
+            "corrected_by": c.corrected_by, "corrected_at": c.corrected_at.isoformat(), "note": c.note,
+        } for c in decision.corrections],
+        "effective_outcome": effective_outcome(decision),
+        "overdue": is_overdue(decision, now),
+        "still_flagged": still_flagged,
+    }
+
+
+def review_block(db_session, vector, flag, run=None):
+    """Agent detail (issue #28): whether the agent's flag can be reviewed now, and its open and final decisions."""
+    if vector is None or flag is None:
+        return {"reviewable": False, "reason": "This agent has no flag to review", "flag_id": None,
+                "flag_source": None, "open_decision_id": None, "open_proposed_by": None, "final_decision_id": None,
+                "effective_outcome": None}
+    source, reason = eligibility(db_session, vector, run)
+    pending, final = open_and_final(db_session, flag.flag_id)
+    if reason is None and pending is not None:
+        reason = "This flag already has an open proposal"
+    elif reason is None and final is not None:
+        reason = "This flag already has a final decision; only a compliance officer's correction can change it"
+    return {"reviewable": reason is None, "reason": reason, "flag_id": flag.flag_id, "flag_source": source,
+            "open_decision_id": pending.decision_id if pending else None,
+            "open_proposed_by": pending.reviewer_id if pending else None,
+            "final_decision_id": final.decision_id if final else None,
+            "effective_outcome": effective_outcome(final) if final else None}
+
+
+def review_stats(db_session, now=None):
+    """
+    Counts for analytics. overrule_rate = overruled / (agreed + overruled): the share of officer decisions
+    that overruled the analyst; withdrawn and open proposals are left out, corrections are counted
+    separately, and the rate is None until an officer has decided something.
+    """
+    decisions = db_session.query(ReviewDecision).all()
+    counts = {status: sum(d.status == status for d in decisions) for status in
+              (DECISION_PENDING, DECISION_WITHDRAWN, DECISION_AGREED, DECISION_OVERRULED)}
+    decided = counts[DECISION_AGREED] + counts[DECISION_OVERRULED]
+    return {
+        "proposals": len(decisions),
+        "open": counts[DECISION_PENDING],
+        "overdue": sum(is_overdue(d, now) for d in decisions),
+        "withdrawn": counts[DECISION_WITHDRAWN],
+        "agreed": counts[DECISION_AGREED],
+        "overruled": counts[DECISION_OVERRULED],
+        "corrections": db_session.query(ReviewCorrection).count(),
+        "overrule_rate": round(counts[DECISION_OVERRULED] / decided, 4) if decided else None,
+        "overdue_hours": OVERDUE_HOURS,
+    }
 
 
 def locked_decision(db_session, decision_id):
@@ -157,5 +235,6 @@ def correct(db_session, officer_id, decision_id, new_outcome, expected_outcome, 
     return decision, correction
 
 
-__all__ = ["DECISION_OUTCOMES", "ReviewError", "close", "correct", "effective_outcome", "eligibility",
-           "open_and_final", "propose", "withdraw"]
+__all__ = ["DECISION_OUTCOMES", "OVERDUE_HOURS", "ReviewError", "close", "correct", "decision_payload",
+           "effective_outcome", "eligibility", "is_overdue", "open_and_final", "propose", "review_block",
+           "review_stats", "withdraw"]

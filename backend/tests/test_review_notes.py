@@ -97,7 +97,7 @@ def test_notes_are_stored_and_returned_in_payload_history_and_confirmation(clien
     confirmed = client.post(f"/api/review-decisions/{body['decision_id']}/agree").get_json()
     assert confirmed["notes"] == expected and confirmed["status"] == "agreed"
     listed = history_entry(client, body["decision_id"])
-    assert listed["notes"] == expected and listed["confirmed_by"] == COMPLIANCE["admin_id"]
+    assert listed["notes"] == expected and listed["closed_by"] == COMPLIANCE["admin_id"]
 
 
 def test_notes_appear_in_the_proposal_and_confirmation_audit_entries(client, flag) -> None:

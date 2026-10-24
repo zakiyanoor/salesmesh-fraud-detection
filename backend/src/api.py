@@ -485,6 +485,9 @@ def get_agent_detail(agent_id):
                 "flag_status": flag.flag_status,
                 "model_version": flag.model_version,
             } if flag else None,
+            # Issue #28: whether this agent's flag can be reviewed now (any flag_source but None in the
+            # latest run), with its open and final decisions. The screen uses this, not the flag object.
+            "review": review.review_block(db_session, vector, flag, run),
             # Pass-through context from other SalesMesh modules -- not used as a
             # detection feature, kept separate from "features" for that reason.
             # An agent can work across several clients/categories, so this is a
@@ -736,6 +739,10 @@ def correct_review_decision(decision_id):
 @app.route("/api/review-decisions", methods=["GET"])
 @login_required
 def list_review_decisions():
+    """
+    Every decision, newest first, with its closing fields, corrections, the outcome in force, whether it is
+    overdue (open for more than review.OVERDUE_HOURS) and whether its agent is still flagged (issue #28).
+    """
     db_session = get_session()
     try:
         decisions = (
@@ -743,24 +750,17 @@ def list_review_decisions():
             .order_by(ReviewDecision.decision_timestamp.desc())
             .all()
         )
+        agents = dict(db_session.query(FraudFlag.flag_id, FeatureVector.agent_id)
+                      .join(FeatureVector, FraudFlag.vector_id == FeatureVector.vector_id)
+                      .filter(FraudFlag.flag_id.in_({d.flag_id for d in decisions})).all()) if decisions else {}
+        sources = {agent_id: s.flag_source for agent_id, s in latest_scores_by_agent(db_session).items()}
+        now = datetime.utcnow()
         results = []
         for d in decisions:
-            flag = db_session.query(FraudFlag).filter(FraudFlag.flag_id == d.flag_id).first()
-            vector = (
-                db_session.query(FeatureVector).filter(FeatureVector.vector_id == flag.vector_id).first()
-                if flag else None
-            )
-            results.append({
-                "decision_id": d.decision_id,
-                "agent_id": vector.agent_id if vector else None,
-                "reviewer_id": d.reviewer_id,
-                "decision_outcome": d.decision_outcome,
-                "decision_timestamp": d.decision_timestamp.isoformat(),
-                "status": d.status,
-                "confirmed_by": d.closed_by or d.confirmed_by,
-                "notes": d.notes,
-            })
-        return jsonify({"count": len(results), "decisions": results})
+            agent_id = agents.get(d.flag_id)
+            results.append(review.decision_payload(
+                d, agent_id, still_flagged=sources.get(agent_id) in review.REVIEWABLE_SOURCES, now=now))
+        return jsonify({"count": len(results), "overdue_hours": review.OVERDUE_HOURS, "decisions": results})
     finally:
         db_session.close()
 
@@ -846,6 +846,8 @@ def get_analytics():
                 "time_of_day_dist": round(dist_sum / count, 3),
                 "customer_similarity": round(sim_sum / count, 3),
             },
+            # Issue #28: proposal counts and the overrule rate (src/review.py, review_stats).
+            "review": review.review_stats(db_session),
         })
     finally:
         db_session.close()
