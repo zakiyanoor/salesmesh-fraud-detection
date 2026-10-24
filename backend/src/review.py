@@ -21,8 +21,8 @@ from sqlalchemy import func
 
 from src import threat_intel
 from src.db import (
-    DECISION_FINAL, DECISION_OUTCOMES, DECISION_PENDING, DECISION_WITHDRAWN, AgentScore, FeatureVector, FraudFlag,
-    ReviewDecision,
+    DECISION_AGREED, DECISION_FINAL, DECISION_OUTCOMES, DECISION_OVERRULED, DECISION_PENDING, DECISION_WITHDRAWN,
+    AgentScore, FeatureVector, FraudFlag, ReviewDecision,
 )
 
 REVIEWABLE_SOURCES = ("ML", "Rule", "Both")
@@ -117,4 +117,16 @@ def withdraw(db_session, analyst_id, decision_id, note):
     return decision
 
 
-__all__ = ["DECISION_OUTCOMES", "ReviewError", "eligibility", "open_and_final", "propose", "withdraw"]
+def close(db_session, officer_id, decision_id, final_outcome, note):
+    """Agree (final_outcome is the proposed outcome) or overrule (the other outcome); never by the proposer."""
+    decision = locked_decision(db_session, decision_id)
+    if decision.reviewer_id == officer_id:
+        raise ReviewError(403, "A decision cannot be agreed or overruled by the admin who proposed it")
+    require_open(decision)
+    decision.status = DECISION_AGREED if final_outcome == decision.decision_outcome else DECISION_OVERRULED
+    decision.final_outcome, decision.closed_by, decision.closed_at = final_outcome, officer_id, datetime.utcnow()
+    decision.close_note = note
+    return decision
+
+
+__all__ = ["DECISION_OUTCOMES", "ReviewError", "close", "eligibility", "open_and_final", "propose", "withdraw"]

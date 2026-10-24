@@ -166,7 +166,7 @@ def test_unknown_account_and_bad_role(client) -> None:
 def test_admin_cannot_propose_or_confirm_review_decisions(client) -> None:
     login(client, ADMIN)
     assert client.post("/api/review-decisions", json={"flag_id": "x", "decision_outcome": "y"}).status_code == 403
-    assert client.post("/api/review-decisions/ANY/confirm").status_code == 403
+    assert client.post("/api/review-decisions/ANY/agree").status_code == 403
 
 
 def test_admin_can_view_detection_run_status(client) -> None:

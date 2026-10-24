@@ -97,11 +97,11 @@ def test_analyst_proposal_is_pending_until_compliance_confirms(client) -> None:
     client.post("/api/logout")
 
     login(client, COMPLIANCE)
-    response = client.post(f"/api/review-decisions/{proposed['decision_id']}/confirm")
+    response = client.post(f"/api/review-decisions/{proposed['decision_id']}/agree")
     assert response.status_code == 200
     body = response.get_json()
     assert body["status"] == "agreed"
-    assert body["confirmed_by"] == COMPLIANCE["admin_id"]
+    assert body["closed_by"] == COMPLIANCE["admin_id"]
 
     listed = next(
         d for d in client.get("/api/review-decisions").get_json()["decisions"]
@@ -117,7 +117,7 @@ def test_analyst_cannot_confirm_own_decision(client) -> None:
     login(client, ANALYST)
     proposed = _propose(client, flag_id)
 
-    response = client.post(f"/api/review-decisions/{proposed['decision_id']}/confirm")
+    response = client.post(f"/api/review-decisions/{proposed['decision_id']}/agree")
     assert response.status_code == 403
 
     status = next(
@@ -148,7 +148,7 @@ def test_decision_cannot_be_confirmed_by_its_proposer(client) -> None:
         db_session.close()
 
     login(client, COMPLIANCE)
-    response = client.post(f"/api/review-decisions/{decision_id}/confirm")
+    response = client.post(f"/api/review-decisions/{decision_id}/agree")
     assert response.status_code == 403
     assert "proposed" in response.get_json()["error"]
 
@@ -160,13 +160,13 @@ def test_confirmed_decision_cannot_be_confirmed_again(client) -> None:
     client.post("/api/logout")
 
     login(client, COMPLIANCE)
-    assert client.post(f"/api/review-decisions/{proposed['decision_id']}/confirm").status_code == 200
-    assert client.post(f"/api/review-decisions/{proposed['decision_id']}/confirm").status_code == 409
+    assert client.post(f"/api/review-decisions/{proposed['decision_id']}/agree").status_code == 200
+    assert client.post(f"/api/review-decisions/{proposed['decision_id']}/agree").status_code == 409
 
 
 def test_confirming_unknown_decision_returns_404(client) -> None:
     login(client, COMPLIANCE)
-    assert client.post("/api/review-decisions/NONEXISTENT/confirm").status_code == 404
+    assert client.post("/api/review-decisions/NONEXISTENT/agree").status_code == 404
 
 
 # --- Audit log ---
@@ -219,10 +219,10 @@ def test_audit_log_records_decision_actions_with_target_agent(client) -> None:
     client.post("/api/logout")
 
     login(client, COMPLIANCE)
-    client.post(f"/api/review-decisions/{proposed['decision_id']}/confirm")
+    client.post(f"/api/review-decisions/{proposed['decision_id']}/agree")
 
     proposal = next(e for e in _audit_entries(client, ANALYST["admin_id"]) if e["action"] == "propose_decision")
-    confirmation = next(e for e in _audit_entries(client, COMPLIANCE["admin_id"]) if e["action"] == "confirm_decision")
+    confirmation = next(e for e in _audit_entries(client, COMPLIANCE["admin_id"]) if e["action"] == "agree_decision")
     assert proposal["target_agent_id"] == agent_id
     assert confirmation["target_agent_id"] == agent_id
 

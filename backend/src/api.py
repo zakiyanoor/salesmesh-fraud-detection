@@ -45,7 +45,7 @@ from sqlalchemy import and_, func
 from sqlalchemy.exc import IntegrityError
 from src.db import (
     get_session, Agent, ActivationRecord, FeatureVector, FraudFlag, ReviewDecision,
-    AdminActionLog, DECISION_PENDING, DECISION_AGREED, DECISION_OUTCOMES, AgentCategory, AgentIdentity, AgentScore, Client,
+    AdminActionLog, DECISION_AGREED, DECISION_OUTCOMES, AgentCategory, AgentIdentity, AgentScore, Client,
     DetectionRun, DuplicateEvidence, FLAG_SOURCES,
 )
 from src.auth import (
@@ -606,43 +606,33 @@ def withdraw_review_decision(decision_id):
         db_session.close()
 
 
-@app.route("/api/review-decisions/<decision_id>/confirm", methods=["POST"])
-@role_required(ROLE_COMPLIANCE_OFFICER)
-def confirm_review_decision(decision_id):
+def close_review_decision(decision_id, final_outcome, notes):
+    """Issue #28: agree or overrule an open proposal (review.close), with its audit entry, in one transaction."""
     db_session = get_session()
     try:
-        # Row lock so two concurrent confirmations can't both see "pending".
-        decision = (
-            db_session.query(ReviewDecision)
-            .filter(ReviewDecision.decision_id == decision_id)
-            .with_for_update()
-            .first()
-        )
-        if not decision:
-            return jsonify({"error": "Review decision not found"}), 404
-        if decision.reviewer_id == session["admin_id"]:
-            return jsonify({"error": "A decision cannot be confirmed by the admin who proposed it"}), 403
-        if decision.status != DECISION_PENDING:
-            return jsonify({"error": f"Decision is already {decision.status}"}), 409
-
-        # Issue #28: closing columns, written once (an agreed decision used to be stored as "confirmed").
-        decision.status = DECISION_AGREED
-        decision.final_outcome = decision.decision_outcome
-        decision.closed_by = session["admin_id"]
-        decision.closed_at = datetime.utcnow()
+        try:
+            decision = review.close(db_session, session["admin_id"], decision_id, final_outcome, notes)
+        except review.ReviewError as e:
+            db_session.rollback()
+            return review_refused(e, decision_id=decision_id)
+        action = "agree_decision" if decision.status == DECISION_AGREED else "overrule_decision"
         log_admin_action(
-            db_session, session["admin_id"], "confirm_decision",
+            db_session, session["admin_id"], action,
             target_agent_id=agent_id_for_flag(db_session, decision.flag_id),
             details={"decision_id": decision.decision_id, "flag_id": decision.flag_id,
-                     "proposed_by": decision.reviewer_id, "notes": decision.notes},
+                     "proposed_by": decision.reviewer_id, "decision_outcome": decision.decision_outcome,
+                     "final_outcome": decision.final_outcome, "notes": notes, "proposal_notes": decision.notes},
         )
         db_session.commit()
-
         return jsonify({
-            "message": "Review decision confirmed",
+            "message": "Proposal agreed" if action == "agree_decision" else "Proposal overruled",
             "decision_id": decision.decision_id,
             "status": decision.status,
-            "confirmed_by": decision.closed_by,
+            "decision_outcome": decision.decision_outcome,
+            "final_outcome": decision.final_outcome,
+            "closed_by": decision.closed_by,
+            "closed_at": decision.closed_at.isoformat(),
+            "close_note": decision.close_note,
             "notes": decision.notes,
         })
     except Exception as e:
@@ -650,6 +640,47 @@ def confirm_review_decision(decision_id):
         return jsonify({"error": str(e)}), 500
     finally:
         db_session.close()
+
+
+@app.route("/api/review-decisions/<decision_id>/agree", methods=["POST"])
+@role_required(ROLE_COMPLIANCE_OFFICER)
+def agree_review_decision(decision_id):
+    """Issue #28: a compliance officer other than the proposer agrees; the note is optional."""
+    data = request.get_json(silent=True) or {}
+    notes = None
+    if data.get("notes") is not None:
+        notes, notes_error = clean_notes(data["notes"])
+        if notes_error:
+            return jsonify({"error": notes_error}), 400
+    db_session = get_session()
+    try:
+        decision = db_session.get(ReviewDecision, decision_id)
+        outcome = decision.decision_outcome if decision else None
+    finally:
+        db_session.close()
+    # An unknown decision gets its 404 from review.close; the outcome is re-read under the row lock there.
+    return close_review_decision(decision_id, outcome, notes)
+
+
+@app.route("/api/review-decisions/<decision_id>/overrule", methods=["POST"])
+@role_required(ROLE_COMPLIANCE_OFFICER)
+def overrule_review_decision(decision_id):
+    """Issue #28: a compliance officer other than the proposer picks the other outcome, with a note."""
+    data, notes, invalid = review_body()
+    if invalid:
+        return invalid
+    final_outcome = data.get("final_outcome")
+    if final_outcome not in DECISION_OUTCOMES:
+        return jsonify({"error": f"final_outcome must be one of {list(DECISION_OUTCOMES)}, "
+                                 f"got {str(final_outcome)[:50]!r}"}), 400
+    db_session = get_session()
+    try:
+        decision = db_session.get(ReviewDecision, decision_id)
+        if decision is not None and final_outcome == decision.decision_outcome:
+            return jsonify({"error": "final_outcome must differ from the proposed outcome; to keep it, agree instead"}), 400
+    finally:
+        db_session.close()
+    return close_review_decision(decision_id, final_outcome, notes)
 
 
 @app.route("/api/review-decisions", methods=["GET"])

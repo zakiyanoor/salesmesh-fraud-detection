@@ -216,7 +216,7 @@ def test_a_review_decision_changes_no_view(client) -> None:
     assert proposed.status_code == 201, proposed.get_json()
     client.post("/api/logout")
     login(client, COMPLIANCE)
-    confirmed = client.post(f"/api/review-decisions/{proposed.get_json()['decision_id']}/confirm")
+    confirmed = client.post(f"/api/review-decisions/{proposed.get_json()['decision_id']}/agree")
     assert confirmed.status_code == 200, confirmed.get_json()
     client.post("/api/logout")
 

@@ -94,7 +94,7 @@ def test_notes_are_stored_and_returned_in_payload_history_and_confirmation(clien
     client.post("/api/logout")
 
     login(client, COMPLIANCE)
-    confirmed = client.post(f"/api/review-decisions/{body['decision_id']}/confirm").get_json()
+    confirmed = client.post(f"/api/review-decisions/{body['decision_id']}/agree").get_json()
     assert confirmed["notes"] == expected and confirmed["status"] == "agreed"
     listed = history_entry(client, body["decision_id"])
     assert listed["notes"] == expected and listed["confirmed_by"] == COMPLIANCE["admin_id"]
@@ -105,12 +105,12 @@ def test_notes_appear_in_the_proposal_and_confirmation_audit_entries(client, fla
     decision_id = propose(client, flag[0], notes=NOTES).get_json()["decision_id"]
     client.post("/api/logout")
     login(client, COMPLIANCE)
-    assert client.post(f"/api/review-decisions/{decision_id}/confirm").status_code == 200
+    assert client.post(f"/api/review-decisions/{decision_id}/agree").status_code == 200
 
     proposal = audit_entry(client, ANALYST["admin_id"], "propose_decision", decision_id)
-    confirmation = audit_entry(client, COMPLIANCE["admin_id"], "confirm_decision", decision_id)
+    confirmation = audit_entry(client, COMPLIANCE["admin_id"], "agree_decision", decision_id)
     assert proposal["details"]["notes"] == NOTES
-    assert confirmation["details"]["notes"] == NOTES
+    assert confirmation["details"]["proposal_notes"] == NOTES
     assert proposal["target_agent_id"] == confirmation["target_agent_id"] == flag[1]
 
 
@@ -127,9 +127,9 @@ def test_old_decision_without_notes_still_lists_and_confirms(client, flag) -> No
 
     login(client, COMPLIANCE)
     assert history_entry(client, decision_id)["notes"] is None
-    response = client.post(f"/api/review-decisions/{decision_id}/confirm")
+    response = client.post(f"/api/review-decisions/{decision_id}/agree")
     assert response.status_code == 200 and response.get_json()["notes"] is None
-    assert audit_entry(client, COMPLIANCE["admin_id"], "confirm_decision", decision_id)["details"]["notes"] is None
+    assert audit_entry(client, COMPLIANCE["admin_id"], "agree_decision", decision_id)["details"]["proposal_notes"] is None
 
 
 def test_migration_adds_a_nullable_notes_column_and_is_safe_twice(database) -> None:

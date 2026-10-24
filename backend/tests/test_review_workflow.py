@@ -14,7 +14,7 @@ from src.db import (
     AdminActionLog, FeatureVector, FraudFlag, ReviewCorrection, ReviewDecision, ReviewMigrationError, engine,
     get_session, migrate_review_workflow,
 )
-from tests.helpers import ANALYST, COMPLIANCE, login, reviewable_flag
+from tests.helpers import ADMIN, ANALYST, COMPLIANCE, login, reviewable_flag
 
 
 def flagged_flag_ids(count=1):
@@ -357,7 +357,7 @@ def test_a_new_proposal_is_refused_after_a_final_decision(client) -> None:
     login(client, ANALYST)
     decided = propose(client, flag_id).get_json()["decision_id"]
     as_role(client, COMPLIANCE)
-    assert client.post(f"/api/review-decisions/{decided}/confirm").status_code == 200
+    assert client.post(f"/api/review-decisions/{decided}/agree").status_code == 200
     as_role(client, ANALYST)
     response = propose(client, flag_id, outcome="legitimate")
     assert response.status_code == 409
@@ -395,7 +395,7 @@ def test_a_withdrawn_proposal_cannot_be_withdrawn_or_confirmed_again(client) -> 
     assert again.status_code == 409 and "already withdrawn" in again.get_json()["error"]
     assert audit_entries("review_refused", decision_id=decision_id)
     as_role(client, COMPLIANCE)
-    assert client.post(f"/api/review-decisions/{decision_id}/confirm").status_code == 409
+    assert client.post(f"/api/review-decisions/{decision_id}/agree").status_code == 409
 
 
 def test_only_the_proposer_can_withdraw(client) -> None:
@@ -416,3 +416,132 @@ def test_only_the_proposer_can_withdraw(client) -> None:
 def test_withdrawing_an_unknown_decision_returns_404(client) -> None:
     login(client, ANALYST)
     assert client.post("/api/review-decisions/RD_NONE/withdraw", json={"notes": "x"}).status_code == 404
+
+
+# --- Agree and overrule (rule 4) ---
+
+def proposed(client, sources=("ML", "Both"), outcome="confirmed_fraud"):
+    """Logs in as the analyst, proposes on a fresh flag, logs in as the officer; returns (decision_id, flag_id, agent_id)."""
+    flag_id, agent_id = reviewable_flag(sources)
+    login(client, ANALYST)
+    response = propose(client, flag_id, outcome=outcome)
+    assert response.status_code == 201, response.get_json()
+    as_role(client, COMPLIANCE)
+    return response.get_json()["decision_id"], flag_id, agent_id
+
+
+def test_the_officer_agrees_without_a_note_and_the_audit_log_records_it(client) -> None:
+    decision_id, flag_id, agent_id = proposed(client)
+    response = client.post(f"/api/review-decisions/{decision_id}/agree")
+    assert response.status_code == 200, response.get_json()
+    body = response.get_json()
+    assert (body["status"], body["final_outcome"], body["closed_by"], body["close_note"]) == (
+        "agreed", "confirmed_fraud", COMPLIANCE["admin_id"], None)
+    (entry, details), = audit_entries("agree_decision", decision_id=decision_id)
+    assert entry.admin_id == COMPLIANCE["admin_id"] and entry.target_agent_id == agent_id
+    assert (details["proposed_by"], details["decision_outcome"], details["final_outcome"], details["notes"]) == (
+        ANALYST["admin_id"], "confirmed_fraud", "confirmed_fraud", None)
+
+
+def test_an_agreement_may_carry_a_note(client) -> None:
+    decision_id, _, _ = proposed(client, sources=("Rule",))
+    response = client.post(f"/api/review-decisions/{decision_id}/agree", json={"notes": " Evidence checked. "})
+    assert response.status_code == 200 and response.get_json()["close_note"] == "Evidence checked."
+    assert client.post(f"/api/review-decisions/{decision_id}/agree", json={"notes": ""}).status_code == 400
+
+
+@pytest.mark.parametrize("body, message", [
+    ({"final_outcome": "legitimate"}, "notes is required"),
+    ({"final_outcome": "legitimate", "notes": "  "}, "notes must not be empty"),
+    ({"notes": "Different view."}, "final_outcome must be one of"),
+    ({"final_outcome": "fraud", "notes": "Different view."}, "final_outcome must be one of"),
+    ({"final_outcome": "confirmed_fraud", "notes": "Same outcome."}, "must differ from the proposed outcome"),
+])
+def test_an_overrule_needs_a_note_and_the_other_outcome(client, body, message) -> None:
+    decision_id, _, _ = proposed(client)
+    response = client.post(f"/api/review-decisions/{decision_id}/overrule", json=body)
+    assert response.status_code == 400 and message in response.get_json()["error"]
+    assert stored(decision_id).status == "pending_confirmation"
+
+
+def test_the_officer_overrules_with_a_note_and_the_audit_log_records_it(client) -> None:
+    decision_id, flag_id, agent_id = proposed(client, sources=("Both",))
+    response = client.post(f"/api/review-decisions/{decision_id}/overrule",
+                           json={"final_outcome": "legitimate", "notes": "The shared customers are one family."})
+    assert response.status_code == 200, response.get_json()
+    row = stored(decision_id)
+    assert (row.status, row.decision_outcome, row.final_outcome, row.closed_by, row.close_note) == (
+        "overruled", "confirmed_fraud", "legitimate", COMPLIANCE["admin_id"], "The shared customers are one family.")
+    (entry, details), = audit_entries("overrule_decision", decision_id=decision_id)
+    assert entry.target_agent_id == agent_id
+    assert (details["decision_outcome"], details["final_outcome"], details["notes"]) == (
+        "confirmed_fraud", "legitimate", "The shared customers are one family.")
+
+
+def test_a_closed_decision_cannot_be_agreed_overruled_or_withdrawn(client) -> None:
+    decision_id, _, _ = proposed(client)
+    assert client.post(f"/api/review-decisions/{decision_id}/agree").status_code == 200
+    overrule = client.post(f"/api/review-decisions/{decision_id}/overrule",
+                           json={"final_outcome": "legitimate", "notes": "Too late."})
+    assert overrule.status_code == 409 and "already agreed" in overrule.get_json()["error"]
+    as_role(client, ANALYST)
+    assert client.post(f"/api/review-decisions/{decision_id}/withdraw", json={"notes": "Too late."}).status_code == 409
+    assert len(audit_entries("review_refused", decision_id=decision_id)) == 2
+
+
+def test_unknown_decisions_return_404(client) -> None:
+    login(client, COMPLIANCE)
+    assert client.post("/api/review-decisions/RD_NONE/agree").status_code == 404
+    assert client.post("/api/review-decisions/RD_NONE/overrule",
+                       json={"final_outcome": "legitimate", "notes": "x"}).status_code == 404
+
+
+def test_the_old_confirm_endpoint_is_gone(client) -> None:
+    decision_id, _, _ = proposed(client)
+    assert client.post(f"/api/review-decisions/{decision_id}/confirm").status_code == 404
+    assert stored(decision_id).status == "pending_confirmation"
+
+
+def test_a_proposer_moved_to_the_compliance_role_cannot_decide_their_own_proposal(client) -> None:
+    decision_id, _, _ = proposed(client)
+    login(client, ADMIN)
+    moved = client.patch(f"/api/admin/accounts/{ANALYST['admin_id']}/role", json={"role": "compliance_officer"})
+    assert moved.status_code == 200, moved.get_json()
+    try:
+        as_role(client, ANALYST)
+        agree = client.post(f"/api/review-decisions/{decision_id}/agree")
+        overrule = client.post(f"/api/review-decisions/{decision_id}/overrule",
+                               json={"final_outcome": "legitimate", "notes": "My own."})
+        assert agree.status_code == overrule.status_code == 403
+        assert "proposed it" in agree.get_json()["error"]
+        assert stored(decision_id).status == "pending_confirmation"
+    finally:
+        as_role(client, ADMIN)
+        client.patch(f"/api/admin/accounts/{ANALYST['admin_id']}/role", json={"role": "fraud_analyst"})
+
+
+def test_withdrawing_and_agreeing_at_the_same_moment_closes_the_proposal_once(database) -> None:
+    flag_id, _ = reviewable_flag()
+    from src.api import app
+
+    with app.test_client() as c:
+        login(c, ANALYST)
+        decision_id = propose(c, flag_id).get_json()["decision_id"]
+
+    def withdrawal(c):
+        login(c, ANALYST)
+        return lambda: c.post(f"/api/review-decisions/{decision_id}/withdraw", json={"notes": "Changed my mind."})
+
+    def agreement(c):
+        login(c, COMPLIANCE)
+        return lambda: c.post(f"/api/review-decisions/{decision_id}/agree")
+
+    try:
+        assert at_the_same_moment([withdrawal, agreement]) == [200, 409]
+        status = stored(decision_id).status
+        assert status in ("withdrawn", "agreed")
+        closing = audit_entries("withdraw_decision", decision_id=decision_id) + audit_entries(
+            "agree_decision", decision_id=decision_id)
+        assert len(closing) == 1 and len(audit_entries("review_refused", decision_id=decision_id)) == 1
+    finally:
+        delete_review_rows(flag_id)
