@@ -1,5 +1,88 @@
 # Backend changes
 
+## Sprint 8: threat intelligence views once per run (issue #28)
+
+Branch `feature/explainability-and-review`.
+
+### Views computed once per detection run
+
+- **Before:** every request to a threat intelligence view recomputed it.
+  - Summary, timeline, by-client and by-category each read all 135,494 activation records.
+  - Ring candidates rebuilt the flagged agents' customer sets.
+- **Now:**
+  - `run_detection_cycle` computes all seven views with the unchanged `threat_intel` functions and stores them in the new `threat_views` table (`run_id`, `view`, `view_version`, `payload`).
+  - They are stored in the same transaction as the run, so a run never succeeds without its views. A view that fails fails the run.
+- **Serving** (`threat_intel.view_payload`):
+  - The endpoint finds the latest succeeded run, as before, and returns that run's stored copy.
+  - A run with no stored copy at the current version is computed with the current code and kept in memory per run, view and version. That covers runs from before this change and views whose version changed.
+- **Staleness:**
+  - The cache key is the `run_id`, so nothing needs invalidating: a new run is served as soon as it commits, and a running or failed run is never served.
+  - No view reads review decisions or `fraud_flags`, so a review decision changes no view (tested).
+  - After a data reload with no new run, the views show the run's own records, consistent with its scores.
+- **Versions:** `threat_intel.VIEW_VERSIONS`, all 1. Bump a view's number whenever its output changes; stored copies of other versions are then recomputed.
+- **Migration:** `migrate_schema` creates the table. On an existing database, run `python -m src.migrate` (or a detection run) before starting the API.
+- **Cost:** computing and serialising the seven views takes about 2.3 s per run (median of 5 on the bench database).
+
+### One fetch of the latest detection run
+
+- **Frontend:** `LatestRunProvider` in the layout fetches `/api/detection-runs/latest` once per page and shares it with the Overview card and the footer, which used to fetch it separately.
+  - It refreshes on each navigation, so the footer is now as fresh as the Overview card.
+  - The previous answer stays on screen while a refresh loads.
+
+### Tests
+
+- **`tests/test_threat_views.py`:**
+  - the table's columns and key;
+  - every view stored at the current version, equal to computing it;
+  - a failing view fails the run and stores nothing;
+  - the API returns the same bytes as computing the view, and serves the stored copy;
+  - a stored copy of another version is recomputed;
+  - a run without stored views is computed;
+  - views follow a new run (one with a flag removed), never a failed or running run, and a normal run afterwards gives the original views again;
+  - a proposed and confirmed review decision changes no view.
+- **Frontend:**
+  - the Overview fetches the latest run once for the card and the footer;
+  - the footer refreshes once per page and keeps the previous run on screen meanwhile.
+- **Reference check** (outside the test suite):
+  - Before any change, the seven responses were saved from a copy of the test database. The new code returned them byte for byte, both for that run (computed) and, apart from the `run` block, for a new run (stored).
+
+### Timings
+
+- **Setup:**
+  - a copy of the test database (1000 agents, 135,494 records);
+  - the Flask development server;
+  - 5 passes, the first straight after the server started.
+- **Sequential requests (curl), ms:**
+
+  | Endpoint | Size | Before: cold | Before: warm mean | After: cold | After: warm mean |
+  |---|---|---|---|---|---|
+  | threat-intelligence/summary | 872 B | 553 | 545 | 16 | 8 |
+  | threat-intelligence/timeline | 2,090 B | 462 | 535 | 9 | 9 |
+  | threat-intelligence/ring-candidates | 2,764 B | 170 | 183 | 10 | 8 |
+  | threat-intelligence/customer-sharing | 6,833 B | 70 | 63 | 8 | 8 |
+  | threat-intelligence/by-region | 4,978 B | 57 | 26 | 8 | 9 |
+  | agent-scores?limit=10 | 6,672 B | 11 | 11 | 13 | 10 |
+  | agent-scores?limit=50 | 31,895 B | 25 | 12 | 35 | 10 |
+  | detection-runs/latest | 313–344 B | 26 | 7 | 27 | 8 |
+  | me | 49 B | 10 | 5 | 9 | 6 |
+
+- **Browser (Chrome, production build, run 1 with an empty cache):**
+
+  | | Before | After |
+  |---|---|---|
+  | Overview settled, runs 1–5 | 1.59, 1.45, 1.81, 1.71, 1.76 s | 1.28, 1.18, 1.17, 1.15, 1.17 s |
+  | Overview `detection-runs/latest` requests | 2 | 1 |
+  | Overview summary request | 361–680 ms | 25–41 ms |
+  | Threat Intelligence settled, runs 1–5 | 2.43, 3.11, 2.92, 3.03, 2.74 s | 1.26, 1.30, 1.33, 1.16, 1.28 s |
+  | Threat Intelligence view requests | 549–1,873 ms | 24–75 ms |
+  | Threat Intelligence long tasks (total) | 241–478 ms | 144–254 ms |
+
+  "Settled" includes a fixed 0.5 s wait for the network to go quiet.
+- **Parallel requests:** the 8 Threat Intelligence requests, fired at once, 5 rounds.
+  - Before: 1.17 to 1.26 s in total, close to the 1.26 to 1.54 s sum of their solo times, because the work was serialised.
+  - After: 36 to 42 ms (157 ms in the first round, while the database connections opened), against a sum of 49 to 67 ms and a slowest single request of 7 to 14 ms.
+  - The development server answers in threads, but they overlap only partly, because each request is mostly Python work. A production server is left for the deployment item.
+
 ## Sprint 7: hybrid hardening (issue #26)
 
 Branch `sprint-7/hybrid-hardening`.
