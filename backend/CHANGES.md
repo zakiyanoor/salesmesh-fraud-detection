@@ -4,6 +4,38 @@
 
 Branch `feature/explainability-and-review`.
 
+### Review workflow
+
+- **Before:** a fraud analyst proposed and a compliance officer could only confirm.
+  - There was no reject, withdraw or correction, so a disagreement left a proposal pending with no trace.
+  - The server accepted a proposal on any flag, even an unflagged agent's: every agent has a `fraud_flags` row, and the agent page showed the form for all of them.
+  - Nothing stopped two open proposals on one flag.
+- **Now** (`src/review.py`; rules in `docs/API.md`, "Review workflow"):
+  1. An analyst proposes an outcome with a required note on any agent flagged by the model, the rule or both in the latest run. The proposal stores that `run_id` and `flag_source`.
+  2. One open proposal per flag, and none after a final decision (409, recorded as `review_refused`). The flag row is locked and a partial unique index catches races.
+  3. The proposer can withdraw an open proposal with a note.
+  4. A compliance officer agrees (note optional) or overrules with the other outcome (note required). `POST /confirm` is removed.
+  5. Only the proposer can withdraw; only an officer who is not the proposer can decide or correct, even after a role change; the admin can do neither.
+  6. A closed decision is never changed. A correction (any officer but the proposer, note required) is a new `review_corrections` row; `expected_current_outcome` refuses a correction based on an outdated outcome.
+  7. `overdue` after 72 hours. Nothing decides a proposal automatically.
+  8. Audit: `propose_decision`, `withdraw_decision`, `agree_decision`, `overrule_decision`, `correct_decision` and `review_refused`, in the same transaction as the action.
+  9. No decision changes a score, a flag, a run or a threat view. `GET /api/analytics` reports `overrule_rate` = overruled ÷ (agreed + overruled).
+- **Database:**
+  - `review_decisions` gains `run_id`, `flag_source`, `final_outcome`, `closed_by`, `closed_at` and `close_note`; statuses are `pending_confirmation`, `withdrawn`, `agreed` and `overruled`. The new table is `review_corrections`.
+  - Checks keep the closing values consistent. Triggers refuse any other update and every delete unless `salesmesh.review_maintenance` is set; only the loader's `allow_deleting_reviews` path and test cleanup set it. The existing audit trigger is unchanged.
+- **Migration:** run `python -m src.migrate`. It renames `confirmed` to `agreed`, copying `confirmed_by` into `closed_by` and taking `closed_at` from the `confirm_decision` audit entry. It stops if a flag has two open proposals.
+  - Checked on a copy of the development database: 3 confirmed decisions became agreed with their audit times, the pending one stayed open, and a second run changed nothing.
+  - One flag there has two agreed decisions and a later open proposal. The proposal stays in the queue for an officer, the history shows all three, and the outcome in force is the newest decision's.
+- **API:** `GET /api/review-decisions` returns the closing fields, corrections, `effective_outcome`, `overdue` and `still_flagged`; `closed_by` replaces `confirmed_by`. Agent detail gains a `review` block.
+- **Tests:** `tests/test_review_workflow.py` covers:
+  - the migration, the checks, the one-open index and the triggers (with raw SQL);
+  - every rule above, including the role matrix for all five actions;
+  - proposals, withdraw against agree, and corrections sent at the same moment;
+  - a detection run over a five-day-old proposal, which stays open;
+  - no change to scores, flags or views.
+
+  Existing tests moved from `/confirm` to `/agree` and now pick a flagged agent's flag.
+
 ### Views computed once per detection run
 
 - **Before:** every request to a threat intelligence view recomputed it.

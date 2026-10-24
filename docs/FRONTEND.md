@@ -77,7 +77,8 @@ The light theme is the default. Dark mode is optional, behind a toggle, and is d
 - Status: `error` for flagged or confirmed fraud, `success` for clear or legitimate.
 - Risk: `RiskBadge` only (label and icon, coloured by `palette.risk`).
 - Flag source: `FlagSourceChip`. Model, Model and rule, and Rule only are neutral; "Not flagged" is `success` with a check icon.
-- Decision status: `DecisionStatusChip`. Proposed is `warning` with an hourglass, Confirmed is `success` with a check, and Not reviewed is neutral.
+- Decision status: `DecisionStatusChip`. Proposed is `warning` with an hourglass, Agreed is `success` with a check, Overruled is `info` with swapped arrows, Withdrawn is neutral with an undo arrow, and Not reviewed is neutral.
+- Review markers: `OverdueChip` (`error`, clock) for a proposal waiting more than 3 days, `NoLongerFlaggedChip` (flag) when the agent is not flagged in the latest run, and `CorrectedChip` (note) for a corrected decision.
 - Decision outcome: `OutcomeChip`. Confirmed fraud is `error` with a gavel, and Legitimate is `success` with a check.
 
 ## Sidebar
@@ -118,7 +119,7 @@ The light theme is the default. Dark mode is optional, behind a toggle, and is d
   - opened by clicking a row or its "Details" button;
   - as a modal it traps focus, closes with Esc or the close button, and returns focus to the row or button that opened it;
   - details are shown as label and value pairs, and any key that looks like a secret (`password`, `hash`, `secret`, `token`, `cookie`, `session`) is left out.
-- **Confirm dialogs:** confirming a decision and changing an account both open a small dialog that says what will happen. The server's refusal (your own proposal, your own account, the last admin) appears inside it as an error alert, and the row stays as it was.
+- **Confirm dialogs:** every review action and every account change opens a small dialog that says what will happen. Review actions use `NoteDialog`: withdraw (note required), agree (note optional), overrule and correct (the other outcome preset, note required). The server's refusal (your own proposal, your own account, the last admin, an outdated correction) appears inside it as an error alert, and the row stays as it was. A proposal that was closed meanwhile (`409`) leaves the queue with a message saying so.
 
 ## Footer
 
@@ -140,7 +141,7 @@ Checked at 360, 768 and 1280 px by `npm run screenshots` (see "Screenshots" belo
 
 ## Accessibility rules
 
-Checked by `frontend/src/test/a11y.test.jsx` (axe on every page for its roles, the sign-in page, the phone menu, the audit drawer, the confirm dialog and a chart's table view) and `frontend/src/theme.test.js` (contrast).
+Checked by `frontend/src/test/a11y.test.jsx` (axe on every page for its roles, the sign-in page, the phone menu, the audit drawer, the agree and overrule dialogs and a chart's table view) and `frontend/src/theme.test.js` (contrast).
 
 - **Structure:**
   - one `h1` per page (the page title); section titles are `h2`;
@@ -217,20 +218,21 @@ Checked by `frontend/src/test/security.test.jsx`.
 ## Known limitations
 
 - **Compliance officers and the audit log:** the API (`GET /api/audit-log`) also lets compliance officers read the audit log. The app hides the menu item and guards the route for them, but the server would answer them.
-- **No "You" marker in review history and the confirm queue:** proposer and confirmer show as account ids. Marking your own decisions needs your account id, and `GET /api/me` returns only the username and role.
+- **No "You" marker in review history and the confirm queue:** proposer and officer show as account ids. Marking your own decisions needs your account id, and `GET /api/me` returns only the username and role. Agent detail knows whether an open proposal is yours from `review.open_is_mine`.
 - **Accounts:** creating accounts and resetting passwords happen on the server (`python -m src.auth` for the demo accounts, `python -m src.manage_accounts reset-password`). There is no API for either, so the Accounts page only lists accounts, changes roles and deactivates or reactivates them.
 - **Audit log filters:** the API offers no action or outcome filter, so the page filters by category, actor, agent id and date range. The Result column is derived from the action.
-- **Review history dates:** only the proposal date exists; the API returns no confirmation time.
 
 ## Review wording
 
-A decision has no effect until a compliance officer other than the proposer confirms it. All wording comes from `frontend/src/review.js`:
+A proposal has no effect until a compliance officer other than the proposer agrees or overrules it (issue #28). All wording comes from `frontend/src/review.js`:
 
 | Moment | Text |
 |---|---|
 | After proposing | "Decision proposed. It is waiting for a compliance officer to confirm it and has no effect until then." |
-| After confirming | "Decision for <agent> confirmed. It is now final." |
-| Status chips | Proposed, Confirmed |
+| After withdrawing | "Proposal withdrawn. You can propose again on this flag." |
+| After agreeing or overruling | "Proposal for <agent> agreed." or "... overruled.", then "The final outcome is <outcome>." |
+| After a correction | "Correction recorded for <agent>. The outcome in force is now <outcome>; the history keeps the original decision." |
+| Status chips | Proposed, Withdrawn, Agreed, Overruled |
 
 A proposal is never called saved, recorded or final; tests check this.
 
@@ -239,6 +241,9 @@ A proposal is never called saved, recorded or final; tests check this.
 - A live counter shows the length.
 - The hint says that runs of 7 or more digits are masked when saved.
 - Older decisions without notes say so instead of showing a blank.
+- The same rules apply to every review note; only an agreement's note is optional.
+
+**Decision timeline** (agent detail, and "History" in review history): the proposal, then its withdrawal, agreement or overrule, then each correction, each with who, when, the outcomes and the note, and the outcome in force when a correction exists.
 
 ## Pages
 
@@ -247,10 +252,10 @@ A proposal is never called saved, recorded or final; tests check this.
 | `/` | Overview: summary cards, flag source donut, risk band bars, needs attention | all | `/api/threat-intelligence/summary`, `/api/detection-runs/latest`, `/api/agent-scores?limit=50` |
 | `/flagged` | Flagged agents (model, rule or both) | fraud_analyst, compliance_officer | `/api/all-agents`, `/api/review-decisions` |
 | `/all-agents` | All agents, with a "Not flagged" state | fraud_analyst, compliance_officer | `/api/all-agents`, `/api/review-decisions` |
-| `/agents/:agentId` | Agent detail, evidence, decision timeline, propose panel (fraud_analyst) | fraud_analyst, compliance_officer | `/api/agents/<id>`, `/api/analytics`, `/api/review-decisions`, `POST /api/review-decisions` |
-| `/review/confirm` | Confirm queue | compliance_officer | `/api/review-decisions`, `POST /api/review-decisions/<id>/confirm` |
-| `/history` | Review history | fraud_analyst, compliance_officer | `/api/review-decisions` |
-| `/analytics` | Analytics: daily activations, score distribution, region rates, averages | all | `/api/analytics`, `/api/threat-intelligence/timeline`, `/api/threat-intelligence/by-region` |
+| `/agents/:agentId` | Agent detail, evidence, decision timeline; propose and withdraw (fraud_analyst), record a correction (compliance_officer) | fraud_analyst, compliance_officer | `/api/agents/<id>`, `/api/analytics`, `/api/review-decisions`, `POST /api/review-decisions`, `POST .../withdraw`, `POST .../corrections` |
+| `/review/confirm` | Confirm queue: agree or overrule, overdue and "no longer flagged" markers | compliance_officer | `/api/review-decisions`, `POST /api/review-decisions/<id>/agree`, `POST .../overrule` |
+| `/history` | Review history: status, outcome in force, who closed it, each decision's timeline | fraud_analyst, compliance_officer | `/api/review-decisions` |
+| `/analytics` | Analytics: daily activations, score distribution, region rates, review outcomes and overrule rate, averages | all | `/api/analytics`, `/api/threat-intelligence/timeline`, `/api/threat-intelligence/by-region` |
 | `/threat-intelligence` | Threat intelligence: summary, flag sources, drivers, timeline, regional rates, top risk agents, connected agents | all | `/api/threat-intelligence/summary`, `/timeline`, `/by-region`, `/customer-sharing`, `/api/agent-scores?limit=10` |
 | `/audit-log` | Audit log with server-side filters and paging, details drawer | admin | `/api/audit-log` |
 | `/reports` | Report downloads | admin | `/api/reports/flagged-agents.csv`, `/api/reports/audit-log.csv`, `/api/reports/detection-summary.pdf` |
@@ -262,12 +267,12 @@ A proposal is never called saved, recorded or final; tests check this.
 - Agent ids are system codes, not personal data, so they are shown in full.
 - Phone and national ID numbers are masked by the server (last 3 digits). Agent detail shortens the name to initials.
 - Internal ids (flag, decision and run ids) are never shown.
-- Proposer and confirmer are shown as the account ids the API returns. Usernames are not available to these roles.
+- Proposer and officer are shown as the account ids the API returns. Usernames are not available to these roles.
 - **Agent ids for admins:** they cannot open agent detail, so they see agent ids as plain text everywhere: Overview, Threat intelligence and the Audit log (`AgentId` component).
 - **Audit log is admin only** in the app. The API also lets compliance officers read it, but the menu and route allow admins only.
 - **Audit log filters:** the API offers no action or outcome filter, so the page filters by category, actor, agent id and date range. The Result column (Completed, Refused, Failed) is derived from the action for display only.
 - **Accounts:** creating accounts and resetting passwords have no API, so the Accounts page says they are done on the server (`python -m src.manage_accounts reset-password`).
-- Rule-only agents have no model flag, so they cannot be reviewed. Their evidence is read-only, with a note saying why.
+- Any flagged agent can be reviewed, whether the model, the rule or both flagged it (issue #28). The review section follows the API's `review` block; an agent nobody flagged shows why there is nothing to review.
 
 ## Branding
 

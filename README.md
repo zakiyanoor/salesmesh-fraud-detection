@@ -23,6 +23,7 @@ The system flags an agent when the frozen anomaly model `lof_v3_4f` **or** the d
 - **Model:** a Local Outlier Factor on four behaviour features (`submission_frequency`, `time_of_day_entropy`, `customer_similarity`, `collusion_score`). No label is used in training.
 - **Data:** 1000 agents (130 fraud) and 135,494 activations, split 70/15/15 by agent.
 - **Choices:** made on validation under rules written in advance. The test set was read once (`ml/results/FREEZE.md`).
+- **Review:** any flagged agent (model, rule or both) can be reviewed. An analyst proposes, a compliance officer agrees or overrules, and a decision is never edited, only corrected (`docs/API.md`, "Review workflow").
 
 ## Limitations
 
