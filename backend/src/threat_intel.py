@@ -4,14 +4,19 @@ detection run and the loaded activation records. No label is used.
 
 "Flagged" means flagged by the model (flag_source ML or Both), the primary
 flag; the duplicate rule is reported beside it as "rule flagged".
+
+Issue #28: every view is computed once, at the end of each detection run, and
+stored in threat_views with the run (store_views). VIEW_VERSIONS is the code
+version of each view; bump a view's number whenever its output changes.
 """
 
+import json
 from collections import Counter
 
 import pandas as pd
 from sqlalchemy import text
 
-from src.db import DetectionRun
+from src.db import DetectionRun, ThreatView
 from src.risk import RISK_BANDS, risk_band
 
 FLAG_SOURCES = ("ML", "Rule", "Both", "None")
@@ -212,3 +217,12 @@ def ring_candidates(db_session, run):
 
 VIEWS = {"summary": summary, "by-region": by_region, "by-client": by_client, "by-category": by_category,
          "timeline": timeline, "customer-sharing": customer_sharing, "ring-candidates": ring_candidates}
+VIEW_VERSIONS = {"summary": 1, "by-region": 1, "by-client": 1, "by-category": 1, "timeline": 1,
+                 "customer-sharing": 1, "ring-candidates": 1}
+
+
+def store_views(db_session, run):
+    """Computes every view for a run and adds it to the session, so it is committed with the run."""
+    for name, compute in VIEWS.items():
+        db_session.add(ThreatView(run_id=run.run_id, view=name, view_version=VIEW_VERSIONS[name],
+                                  payload=json.dumps(compute(db_session, run))))
