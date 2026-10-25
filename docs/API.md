@@ -116,6 +116,7 @@ Issue #28. A flag is a request for human review, and a decision never changes a 
 | GET | `/api/agent-scores` | all | Latest run's scores, filterable by `flag_source` |
 | GET | `/api/analytics` | all | Platform statistics |
 | GET | `/api/clients` | all | Client reference list |
+| GET | `/api/model-info` | all | The cutoff and the test results, read from the frozen results files |
 | GET | `/api/detection-runs/latest` | all | Status of the last detection run |
 | GET | `/api/threat-intelligence/summary` | all | Counts, rates, commission and top features of flagged agents |
 | GET | `/api/threat-intelligence/by-region` | all | Flagged agents per region; top 10 by flagged rate |
@@ -332,6 +333,27 @@ Query parameters:
   "platform_averages": {"submission_frequency": 15.8, "time_of_day_dist": 0.778, "customer_similarity": 0.109},
   "review": {"proposals": 6, "open": 2, "overdue": 1, "withdrawn": 1, "agreed": 2, "overruled": 1, "corrections": 1,
              "overrule_rate": 0.3333, "overdue_hours": 72}
+}
+```
+
+### GET /api/model-info
+
+Any signed-in role; not audited (issue #28). The figures for the "How the model works" page, read from the frozen results files on every request and never retyped:
+
+- `ml/runs/20261013-093050_selection_s42/operating_point.json` (hashed in `ml/results/FREEZE.md`): `model_version`, `features`, `cutoff`, `cutoff_rule`, `cutoff_chosen_on`;
+- `ml/runs/20261013-103859_final_evaluation_s42/summary.json`: `test_agents`, `test_fraud_agents`;
+- `ml/runs/20261013-103859_final_evaluation_s42/test_metrics.csv`: under `results`, the model, the duplicate rule and the system (model or rule), each with `precision`, `recall`, `pr_auc`, `roc_auc`, their 95% intervals (`*_ci`) and the counts `flagged`, `tp`, `fp`, `fn`, `tn`.
+
+`measured_on` says the figures come from the 150 held-out test agents and are not a promise for other data. `detection_interval_minutes` is the scheduler's interval (`DETECTION_INTERVAL_MINUTES`, default 1440). `sources` lists the three files. `backend/tests/test_model_info.py` checks that the response equals the files.
+
+```json
+{
+  "model_version": "lof_v3_4f", "cutoff": 1.4447993633890617, "cutoff_rule": "min expected cost 5:1", "cutoff_chosen_on": "validation",
+  "test_agents": 150, "test_fraud_agents": 19,
+  "results": {"model": {"precision": 0.6, "recall": 0.7894736842105263, "pr_auc": 0.84536680072518, "roc_auc": 0.9533949377259944,
+                        "pr_auc_ci": [0.6842170081902225, 0.9603234989648033], "flagged": 25, "tp": 15, "fp": 10, "fn": 4, "tn": 121}},
+  "measured_on": "the 150 held-out test agents, scored once with the frozen model; not a promise for other data",
+  "detection_interval_minutes": 1440
 }
 ```
 

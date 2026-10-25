@@ -4,6 +4,15 @@
 
 Branch `feature/sprint-3-screens`.
 
+### Model information
+
+- **New endpoint `GET /api/model-info`** (`src/model_info.py`), open to every signed-in role and not audited. It reads its figures from the frozen results files on every request; nothing is retyped:
+  - the cutoff and model from the frozen `operating_point.json`;
+  - the test agents from `summary.json`;
+  - precision, recall, PR AUC and ROC AUC with their intervals for the model, the rule and the system, from `test_metrics.csv` of the final evaluation run.
+- It also gives the scheduler interval, and says where the figures were measured (the 150 held-out test agents, not a promise for other data).
+- **Tests:** `tests/test_model_info.py` compares every value with the files, checks the operating point's hash against `FREEZE.md`, the roles, and that reads are not audited.
+
 ### Ring graph
 
 - **New endpoint `GET /api/threat-intelligence/ring-candidates/<candidate_id>`** (`src/ring_graph.py`): the members of one ring candidate, the number of customers each pair shares (never a customer ID), each member's county and the group's activations per day.
