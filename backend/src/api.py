@@ -13,6 +13,7 @@ Endpoints:
   GET  /api/flagged-agents        -> list of flagged agents (protected, FR-02)
   GET  /api/all-agents            -> every agent with current status (protected)
   GET  /api/agents/<agent_id>     -> feature evidence for one agent (protected, FR-03)
+  GET  /api/customers/<ref>       -> one customer from the duplicate evidence, audited (analyst, compliance; #28)
   POST /api/review-decisions      -> propose a review decision (fraud_analyst only, FR-04)
   POST /api/review-decisions/<decision_id>/confirm
                                   -> confirm a proposed decision (compliance_officer only)
@@ -52,7 +53,7 @@ from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER, ROLE_ADMIN, DEACTIVATED,
     VALID_ROLES,
 )
-from src import accounts, reports, review, threat_intel
+from src import accounts, customers, reports, review, threat_intel
 from src import audit
 from src.config import load_config
 from src.pipeline import compute_client_category_breakdown
@@ -467,6 +468,8 @@ def get_agent_detail(agent_id):
             "score": score_payload(score, run_percentiles(db_session, run).get(agent_id)),
             "duplicate_evidence": [{
                 "customer_id": e.customer_id,
+                # Issue #28: opens the customer view; the URL and audit log carry this, not the customer ID.
+                "customer_ref": customers.customer_ref(CONFIG["CUSTOMER_REF_KEY"], e.customer_id),
                 "client_id": e.client_id,
                 "other_agent_id": e.other_agent_id,
                 "reason": e.reason,
@@ -518,6 +521,39 @@ def review_body():
     data = request.get_json(silent=True) or {}
     notes, notes_error = clean_notes(data.get("notes"))
     return data, notes, ((jsonify({"error": notes_error}), 400) if notes_error else None)
+
+
+@app.route("/api/customers/<customer_ref>", methods=["GET"])
+@role_required(ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER)
+def get_customer(customer_ref):
+    """
+    Issue #28: one customer from the latest run's duplicate evidence (src/customers.py). Every open is
+    audited (customer_viewed, category review) and committed before the response; if that fails, nothing
+    is shown. An unknown reference is a 404 and is not audited. ?from_agent= is kept only if it is a
+    well-formed, existing agent ID.
+    """
+    db_session = get_session()
+    try:
+        run = latest_run(db_session)
+        customer_id = customers.resolve(db_session, run, CONFIG["CUSTOMER_REF_KEY"], customer_ref) if run else None
+        if customer_id is None:
+            return jsonify({"error": "Customer not found in the latest run's duplicate evidence"}), 404
+        source = customers.opened_from(db_session, request.args.get("from_agent"))
+        view = customers.customer_view(db_session, run, customer_id, customer_ref)
+        try:
+            log_admin_action(
+                db_session, session["admin_id"], "customer_viewed", target_agent_id=source,
+                details={"customer_ref": customer_ref, "role": session.get("role"), "opened_from": source,
+                         "run_id": run.run_id, "agent_count": view["agent_count"],
+                         "client_count": view["client_count"], "activations_total": view["activations_total"]},
+            )
+            db_session.commit()
+        except Exception:
+            db_session.rollback()
+            return jsonify({"error": "This access could not be recorded in the audit log, so the customer is not shown"}), 500
+        return jsonify(view)
+    finally:
+        db_session.close()
 
 
 @app.route("/api/review-decisions", methods=["POST"])
