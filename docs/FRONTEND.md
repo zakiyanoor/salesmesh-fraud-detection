@@ -141,7 +141,7 @@ Checked at 360, 768 and 1280 px by `npm run screenshots` (see "Screenshots" belo
 
 ## Accessibility rules
 
-Checked by `frontend/src/test/a11y.test.jsx` (axe on every page for its roles, the sign-in page, the phone menu, the audit drawer, the agree and overrule dialogs, the customer dialog, the ring graph with a selected agent and a chart's table view) and `frontend/src/theme.test.js` (contrast).
+Checked by `frontend/src/test/a11y.test.jsx` (axe on every page for its roles, the landing page at 360 and 1280 px, the sign-in page, the phone menu, the audit drawer, the agree and overrule dialogs, the customer dialog, the ring graph with a selected agent and a chart's table view) and `frontend/src/theme.test.js` (contrast).
 
 - **Structure:**
   - one `h1` per page (the page title); section titles are `h2`;
@@ -262,12 +262,24 @@ A proposal is never called saved, recorded or final; tests check this.
 | `/reports` | Report downloads | admin | `/api/reports/flagged-agents.csv`, `/api/reports/audit-log.csv`, `/api/reports/detection-summary.pdf` |
 | `/accounts` | Accounts: list, change role, deactivate, reactivate | admin | `/api/admin/accounts`, `PATCH .../role`, `POST .../deactivate`, `POST .../reactivate` |
 | every signed-in page | Footer: model version and last detection run | all | `/api/detection-runs/latest` |
+| `/` (signed out) | Landing page: what the system does, how it works, security design; Sign in at the top | anyone | none (the session check that runs before any page is the only request) |
+| `/sign-in` | The sign-in form; once signed in it opens the usual home page (`/`) | anyone | `POST /api/login` |
 | `/403`, any other address | Access denied, Page not found | all | none |
 
 **Notes on what is shown:**
 - Agent ids are system codes, not personal data, so they are shown in full.
 - Phone and national ID numbers are masked by the server (last 3 digits). Agent detail shortens the name to initials.
 - Internal ids (flag, decision and run ids) are never shown.
+- **Landing page** (issue #28, `pages/Landing.jsx`):
+  - Signed out at the site root, the landing page opens; any other address still shows the sign-in form and opens that address after signing in. If the sign-in form has a message (for example a deactivated account or an unreachable server), the root shows the form with it instead.
+  - "Sign in" at the top leads to `/sign-in`. A signed-in user at the root sees the usual home page, Overview.
+  - It makes no API calls of its own, loads no third-party script or font, and has no tracking.
+  - Checked at 360, 768 and 1280 px in Chrome: no horizontal scroll, and Sign in is the first Tab stop.
+  - Its security design section has four points, each backed by code:
+    - role based access: `backend/src/auth.py` (`role_required`, `refresh_session`);
+    - two person review of every decision: `backend/src/review.py` (the proposer can never agree, overrule or correct) and the write-once triggers in `backend/src/db.py`;
+    - an append only audit log: `backend/src/audit.py` and the trigger in `backend/src/db.py`;
+    - secure sessions: `backend/src/config.py` (HttpOnly always, Secure and SameSite, a set lifetime) and `refresh_session` in `backend/src/auth.py`.
 - **How the model works** (issue #28): a menu entry for every role, last in the menu. Plain words for a non-technical reader. The cutoff and the test results come from `GET /api/model-info`, which reads the frozen results files; the page states they were measured on the 150 held-out test agents and are not a promise for other data, and that detection runs on a schedule, not live. The system's (model or rule) PR AUC and ROC AUC are shown as "not comparable", because they come from a yes or no flag.
 - **Ring graph** (issue #28): the ring candidates card shows the first candidate as a graph, and each row has a "Show" button for its own. The graph is plain SVG with no graph library. Agents sit on a circle in agent ID order, the first at the top (`components/ringLayout.js`, deterministic). An edge means two agents share customers and is labelled only with the count; solid red edges reach the rule's 3 shared customers, dashed grey ones do not. Each agent is a button: Tab moves between agents, Enter or Space highlights its pairs, Escape clears, and a live line names the agents it shares customers with. Beside it, a table lists the same pairs and a members table gives each agent's county, flag source and activations, with the number of distinct counties and a note that county is information only. A "Group activity" bar chart shows the members' activations per day, with "Show as table".
 - **Daily activity** (issue #28): agent detail ends with a table of the agent's activations and completed activations for every day of the data window, with a "Duplicate evidence on this day" chip on days that hold a record in the agent's duplicate evidence, and a bar chart of activations by hour of day (0 to 23) with "Show as table". Both say that days and hours are as recorded in the data, and that the flag applies to the agent for the whole run. Dates are shown as recorded, without time-zone conversion.

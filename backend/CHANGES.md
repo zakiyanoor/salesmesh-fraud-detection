@@ -4,6 +4,10 @@
 
 Branch `feature/sprint-3-screens`.
 
+### Landing page (frontend only)
+
+- A landing page at the site root before sign in, with Sign in at the top leading to the existing form at `/sign-in`. No backend change; `docs/FRONTEND.md` lists the code behind each of its four security points.
+
 ### Model information
 
 - **New endpoint `GET /api/model-info`** (`src/model_info.py`), open to every signed-in role and not audited. It reads its figures from the frozen results files on every request; nothing is retyped:
