@@ -39,6 +39,7 @@ Three roles, with separation of duties: an analyst proposes, a compliance office
 | Withdraw their own open proposal | **yes** | no | no |
 | Agree with or overrule a proposal (made by someone else) | no | **yes** | no |
 | Correct a final decision (not their own proposal) | no | **yes** | no |
+| Open a customer from the duplicate evidence (audited) | yes | yes | no |
 | Read the audit log | no | yes | yes |
 | Download reports (CSV, PDF) | no | no | **yes** |
 | List accounts, change roles, deactivate or reactivate accounts | no | no | **yes** |
@@ -75,7 +76,7 @@ Each entry has:
 |---|---|---|
 | `authentication` | `login`, `login_failure`, `logout` | `username`, `role`; for failures `reason` (`invalid credentials`, `account deactivated`, `unknown role`); failures have actor `anonymous` |
 | `authorization` | `access_denied` (every `401` and `403`, except a `401` on `GET /api/me` with no session) | `route`, `method`, `role`, `status`, `reason` |
-| `review` | `propose_decision`, `withdraw_decision`, `agree_decision`, `overrule_decision`, `correct_decision`, `review_refused`; older entries also have `confirm_decision` (an agreement before issue #28) | all: `decision_id`, `flag_id`, `notes` (the actor's note). Propose: `decision_outcome`, `run_id`, `flag_source`. Withdraw: `decision_outcome`. Agree and overrule: `proposed_by`, `decision_outcome`, `final_outcome`, `proposal_notes`. Correct: `correction_id`, `previous_outcome`, `new_outcome`. Refused (a `409`): `route`, `reason` and the `flag_id` or `decision_id` |
+| `review` | `propose_decision`, `withdraw_decision`, `agree_decision`, `overrule_decision`, `correct_decision`, `review_refused`; older entries also have `confirm_decision` (an agreement before issue #28) | all: `decision_id`, `flag_id`, `notes` (the actor's note). Propose: `decision_outcome`, `run_id`, `flag_source`. Withdraw: `decision_outcome`. Agree and overrule: `proposed_by`, `decision_outcome`, `final_outcome`, `proposal_notes`. Correct: `correction_id`, `previous_outcome`, `new_outcome`. Refused (a `409`): `route`, `reason` and the `flag_id` or `decision_id`. `customer_viewed` (every open of a customer, target agent = the page it was opened from, if valid): `customer_ref`, `role`, `opened_from`, `run_id`, `agent_count`, `client_count`, `activations_total`; never the customer ID |
 | `admin` | `role_change`, `account_deactivated`, `account_reactivated`, `password_reset` (local recovery, actor `local:<OS user>`) | `target_admin_id`, `target_username`, `old_role` / `new_role` or `role`; `channel` (`cli` or `local recovery`) |
 | `report` | `report_download` | `report`, `filename`, `filters`, `row_count`, `bytes`, `sha256` of the file sent, plus `run_id`, `cap`, `load_id` or `data_hash` |
 | `ai_decision` | `ai_detection_run` (one per run, also when it fails); `ai_flag` (per agent whose `flag_source` changed since the previous successful run, or newly flagged) | run: `run_id`, `status`, `trigger`, `model_version`, `threshold`, counts, `flag_changes`, `error`; flag: `change` (`newly flagged`, `cleared`, `flag source changed`), `previous_flag_source`, `flag_source`, `anomaly_score`, `threshold`, `top_features`, `reasons`, `model_version` |
@@ -110,6 +111,7 @@ Issue #28. A flag is a request for human review, and a decision never changes a 
 | GET | `/api/flagged-agents` | all | Agents the model flagged |
 | GET | `/api/all-agents` | all | Every agent with status, features and `risk_band` |
 | GET | `/api/agents/<agent_id>` | all | One agent: features, flag, score, rule evidence, identity (masked) |
+| GET | `/api/customers/<customer_ref>` | fraud_analyst, compliance_officer | One customer from the latest run's duplicate evidence; every open is audited |
 | GET | `/api/agent-scores` | all | Latest run's scores, filterable by `flag_source` |
 | GET | `/api/analytics` | all | Platform statistics |
 | GET | `/api/clients` | all | Client reference list |
@@ -243,7 +245,33 @@ Path parameter: `agent_id` (for example `A35485`). `404` if the agent does not e
 }
 ```
 
-`reason` in `duplicate_evidence` is `shared customer` (with `other_agent_id`) or `repeat after completed`.
+`reason` in `duplicate_evidence` is `shared customer` (with `other_agent_id`) or `repeat after completed`. Each entry also has `customer_ref` (issue #28), the reference that opens the customer view.
+
+### GET /api/customers/<customer_ref>
+
+**fraud_analyst and compliance_officer** (issue #28). One customer from the latest successful run's duplicate evidence: the agents who used it, the clients and the dates.
+
+- **`customer_ref`** is `c_` plus 24 hex characters: an HMAC-SHA256 of the customer ID under `CUSTOMER_REF_KEY`. The URL and the audit log carry it instead of the customer ID. The response shows the customer ID as the evidence table does.
+- **`CUSTOMER_REF_KEY`** (`src/config.py`, listed empty in `backend/.env.example`): at least 32 characters, required in production. In development and test a random key is made per process when it is empty, so references change when the server restarts. It is never logged or returned.
+- **Scope:** only customers in the latest run's duplicate evidence. Any other reference, or anything not shaped like one, is a `404` and is not audited.
+- **`from_agent`** (optional query parameter): the agent page the view was opened from. It is untrusted: it is kept only if it has the agent ID format (`A` and 5 digits) and the agent exists; otherwise it is recorded as `null`.
+- **Audit:** every successful open writes `customer_viewed` (category `review`, actor the account, with its role), committed before the response. If it cannot be written, the response is a `500` with only an error message, and nothing about the customer is shown.
+- **Activations:** the latest 200, newest first; `activations_total` is the full count. Record ids are not returned.
+
+```json
+{
+  "customer": {"customer_ref": "c_3f9a1b2c4d5e6f708192a3b4", "customer_id": "CUST16131148"},
+  "run_id": "RUN20261013172621c4f8ca",
+  "agent_count": 2, "client_count": 2, "client_ids": ["CL04", "CL09"],
+  "first_seen": "2026-08-03T10:12:00", "last_seen": "2026-08-27T16:40:00",
+  "agents": [{"agent_id": "A35485", "flag_source": "Both", "risk_band": "high", "activations": 2,
+              "client_ids": ["CL09"], "first_seen": "2026-08-03T10:12:00", "last_seen": "2026-08-27T16:40:00"}],
+  "activations_total": 3, "activations_limit": 200,
+  "activations": [{"timestamp": "2026-08-27T16:40:00", "agent_id": "A35485", "client_id": "CL09", "status": "completed"}]
+}
+```
+
+Errors: `401` (no session), `403` (admin; recorded as `access_denied`), `404` (unknown reference), `500` (the audit entry could not be written).
 
 ### GET /api/agent-scores
 

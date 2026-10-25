@@ -9,9 +9,13 @@ CORS_ORIGINS             comma-separated; default http://localhost:5173 in devel
 SESSION_COOKIE_SECURE    default true, false in development and test (local http)
 SESSION_COOKIE_SAMESITE  Lax (default) or Strict
 SESSION_LIFETIME_MINUTES default 60
+CUSTOMER_REF_KEY         key for the customer references in URLs and the audit log (issue #28); at least
+                         32 characters; required in production, a random key per process in development and test.
+                         Never logged or returned; errors name the setting, never its value.
 The session cookie is always HttpOnly.
 """
 
+import secrets
 from datetime import timedelta
 
 APP_ENVS = ("development", "test", "production")
@@ -19,6 +23,7 @@ LOCAL_ENVS = ("development", "test")
 DEV_ORIGIN = "http://localhost:5173"
 SAMESITE_VALUES = ("Lax", "Strict")
 DEFAULT_SESSION_MINUTES = 60
+MIN_CUSTOMER_REF_KEY_LENGTH = 32
 TRUE, FALSE = ("1", "true", "yes", "on"), ("0", "false", "no", "off", "")
 
 
@@ -67,13 +72,22 @@ def load_config(environ):
         raise ConfigError("SESSION_LIFETIME_MINUTES must be a whole number") from error
     if minutes < 1:
         raise ConfigError("SESSION_LIFETIME_MINUTES must be at least 1")
+    secure = _flag(environ, "SESSION_COOKIE_SECURE", not local)
+
+    customer_ref_key = environ.get("CUSTOMER_REF_KEY", "").strip()
+    if not customer_ref_key and local:
+        customer_ref_key = secrets.token_hex(32)
+    if len(customer_ref_key) < MIN_CUSTOMER_REF_KEY_LENGTH:
+        raise ConfigError(f"CUSTOMER_REF_KEY must be set to at least {MIN_CUSTOMER_REF_KEY_LENGTH} characters"
+                          + (" in production" if not local else ""))
 
     return {
         "APP_ENV": app_env,
         "DEBUG": debug,
         "CORS_ORIGINS": origins,
-        "SESSION_COOKIE_SECURE": _flag(environ, "SESSION_COOKIE_SECURE", not local),
+        "SESSION_COOKIE_SECURE": secure,
         "SESSION_COOKIE_HTTPONLY": True,
         "SESSION_COOKIE_SAMESITE": samesite,
         "PERMANENT_SESSION_LIFETIME": timedelta(minutes=minutes),
+        "CUSTOMER_REF_KEY": customer_ref_key,
     }

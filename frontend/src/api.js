@@ -85,6 +85,8 @@ export const api = {
   // Agents and scores
   getFlaggedAgents: () => request("/flagged-agents"),
   getAllAgents: () => request("/all-agents"),
+  // Customer view (issue #28): by reference, so the customer ID is never in a URL; every open is audited.
+  getCustomer: ({ customerRef, fromAgent }) => request(`/customers/${id(customerRef)}`, { params: { from_agent: fromAgent } }),
   getAgentDetail: (agentId) => request(`/agents/${id(agentId)}`),
   getAgentScores: ({ flagSource, limit, offset } = {}) =>
     request("/agent-scores", { params: { flag_source: flagSource, limit, offset } }),

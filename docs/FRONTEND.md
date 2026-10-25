@@ -141,7 +141,7 @@ Checked at 360, 768 and 1280 px by `npm run screenshots` (see "Screenshots" belo
 
 ## Accessibility rules
 
-Checked by `frontend/src/test/a11y.test.jsx` (axe on every page for its roles, the sign-in page, the phone menu, the audit drawer, the agree and overrule dialogs and a chart's table view) and `frontend/src/theme.test.js` (contrast).
+Checked by `frontend/src/test/a11y.test.jsx` (axe on every page for its roles, the sign-in page, the phone menu, the audit drawer, the agree and overrule dialogs, the customer dialog and a chart's table view) and `frontend/src/theme.test.js` (contrast).
 
 - **Structure:**
   - one `h1` per page (the page title); section titles are `h2`;
@@ -252,7 +252,7 @@ A proposal is never called saved, recorded or final; tests check this.
 | `/` | Overview: summary cards, flag source donut, risk band bars, needs attention | all | `/api/threat-intelligence/summary`, `/api/detection-runs/latest`, `/api/agent-scores?limit=50` |
 | `/flagged` | Flagged agents (model, rule or both) | fraud_analyst, compliance_officer | `/api/all-agents`, `/api/review-decisions` |
 | `/all-agents` | All agents, with a "Not flagged" state | fraud_analyst, compliance_officer | `/api/all-agents`, `/api/review-decisions` |
-| `/agents/:agentId` | Agent detail, evidence, decision timeline; propose and withdraw (fraud_analyst), record a correction (compliance_officer) | fraud_analyst, compliance_officer | `/api/agents/<id>`, `/api/analytics`, `/api/review-decisions`, `POST /api/review-decisions`, `POST .../withdraw`, `POST .../corrections` |
+| `/agents/:agentId` | Agent detail, evidence (customers open the customer dialog), decision timeline; propose and withdraw (fraud_analyst), record a correction (compliance_officer) | fraud_analyst, compliance_officer | `/api/agents/<id>`, `/api/analytics`, `/api/review-decisions`, `/api/customers/<ref>`, `POST /api/review-decisions`, `POST .../withdraw`, `POST .../corrections` |
 | `/review/confirm` | Confirm queue: agree or overrule, overdue and "no longer flagged" markers | compliance_officer | `/api/review-decisions`, `POST /api/review-decisions/<id>/agree`, `POST .../overrule` |
 | `/history` | Review history: status, outcome in force, who closed it, each decision's timeline | fraud_analyst, compliance_officer | `/api/review-decisions` |
 | `/analytics` | Analytics: daily activations, score distribution, region rates, review outcomes and overrule rate, averages | all | `/api/analytics`, `/api/threat-intelligence/timeline`, `/api/threat-intelligence/by-region` |
@@ -267,6 +267,7 @@ A proposal is never called saved, recorded or final; tests check this.
 - Agent ids are system codes, not personal data, so they are shown in full.
 - Phone and national ID numbers are masked by the server (last 3 digits). Agent detail shortens the name to initials.
 - Internal ids (flag, decision and run ids) are never shown.
+- **Customer dialog** (issue #28): each customer in the evidence table is a button that opens `CustomerDialog`. It fetches `GET /api/customers/<customer_ref>?from_agent=<agent>` on every open (every open is audited by the server) and shows the customer ID as the table does, the agents who used it (linked, with their flag source), the client count and IDs, first and last dates, and the latest activations, saying "Showing the latest N of M activations" when the list is capped. A note says that opening the view is recorded in the audit log. The request uses the reference, so the customer ID never appears in a URL.
 - Proposer and officer are shown as the account ids the API returns. Usernames are not available to these roles.
 - **Agent ids for admins:** they cannot open agent detail, so they see agent ids as plain text everywhere: Overview, Threat intelligence and the Audit log (`AgentId` component).
 - **Audit log is admin only** in the app. The API also lets compliance officers read it, but the menu and route allow admins only.

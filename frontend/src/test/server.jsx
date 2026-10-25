@@ -34,12 +34,28 @@ export const FIXTURES = {
     ...AGENT, registration_timestamp: "2026-06-11T20:56:24",
     features: { submission_frequency: 20, time_of_day_dist: 0.8, customer_similarity: 0.1, collusion_score: 0.3 },
     flag: { flag_id: "FL1", flag_status: "flagged", model_version: "lof_v3_4f", suspicion_score: 3.2 },
+    duplicate_evidence: [
+      { customer_id: "CUST10000001", customer_ref: "c_00112233445566778899aabb", client_id: "CL01", other_agent_id: "A20002", reason: "shared customer", record_ids: ["R1"] },
+    ],
     review: {
       reviewable: true, reason: null, flag_id: "FL1", flag_source: "ML", open_decision_id: null, open_proposed_by: null,
       open_is_mine: false, final_decision_id: null, effective_outcome: null,
     },
   },
   "POST /api/logout": { message: "Logged out successfully" },
+  "GET /api/customers/c_00112233445566778899aabb": {
+    customer: { customer_ref: "c_00112233445566778899aabb", customer_id: "CUST10000001" }, run_id: "RUN1",
+    agent_count: 2, client_count: 1, client_ids: ["CL01"], first_seen: "2026-08-02T10:00:00", last_seen: "2026-08-05T11:00:00",
+    agents: [
+      { agent_id: "A10001", flag_source: "ML", risk_band: "high", activations: 1, client_ids: ["CL01"], first_seen: "2026-08-02T10:00:00", last_seen: "2026-08-02T10:00:00" },
+      { agent_id: "A20002", flag_source: "Rule", risk_band: "review", activations: 1, client_ids: ["CL01"], first_seen: "2026-08-05T11:00:00", last_seen: "2026-08-05T11:00:00" },
+    ],
+    activations_total: 2, activations_limit: 200,
+    activations: [
+      { timestamp: "2026-08-05T11:00:00", agent_id: "A20002", client_id: "CL01", status: "completed" },
+      { timestamp: "2026-08-02T10:00:00", agent_id: "A10001", client_id: "CL01", status: "completed" },
+    ],
+  },
   "GET /api/threat-intelligence/summary": {
     agents_scored: 1000, flagged: 145, flagged_rate: 0.145, rule_flagged: 102,
     flag_sources: { ML: 72, Rule: 29, Both: 73, None: 826 },

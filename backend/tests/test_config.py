@@ -7,9 +7,11 @@ import pytest
 from src.config import DEV_ORIGIN, ConfigError, load_config
 from tests.helpers import ANALYST, login
 
+KEY = {"CUSTOMER_REF_KEY": "k" * 32}  # production requires one (issue #28)
+
 
 def test_production_is_the_default_and_is_strict() -> None:
-    config = load_config({})
+    config = load_config(dict(KEY))
     assert config["APP_ENV"] == "production" and config["DEBUG"] is False
     assert config["CORS_ORIGINS"] == []
     assert config["SESSION_COOKIE_SECURE"] is True and config["SESSION_COOKIE_HTTPONLY"] is True
@@ -26,7 +28,7 @@ def test_local_environments_allow_the_dev_server_over_http(app_env) -> None:
 
 def test_settings_are_read_from_the_environment() -> None:
     config = load_config({
-        "APP_ENV": "production", "CORS_ORIGINS": "https://a.example, https://b.example",
+        **KEY, "APP_ENV": "production", "CORS_ORIGINS": "https://a.example, https://b.example",
         "SESSION_COOKIE_SAMESITE": "strict", "SESSION_LIFETIME_MINUTES": "15",
     })
     assert config["CORS_ORIGINS"] == ["https://a.example", "https://b.example"]
@@ -71,3 +73,19 @@ def test_cors_answers_only_configured_origins(client) -> None:
     assert allowed.headers.get("Access-Control-Allow-Credentials") == "true"
     other = client.get("/api/health", headers={"Origin": "https://evil.example"})
     assert "Access-Control-Allow-Origin" not in other.headers
+
+
+@pytest.mark.parametrize("environ", [{}, {"CUSTOMER_REF_KEY": ""}, {"CUSTOMER_REF_KEY": "short-key-value"}],
+                         ids=["unset", "empty", "too-short"])
+def test_production_requires_a_customer_ref_key_and_never_shows_it(environ) -> None:
+    with pytest.raises(ConfigError, match="CUSTOMER_REF_KEY") as error:
+        load_config({"APP_ENV": "production", **environ})
+    assert "short-key-value" not in str(error.value)
+
+
+def test_local_environments_get_a_random_customer_ref_key_unless_one_is_set() -> None:
+    first, second = (load_config({"APP_ENV": "development"})["CUSTOMER_REF_KEY"] for _ in range(2))
+    assert len(first) == 64 and first != second
+    assert load_config({"APP_ENV": "test", **KEY})["CUSTOMER_REF_KEY"] == "k" * 32
+    with pytest.raises(ConfigError, match="CUSTOMER_REF_KEY"):
+        load_config({"APP_ENV": "test", "CUSTOMER_REF_KEY": "too short"})

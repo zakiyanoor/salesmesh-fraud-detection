@@ -113,6 +113,14 @@ describe("accessibility (axe)", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
   });
 
+  it("the customer dialog on agent detail has no violations", async () => {
+    mockApi({ ...sessionRoutes("fraud_analyst"), ...DATA });
+    renderApp("/agents/A10001");
+    await userEvent.click(await screen.findByRole("button", { name: "Open customer CUST10000001" }));
+    await within(await screen.findByRole("dialog")).findByText(/Used by 2 agents/);
+    expect(await axe(document.body)).toHaveNoViolations();
+  });
+
   it.each(["Agree with", "Overrule"])("the %s dialog in the confirm queue has no violations", async (action) => {
     mockApi({ ...sessionRoutes("compliance_officer"), ...DATA });
     renderApp("/review/confirm");

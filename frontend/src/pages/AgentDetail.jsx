@@ -7,6 +7,7 @@ import PageHeader from "../components/PageHeader";
 import RiskBadge from "../components/RiskBadge";
 import ReviewPanel from "../components/ReviewPanel";
 import NoteDialog from "../components/NoteDialog";
+import CustomerDialog from "../components/CustomerDialog";
 import DecisionTimeline from "../components/DecisionTimeline";
 import SectionCard from "../components/SectionCard";
 import { FlagSourceChip } from "../components/chips";
@@ -82,6 +83,7 @@ function FeatureList({ features, averages }) {
 
 function Evidence({ detail }) {
   const evidence = detail.duplicate_evidence || [];
+  const [customer, setCustomer] = useState(null);
   return (
     <>
       {detail.score?.reasons && (
@@ -107,7 +109,20 @@ function Evidence({ detail }) {
             <TableBody>
               {evidence.map((e) => (
                 <TableRow key={`${e.customer_id}-${e.client_id}-${e.other_agent_id}`}>
-                  <TableCell sx={mono}>{e.customer_id}</TableCell>
+                  <TableCell sx={mono}>
+                    {e.customer_ref ? (
+                      <Link
+                        component="button"
+                        type="button"
+                        color="primary.dark"
+                        sx={{ ...mono, verticalAlign: "baseline" }}
+                        onClick={() => setCustomer(e)}
+                        aria-label={`Open customer ${e.customer_id}`}
+                      >
+                        {e.customer_id}
+                      </Link>
+                    ) : e.customer_id}
+                  </TableCell>
                   <TableCell sx={mono}>{e.client_id}</TableCell>
                   <TableCell>{e.reason}</TableCell>
                   <TableCell sx={mono}>
@@ -121,6 +136,14 @@ function Evidence({ detail }) {
             </TableBody>
           </Table>
         </TableContainer>
+      )}
+      {customer && (
+        <CustomerDialog
+          customerRef={customer.customer_ref}
+          customerId={customer.customer_id}
+          fromAgent={detail.agent_id}
+          onClose={() => setCustomer(null)}
+        />
       )}
     </>
   );

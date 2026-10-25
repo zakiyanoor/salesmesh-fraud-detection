@@ -1,5 +1,25 @@
 # Backend changes
 
+## Sprint 9: clickable customers in the evidence (issue #28)
+
+Branch `feature/clickable-customers`. The "Why flagged" panel and masking customer IDs are on hold and not built.
+
+- **New endpoint `GET /api/customers/<customer_ref>`** (`src/customers.py`): the agents, clients and dates behind one customer in the latest run's duplicate evidence.
+  - Open to fraud analysts and compliance officers; an admin gets 403, recorded as `access_denied`.
+  - Any other customer or reference is a 404 and is not audited.
+- **The customer ID never appears in a URL or the audit log.**
+  - `customer_ref` is an HMAC-SHA256 of the customer ID under the new `CUSTOMER_REF_KEY`. The key is set in `src/config.py`: at least 32 characters and required in production, with a random key per process in development and test. It is listed empty in `.env.example` and never logged.
+  - Evidence rows in `GET /api/agents/<id>` gain `customer_ref`. Customer IDs are shown exactly as before, in the evidence table, the customer-sharing view and the dialog.
+- **Audit:** every open writes `customer_viewed` in the existing `review` category, with the account, its role, the reference and the counts. It is committed before the response, and if it cannot be written the response is a 500 with no customer data.
+  - This is the first read that is audited. The audit categories, the append-only trigger and the access-denied rule are unchanged.
+- **Untrusted input:** `from_agent` is kept only if it has the agent ID format and the agent exists, and is recorded as the entry's target agent.
+- **Activations:** capped at the latest 200, newest first, with `activations_total`.
+- **No database change and no migration.** Nothing changes for the model, the cutoff, the features, the frozen files, the review workflow, `threat_intel.py` or the customer-sharing view.
+- **Tests:**
+  - `tests/test_customers.py`: roles, scope and 404s without audit; agents, clients and dates against SQL; the cap; one audit entry per open with actor and role, never the customer ID; untrusted `from_agent` values; no data when the audit write fails.
+  - `tests/test_config.py`: the key rules.
+  - `tests/test_masking.py`: the GET sweep covers the new route.
+
 ## Sprint 8: threat intelligence views once per run (issue #28)
 
 Branch `feature/explainability-and-review`.
