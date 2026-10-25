@@ -8,7 +8,7 @@ from src.api import app, mask_tail
 from src.db import AgentIdentity, get_session
 from tests.helpers import ALL_ACCOUNTS, ANALYST, login
 
-PLACEHOLDERS = {"decision_id": "NONEXISTENT", "customer_ref": "c_NONEXISTENT"}
+PLACEHOLDERS = {"decision_id": "NONEXISTENT", "customer_ref": "c_NONEXISTENT", "candidate_id": "cand_01"}
 FULL_PHONE = re.compile(r"\+2547\d{8}")
 
 
