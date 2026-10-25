@@ -41,8 +41,21 @@ def viewed_entries(ref):
         db_session.close()
 
 
+def audit_rows(action=None):
+    """Audit entries (optionally one action), read in a session that is always closed: an open one would
+    hold a lock on admin_action_log and block the migrations later tests run."""
+    db_session = get_session()
+    try:
+        query = db_session.query(AdminActionLog)
+        if action:
+            query = query.filter(AdminActionLog.action == action)
+        return query.all()
+    finally:
+        db_session.close()
+
+
 def all_entries_text():
-    return " ".join(f"{r.details} {r.target_agent_id}" for r in get_session().query(AdminActionLog).all())
+    return " ".join(f"{r.details} {r.target_agent_id}" for r in audit_rows())
 
 
 def test_evidence_rows_carry_a_reference_that_is_not_the_customer_id(client, shared) -> None:
@@ -71,8 +84,7 @@ def test_an_admin_is_refused_and_the_refusal_is_logged_without_the_customer_id(c
     client.post("/api/logout")
     login(client, ADMIN)
     assert client.get(f"/api/customers/{ref}").status_code == 403
-    denied = [json.loads(r.details) for r in get_session().query(AdminActionLog).filter(
-        AdminActionLog.action == "access_denied").all()]
+    denied = [json.loads(r.details) for r in audit_rows("access_denied")]
     assert any(d["route"] == f"/api/customers/{ref}" and d["role"] == "admin" for d in denied)
     assert len(viewed_entries(ref)) == before
     assert customer_id not in all_entries_text()
@@ -86,9 +98,9 @@ def test_a_request_without_a_session_gets_401(client, shared) -> None:
 @pytest.mark.parametrize("ref", ["c_" + "0" * 24, "CUST12345678", "c_short", "../agents"])
 def test_unknown_or_malformed_references_are_404_and_not_audited(client, ref) -> None:
     login(client, ANALYST)
-    before = len(get_session().query(AdminActionLog).filter(AdminActionLog.action == "customer_viewed").all())
+    before = len(audit_rows("customer_viewed"))
     assert client.get(f"/api/customers/{ref}").status_code == 404
-    after = len(get_session().query(AdminActionLog).filter(AdminActionLog.action == "customer_viewed").all())
+    after = len(audit_rows("customer_viewed"))
     assert after == before
 
 
