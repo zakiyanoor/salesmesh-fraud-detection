@@ -2,7 +2,7 @@
 
 ## Sprint 9: clickable customers in the evidence (issue #28)
 
-Branch `feature/why-flagged-and-customers`. The "Why flagged" panel and masking customer IDs are on hold and not built.
+Branch `feature/clickable-customers`. The "Why flagged" panel and masking customer IDs are on hold and not built.
 
 - **New endpoint `GET /api/customers/<customer_ref>`** (`src/customers.py`): the agents, clients and dates behind one customer in the latest run's duplicate evidence.
   - Open to fraud analysts and compliance officers; an admin gets 403, recorded as `access_denied`.
