@@ -15,6 +15,7 @@ Endpoints:
   GET  /api/agents/<agent_id>     -> feature evidence for one agent (protected, FR-03)
   GET  /api/agents/<agent_id>/activity -> activations per day and per hour for one agent (protected, #28)
   GET  /api/threat-intelligence/ring-candidates/<candidate_id> -> one ring candidate as a graph (protected, #28)
+  GET  /api/model-info             -> cutoff and test results from the frozen results files (protected, #28)
   GET  /api/customers/<ref>       -> one customer from the duplicate evidence, audited (analyst, compliance; #28)
   POST /api/review-decisions      -> propose a review decision (fraud_analyst only, FR-04)
   POST /api/review-decisions/<decision_id>/confirm
@@ -55,7 +56,7 @@ from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER, ROLE_ADMIN, DEACTIVATED,
     VALID_ROLES,
 )
-from src import accounts, activity, customers, reports, review, ring_graph, threat_intel
+from src import accounts, activity, customers, model_info, reports, review, ring_graph, threat_intel
 from src import audit
 from src.config import load_config
 from src.pipeline import compute_client_category_breakdown
@@ -1016,6 +1017,13 @@ def get_ring_graph(candidate_id):
         return jsonify(ring_graph.ring_graph(db_session, run, ring))
     finally:
         db_session.close()
+
+
+@app.route("/api/model-info", methods=["GET"])
+@login_required
+def get_model_info():
+    """Issue #28: the cutoff and the test results, read from the frozen results files (src/model_info.py)."""
+    return jsonify(model_info.model_info())
 
 
 def _download(name, extension, mimetype, build):
