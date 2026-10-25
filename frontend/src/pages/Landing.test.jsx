@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ACCOUNTS, currentLocation, mockApi, renderApp, sessionRoutes } from "../test/server";
 
@@ -8,7 +8,8 @@ describe("Landing page", () => {
     mockApi(sessionRoutes(null));
     renderApp("/");
     expect(await screen.findByRole("heading", { level: 1, name: "SalesMesh Fraud Detection" })).toBeInTheDocument();
-    expect(document.title).toBe("SalesMesh Fraud Detection");
+    // The title is set by an effect just after the first render.
+    await waitFor(() => expect(document.title).toBe("SalesMesh Fraud Detection"));
     const header = screen.getByRole("banner");
     expect(within(header).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/sign-in");
     await userEvent.tab();
