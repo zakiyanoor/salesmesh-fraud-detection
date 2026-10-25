@@ -103,6 +103,7 @@ export const api = {
   getThreatTimeline: () => request("/threat-intelligence/timeline"),
   getCustomerSharing: () => request("/threat-intelligence/customer-sharing"),
   getRingCandidates: () => request("/threat-intelligence/ring-candidates"),
+  getRingGraph: (candidateId) => request(`/threat-intelligence/ring-candidates/${id(candidateId)}`),
 
   // Review decisions (issue #28). Analyst: propose, withdraw. Compliance officer: agree, overrule, correct.
   proposeDecision: ({ flagId, decisionOutcome, notes }) =>

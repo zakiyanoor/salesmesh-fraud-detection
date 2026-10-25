@@ -21,6 +21,21 @@ const DATA = {
   "GET /api/threat-intelligence/customer-sharing": {
     shared_customers: 3, clusters_total: 1, clusters: [{ size: 2, agent_ids: ["A10001", "A20002"], client_ids: ["CL01"], customer_count: 3, flagged_agents: 1 }],
   },
+  "GET /api/threat-intelligence/ring-candidates": {
+    rule: "...", min_shared_customers: 3, flagged_agents: 145, candidates_total: 1,
+    candidates: [{ candidate_id: "cand_01", size: 2, agent_ids: ["A10001", "A20002"], shared_customers: 4, client_ids: ["CL01"] }],
+  },
+  "GET /api/threat-intelligence/ring-candidates/cand_01": {
+    run_id: "RUN1", candidate_id: "cand_01", size: 2, rule: "...", min_shared_customers: 3,
+    nodes: [
+      { agent_id: "A10001", county: "Nairobi", flag_source: "ML", risk_band: "high", activations: 3, linked_members: 1 },
+      { agent_id: "A20002", county: "Lamu", flag_source: "Rule", risk_band: "review", activations: 2, linked_members: 1 },
+    ],
+    edges: [{ source: "A10001", target: "A20002", shared_customers: 4, meets_rule: true }],
+    counties: ["Lamu", "Nairobi"], county_count: 2, county_note: "County is information only. The model never uses it.",
+    first_day: "2026-08-01", last_day: "2026-08-01", days: [{ date: "2026-08-01", activations: 5, by_agent: { A10001: 3, A20002: 2 } }],
+    note: "Days are as recorded in the data.",
+  },
   "GET /api/audit-log": {
     total: 1, count: 1, offset: 0, limit: 25,
     entries: [{ log_id: "AL1", timestamp: "2026-10-13T15:00:00", actor: "ADM_ANALYST_01", actor_type: "user", category: "review", action: "propose_decision", target_agent_id: "A10001", request_ip: "127.0.*.*", details: { decision_id: "RD1", notes: "Shared customers." } }],
@@ -111,6 +126,14 @@ describe("accessibility (axe)", () => {
     expect(skip).toHaveFocus();
     expect(skip).toHaveAttribute("href", "#main-content");
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+  });
+
+  it("the ring graph with a selected agent has no violations", async () => {
+    mockApi({ ...sessionRoutes("fraud_analyst"), ...DATA });
+    renderApp("/threat-intelligence");
+    const svg = await screen.findByRole("group", { name: /Graph of ring candidate cand_01/ });
+    await userEvent.click(within(svg).getByRole("button", { name: /Agent A10001/ }));
+    await expectNoViolations();
   });
 
   it("the customer dialog on agent detail has no violations", async () => {
