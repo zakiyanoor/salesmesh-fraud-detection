@@ -141,7 +141,7 @@ Checked at 360, 768 and 1280 px by `npm run screenshots` (see "Screenshots" belo
 
 ## Accessibility rules
 
-Checked by `frontend/src/test/a11y.test.jsx` (axe on every page for its roles, the sign-in page, the phone menu, the audit drawer, the agree and overrule dialogs, the customer dialog and a chart's table view) and `frontend/src/theme.test.js` (contrast).
+Checked by `frontend/src/test/a11y.test.jsx` (axe on every page for its roles, the sign-in page, the phone menu, the audit drawer, the agree and overrule dialogs, the customer dialog, the ring graph with a selected agent and a chart's table view) and `frontend/src/theme.test.js` (contrast).
 
 - **Structure:**
   - one `h1` per page (the page title); section titles are `h2`;
@@ -256,7 +256,7 @@ A proposal is never called saved, recorded or final; tests check this.
 | `/review/confirm` | Confirm queue: agree or overrule, overdue and "no longer flagged" markers | compliance_officer | `/api/review-decisions`, `POST /api/review-decisions/<id>/agree`, `POST .../overrule` |
 | `/history` | Review history: status, outcome in force, who closed it, each decision's timeline | fraud_analyst, compliance_officer | `/api/review-decisions` |
 | `/analytics` | Analytics: daily activations, score distribution, region rates, review outcomes and overrule rate, averages | all | `/api/analytics`, `/api/threat-intelligence/timeline`, `/api/threat-intelligence/by-region` |
-| `/threat-intelligence` | Threat intelligence: summary, flag sources, drivers, timeline, regional rates, top risk agents, connected agents | all | `/api/threat-intelligence/summary`, `/timeline`, `/by-region`, `/customer-sharing`, `/api/agent-scores?limit=10` |
+| `/threat-intelligence` | Threat intelligence: summary, flag sources, drivers, timeline, regional rates, top risk agents, ring candidates with a ring graph and group activity, connected agents | all | `/api/threat-intelligence/summary`, `/timeline`, `/by-region`, `/customer-sharing`, `/ring-candidates`, `/ring-candidates/<id>`, `/api/agent-scores?limit=10` |
 | `/audit-log` | Audit log with server-side filters and paging, details drawer | admin | `/api/audit-log` |
 | `/reports` | Report downloads | admin | `/api/reports/flagged-agents.csv`, `/api/reports/audit-log.csv`, `/api/reports/detection-summary.pdf` |
 | `/accounts` | Accounts: list, change role, deactivate, reactivate | admin | `/api/admin/accounts`, `PATCH .../role`, `POST .../deactivate`, `POST .../reactivate` |
@@ -267,6 +267,7 @@ A proposal is never called saved, recorded or final; tests check this.
 - Agent ids are system codes, not personal data, so they are shown in full.
 - Phone and national ID numbers are masked by the server (last 3 digits). Agent detail shortens the name to initials.
 - Internal ids (flag, decision and run ids) are never shown.
+- **Ring graph** (issue #28): the ring candidates card shows the first candidate as a graph, and each row has a "Show" button for its own. The graph is plain SVG with no graph library. Agents sit on a circle in agent ID order, the first at the top (`components/ringLayout.js`, deterministic). An edge means two agents share customers and is labelled only with the count; solid red edges reach the rule's 3 shared customers, dashed grey ones do not. Each agent is a button: Tab moves between agents, Enter or Space highlights its pairs, Escape clears, and a live line names the agents it shares customers with. Beside it, a table lists the same pairs and a members table gives each agent's county, flag source and activations, with the number of distinct counties and a note that county is information only. A "Group activity" bar chart shows the members' activations per day, with "Show as table".
 - **Daily activity** (issue #28): agent detail ends with a table of the agent's activations and completed activations for every day of the data window, with a "Duplicate evidence on this day" chip on days that hold a record in the agent's duplicate evidence, and a bar chart of activations by hour of day (0 to 23) with "Show as table". Both say that days and hours are as recorded in the data, and that the flag applies to the agent for the whole run. Dates are shown as recorded, without time-zone conversion.
 - **Customer dialog** (issue #28): each customer in the evidence table is a button that opens `CustomerDialog`. It fetches `GET /api/customers/<customer_ref>?from_agent=<agent>` on every open (every open is audited by the server) and shows the customer ID as the table does, the agents who used it (linked, with their flag source), the client count and IDs, first and last dates, and the latest activations, saying "Showing the latest N of M activations" when the list is capped. A note says that opening the view is recorded in the audit log. The request uses the reference, so the customer ID never appears in a URL.
 - Proposer and officer are shown as the account ids the API returns. Usernames are not available to these roles.

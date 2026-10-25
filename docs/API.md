@@ -124,6 +124,7 @@ Issue #28. A flag is a request for human review, and a decision never changes a 
 | GET | `/api/threat-intelligence/timeline` | all | Daily activations, flagged agents against others |
 | GET | `/api/threat-intelligence/customer-sharing` | all | Customers shared by agents, and clusters of connected agents |
 | GET | `/api/threat-intelligence/ring-candidates` | all | Groups of model-flagged agents that share at least 3 customers |
+| GET | `/api/threat-intelligence/ring-candidates/<candidate_id>` | all | One ring candidate as a graph: members, shared-customer counts per pair, counties, activations per day |
 | POST | `/api/review-decisions` | fraud_analyst | Propose a review decision on a flagged agent |
 | POST | `/api/review-decisions/<decision_id>/withdraw` | fraud_analyst | Withdraw your own open proposal |
 | POST | `/api/review-decisions/<decision_id>/agree` | compliance_officer | Agree with someone else's proposal |
@@ -566,6 +567,27 @@ A candidate is a lead for review, not a confirmed ring.
   "min_shared_customers": 3, "flagged_agents": 145, "candidates_total": 14,
   "candidates": [{"candidate_id": "cand_12", "size": 2, "agent_ids": ["A23833", "A65723"], "shared_customers": 4,
                   "client_ids": ["CL01", "CL02", "CL09"]}]
+}
+```
+
+### GET /api/threat-intelligence/ring-candidates/<candidate_id>
+
+Any signed-in role, like the other threat intelligence views (issue #28). `candidate_id` is one listed by `ring-candidates` for the latest run (for example `cand_01`); anything else is `404`.
+
+- `nodes`: the candidate's members (from the stored ring-candidates view), each with `county`, `flag_source`, `risk_band`, `activations` and `linked_members`.
+- `edges`: every pair of members that share at least one customer, with `shared_customers` (a count only, never a customer ID) and `meets_rule` (3 or more, the ring-candidate rule).
+- `county` is the agent's `region` in the loaded data (one of Kenya's 47 counties). It is shown for information only; the model never uses it. `counties` and `county_count` give the distinct counties of the ring.
+- `days`: the members' activations per day of the data window, in total and `by_agent`. Days are as recorded in the data.
+- Computed on request from stored data (about 15 ms for the largest ring); nothing is written and nothing is audited.
+
+```json
+{
+  "run_id": "RUN20261013172621c4f8ca", "candidate_id": "cand_01", "size": 6, "min_shared_customers": 3,
+  "nodes": [{"agent_id": "A37760", "county": "Nakuru", "flag_source": "Both", "risk_band": "high", "activations": 310, "linked_members": 5}],
+  "edges": [{"source": "A37760", "target": "A90728", "shared_customers": 117, "meets_rule": true}],
+  "counties": ["Bungoma", "Kericho", "Kisii", "Nakuru", "Narok"], "county_count": 5,
+  "first_day": "2026-08-01", "last_day": "2026-08-30",
+  "days": [{"date": "2026-08-01", "activations": 61, "by_agent": {"A37760": 11}}]
 }
 ```
 
