@@ -20,6 +20,7 @@ export const AUDIT_ACTIONS = {
   overrule_decision: "Proposal overruled",
   correct_decision: "Decision corrected",
   review_refused: "Review action refused",
+  customer_viewed: "Customer viewed",
   // Before issue #28 an agreement was called a confirmation; older entries keep that action.
   confirm_decision: "Decision confirmed (agreed)",
   role_change: "Role changed",

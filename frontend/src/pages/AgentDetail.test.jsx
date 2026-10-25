@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { mockApi, renderApp, reply, sessionRoutes } from "../test/server";
 import { PROPOSED_MESSAGE, WITHDRAWN_MESSAGE } from "../review";
@@ -15,7 +15,7 @@ const DETAIL = {
     flag_source: "Both", risk_band: "high", reasons: "46% of customers also used by other agents vs typical 0%",
   },
   duplicate_evidence: [
-    { customer_id: "CUST16131148", client_id: "CL09", other_agent_id: "A62923", reason: "shared customer", record_ids: ["R1", "R2"] },
+    { customer_id: "CUST16131148", customer_ref: "c_3f9a1b2c4d5e6f708192a3b4", client_id: "CL09", other_agent_id: "A62923", reason: "shared customer", record_ids: ["R1", "R2"] },
   ],
   review: {
     reviewable: true, reason: null, flag_id: "FL93b6b96d", flag_source: "Both", open_decision_id: null,
@@ -35,6 +35,22 @@ const NOT_FLAGGED = {
   score: { ...DETAIL.score, anomaly_score: 1.077, flagged: false, rule_flagged: false, duplicate_pairs: 0, flag_source: "None", risk_band: "low" },
   review: { ...DETAIL.review, reviewable: false, reason: "This agent is not flagged in the latest detection run", flag_id: "FL10053", flag_source: "None" },
 };
+const CUSTOMER = {
+  customer: { customer_ref: "c_3f9a1b2c4d5e6f708192a3b4", customer_id: "CUST16131148" },
+  run_id: "RUN1", agent_count: 2, client_count: 2, client_ids: ["CL04", "CL09"],
+  first_seen: "2026-08-03T10:12:00", last_seen: "2026-08-27T16:40:00",
+  agents: [
+    { agent_id: "A35485", flag_source: "Both", risk_band: "high", activations: 2, client_ids: ["CL09"], first_seen: "2026-08-03T10:12:00", last_seen: "2026-08-27T16:40:00" },
+    { agent_id: "A62923", flag_source: "Rule", risk_band: "review", activations: 1, client_ids: ["CL04"], first_seen: "2026-08-10T09:00:00", last_seen: "2026-08-10T09:00:00" },
+  ],
+  activations_total: 3, activations_limit: 200,
+  activations: [
+    { timestamp: "2026-08-27T16:40:00", agent_id: "A35485", client_id: "CL09", status: "completed" },
+    { timestamp: "2026-08-10T09:00:00", agent_id: "A62923", client_id: "CL04", status: "failed" },
+    { timestamp: "2026-08-03T10:12:00", agent_id: "A35485", client_id: "CL09", status: "completed" },
+  ],
+};
+const CUSTOMER_ROUTE = "GET /api/customers/c_3f9a1b2c4d5e6f708192a3b4";
 const withReview = (review) => ({ ...DETAIL, review: { ...DETAIL.review, reviewable: false, ...review } });
 const MY_OPEN = withReview({ reason: "This flag already has an open proposal", open_decision_id: "RD2", open_proposed_by: "ADM_ANALYST_01", open_is_mine: true });
 const FINAL = withReview({ reason: "This flag already has a final decision", final_decision_id: "RD1", effective_outcome: "confirmed_fraud" });
@@ -276,6 +292,59 @@ describe("Agent detail", () => {
     mockApi(routes("admin"));
     renderApp("/agents/A35485");
     expect(await screen.findByRole("heading", { name: "Access denied", level: 1 })).toBeInTheDocument();
+  });
+
+  it("opens a customer from the evidence by its reference and shows agents, clients and dates", async () => {
+    const { calls } = mockApi(routes("fraud_analyst", { [CUSTOMER_ROUTE]: CUSTOMER }));
+    renderApp("/agents/A35485");
+    await userEvent.click(await screen.findByRole("button", { name: "Open customer CUST16131148" }));
+    const dialog = await screen.findByRole("dialog", { name: "Customer CUST16131148" });
+    expect(await within(dialog).findByText(/Used by 2 agents across 2 clients/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/CL04, CL09/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/First seen .* Last seen/)).toBeInTheDocument();
+    const agents = within(dialog).getByRole("table", { name: "Agents who used this customer" });
+    expect(within(agents).getByRole("link", { name: "A62923" })).toHaveAttribute("href", "/agents/A62923");
+    expect(within(agents).getByText("Rule only")).toBeInTheDocument();
+    const activations = within(dialog).getByRole("table", { name: "Activations" });
+    expect(within(activations).getAllByRole("row")).toHaveLength(4);
+    expect(within(dialog).queryByText(/Showing the latest/)).not.toBeInTheDocument();
+    expect(within(dialog).getByText("Opening this view is recorded in the audit log.")).toBeInTheDocument();
+
+    const request = calls.find((c) => c.path.startsWith("/api/customers/"));
+    expect(request.url).toBe("/api/customers/c_3f9a1b2c4d5e6f708192a3b4?from_agent=A35485");
+    expect(calls.some((c) => c.url.includes("CUST16131148"))).toBe(false);
+  });
+
+  it("says when the activations list is capped", async () => {
+    mockApi(routes("compliance_officer", { [CUSTOMER_ROUTE]: { ...CUSTOMER, activations_total: 350, activations_limit: 200 } }));
+    renderApp("/agents/A35485");
+    await userEvent.click(await screen.findByRole("button", { name: "Open customer CUST16131148" }));
+    expect(await screen.findByText("Showing the latest 3 of 350 activations.")).toBeInTheDocument();
+  });
+
+  it("fetches the customer again on every open, so every open is audited", async () => {
+    const { calls } = mockApi(routes("fraud_analyst", { [CUSTOMER_ROUTE]: CUSTOMER }));
+    renderApp("/agents/A35485");
+    const open = await screen.findByRole("button", { name: "Open customer CUST16131148" });
+    await userEvent.click(open);
+    const dialog = await screen.findByRole("dialog", { name: "Customer CUST16131148" });
+    await within(dialog).findByText(/Used by 2 agents/);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await userEvent.click(open);
+    await within(await screen.findByRole("dialog")).findByText(/Used by 2 agents/);
+    expect(calls.filter((c) => c.path.startsWith("/api/customers/"))).toHaveLength(2);
+  });
+
+  it("shows the server's message when the customer cannot be shown", async () => {
+    mockApi(routes("fraud_analyst", {
+      [CUSTOMER_ROUTE]: reply(500, { error: "This access could not be recorded in the audit log, so the customer is not shown" }),
+    }));
+    renderApp("/agents/A35485");
+    await userEvent.click(await screen.findByRole("button", { name: "Open customer CUST16131148" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText(/could not be recorded in the audit log/)).toBeInTheDocument();
+    expect(within(dialog).queryByRole("table")).not.toBeInTheDocument();
   });
 
   it("shows an error state for an unknown agent", async () => {
