@@ -16,7 +16,9 @@ and runs the duplicate activation rule beside it.
 
 run_detection_cycle() writes one detection_runs row, agent_scores and
 duplicate_evidence for that run, and updates feature_vectors / fraud_flags for
-the analysis period so the review workflow keeps working. Labels are never read.
+the analysis period so the review workflow keeps working. The threat
+intelligence views are computed in the same transaction and stored in
+threat_views (issue #28), so a run never succeeds without them. Labels are never read.
 """
 
 from __future__ import annotations
@@ -28,7 +30,7 @@ from datetime import datetime
 import pandas as pd
 from sqlalchemy import insert, select
 
-from src import audit, ml_bridge
+from src import audit, ml_bridge, threat_intel
 from src.db import (
     ActivationRecord, Agent, AgentScore, DetectionRun, DuplicateEvidence, FeatureVector, FraudFlag, get_session,
     migrate_schema,
@@ -209,6 +211,7 @@ def run_detection_cycle(trigger="manual"):
         run.agents_scored, run.flagged_count = len(scores), int(scores["flagged"].sum())
         run.rule_flagged_count = int(scores["rule_flagged"].sum())
         run.both_count = int((scores["flag_source"] == "Both").sum())
+        threat_intel.store_views(session, run)
         changes = flag_changes(previous_flag_sources(session, run.run_id), scores)
         actor = system_actor(run.model_version)
         for change in changes:

@@ -1,13 +1,12 @@
 import { Box, Typography } from "@mui/material";
-import { useApi } from "../hooks/useApi";
+import { useLatestRun } from "../latestRun/latestRunContext";
 import { formatDateTime } from "../format";
-import { api } from "../api";
 
 const STATUS = { succeeded: "succeeded", failed: "failed", running: "running" };
 
 /** Small muted line under every signed-in page: model version and the last detection run. */
 export default function AppFooter() {
-  const run = useApi(api.getLatestDetectionRun);
+  const run = useLatestRun();
   let text;
   if (run.loading || run.error?.status === 401) text = "Checking the last detection run…";
   else if (run.error) text = "Detection run status unavailable";

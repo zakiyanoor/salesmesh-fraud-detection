@@ -29,14 +29,16 @@ Flask REST API in `backend/src/api.py`, served by `python -m src.api` from `back
 
 ## Roles and permissions
 
-Three roles, with separation of duties: whoever proposes a review decision cannot confirm it, and the admin who manages accounts and reports takes no part in reviews.
+Three roles, with separation of duties: an analyst proposes, a compliance officer decides, and the admin who manages accounts and reports takes no part in reviews. Whoever proposed a decision can never agree with, overrule or correct it, even after a role change. Every rule is enforced on the server (see "Review workflow").
 
 | Capability | fraud_analyst | compliance_officer | admin |
 |---|---|---|---|
 | Read agents, scores, analytics, clients, review decisions, run status | yes | yes | yes |
 | Threat intelligence views | yes | yes | yes |
-| Propose a review decision | **yes** | no | no |
-| Confirm a review decision (proposed by someone else) | no | **yes** | no |
+| Propose a review decision on a flagged agent (model, rule or both) | **yes** | no | no |
+| Withdraw their own open proposal | **yes** | no | no |
+| Agree with or overrule a proposal (made by someone else) | no | **yes** | no |
+| Correct a final decision (not their own proposal) | no | **yes** | no |
 | Read the audit log | no | yes | yes |
 | Download reports (CSV, PDF) | no | no | **yes** |
 | List accounts, change roles, deactivate or reactivate accounts | no | no | **yes** |
@@ -73,10 +75,30 @@ Each entry has:
 |---|---|---|
 | `authentication` | `login`, `login_failure`, `logout` | `username`, `role`; for failures `reason` (`invalid credentials`, `account deactivated`, `unknown role`); failures have actor `anonymous` |
 | `authorization` | `access_denied` (every `401` and `403`, except a `401` on `GET /api/me` with no session) | `route`, `method`, `role`, `status`, `reason` |
-| `review` | `propose_decision`, `confirm_decision` | `decision_id`, `flag_id`, `notes`, and `decision_outcome` (proposal) or `proposed_by` (confirmation) |
+| `review` | `propose_decision`, `withdraw_decision`, `agree_decision`, `overrule_decision`, `correct_decision`, `review_refused`; older entries also have `confirm_decision` (an agreement before issue #28) | all: `decision_id`, `flag_id`, `notes` (the actor's note). Propose: `decision_outcome`, `run_id`, `flag_source`. Withdraw: `decision_outcome`. Agree and overrule: `proposed_by`, `decision_outcome`, `final_outcome`, `proposal_notes`. Correct: `correction_id`, `previous_outcome`, `new_outcome`. Refused (a `409`): `route`, `reason` and the `flag_id` or `decision_id` |
 | `admin` | `role_change`, `account_deactivated`, `account_reactivated`, `password_reset` (local recovery, actor `local:<OS user>`) | `target_admin_id`, `target_username`, `old_role` / `new_role` or `role`; `channel` (`cli` or `local recovery`) |
 | `report` | `report_download` | `report`, `filename`, `filters`, `row_count`, `bytes`, `sha256` of the file sent, plus `run_id`, `cap`, `load_id` or `data_hash` |
 | `ai_decision` | `ai_detection_run` (one per run, also when it fails); `ai_flag` (per agent whose `flag_source` changed since the previous successful run, or newly flagged) | run: `run_id`, `status`, `trigger`, `model_version`, `threshold`, counts, `flag_changes`, `error`; flag: `change` (`newly flagged`, `cleared`, `flag source changed`), `previous_flag_source`, `flag_source`, `anomaly_score`, `threshold`, `top_features`, `reasons`, `model_version` |
+
+## Review workflow
+
+Issue #28. A flag is a request for human review, and a decision never changes a score, a flag or a detection run.
+
+| Status | Meaning | Next |
+|---|---|---|
+| `pending_confirmation` | Proposed by an analyst, waiting for a compliance officer | the proposer withdraws it, or an officer agrees or overrules it |
+| `withdrawn` | Withdrawn by its proposer, with a note | none; a new proposal on the flag is allowed |
+| `agreed` | An officer kept the proposed outcome (note optional) | corrections only |
+| `overruled` | An officer chose the other outcome, with a note | corrections only |
+
+**Rules, enforced on the server:**
+- **What can be reviewed:** the latest analysis period's flag of an agent whose `flag_source` in the latest successful run is `ML`, `Rule` or `Both`. Every agent has a `fraud_flags` row (its `flag_status` follows the model alone, as before), so `review.reviewable` in `GET /api/agents/<id>` says whether it can be reviewed now. The proposal stores the `run_id` and `flag_source` it was made on.
+- **One open proposal per flag,** and none once the flag has a final decision: only a correction changes a final decision. The flag row is locked while proposing, and a partial unique index (`ux_review_decisions_one_open`) refuses a second open proposal even under concurrent requests.
+- **Write once:** a proposal is closed once (withdrawn, agreed or overruled), setting only `final_outcome`, `closed_by`, `closed_at` and `close_note`. A database trigger refuses any other `UPDATE` and every `DELETE` or `TRUNCATE` on `review_decisions` and `review_corrections`. Only a transaction that sets `salesmesh.review_maintenance` is let through: the loader's `allow_deleting_reviews` path and test cleanup.
+- **Corrections:** a correction is a new `review_corrections` row (previous and new outcome, note, who and when). The outcome in force (`effective_outcome`) is the newest correction's, else `final_outcome`.
+- **Overdue:** an open proposal is `overdue` after 72 hours by the server clock (UTC). Nothing decides a proposal automatically; a detection run leaves review decisions alone.
+- **Refusals:** a broken role rule is a `403` (logged as `access_denied`), a broken workflow rule a `409` (logged as `review_refused`), invalid input a `400`.
+- **Migration** (`python -m src.migrate`, idempotent): adds the columns and `review_corrections`, renames `confirmed` to `agreed` (with `closed_by` from `confirmed_by` and `closed_at` from the `confirm_decision` audit entry), then adds the checks, the index and the triggers. It stops, changing nothing, if a flag has more than one open proposal.
 
 ## Endpoints
 
@@ -99,9 +121,12 @@ Each entry has:
 | GET | `/api/threat-intelligence/timeline` | all | Daily activations, flagged agents against others |
 | GET | `/api/threat-intelligence/customer-sharing` | all | Customers shared by agents, and clusters of connected agents |
 | GET | `/api/threat-intelligence/ring-candidates` | all | Groups of model-flagged agents that share at least 3 customers |
-| POST | `/api/review-decisions` | fraud_analyst | Propose a review decision |
-| POST | `/api/review-decisions/<decision_id>/confirm` | compliance_officer | Confirm someone else's decision |
-| GET | `/api/review-decisions` | all | Review decisions, newest first |
+| POST | `/api/review-decisions` | fraud_analyst | Propose a review decision on a flagged agent |
+| POST | `/api/review-decisions/<decision_id>/withdraw` | fraud_analyst | Withdraw your own open proposal |
+| POST | `/api/review-decisions/<decision_id>/agree` | compliance_officer | Agree with someone else's proposal |
+| POST | `/api/review-decisions/<decision_id>/overrule` | compliance_officer | Overrule someone else's proposal |
+| POST | `/api/review-decisions/<decision_id>/corrections` | compliance_officer | Correct a final decision |
+| GET | `/api/review-decisions` | all | Review decisions, newest first, with their history |
 | GET | `/api/audit-log` | admin, compliance_officer | Audit trail, filtered and paged |
 | GET | `/api/reports/flagged-agents.csv` | admin | Flagged agents of the latest run (masked) |
 | GET | `/api/reports/audit-log.csv` | admin | Audit entries as CSV (same filters) |
@@ -183,6 +208,8 @@ Path parameter: `agent_id` (for example `A35485`). `404` if the agent does not e
 - `duplicate_evidence`: one entry per (customer, client) pair behind the rule, with the agent's record ids.
 - `context`: clients and categories the agent worked in.
 - `identity`: fictional; phone and national ID masked.
+- `flag`: every agent has one per analysis period; `flag_status` follows the model alone (`flagged` or `clear`).
+- `review` (issue #28): whether the flag can be reviewed now (`reviewable`, and `reason` when not), its `flag_source`, the open proposal (`open_decision_id`, `open_proposed_by`, and `open_is_mine` for the viewer) and the final decision (`final_decision_id`, `effective_outcome`). The screen uses this, not the presence of `flag`.
 
 ```json
 {
@@ -210,7 +237,9 @@ Path parameter: `agent_id` (for example `A35485`). `404` if the agent does not e
     {"customer_id": "CUST16131148", "client_id": "CL09", "other_agent_id": null,
      "reason": "repeat after completed", "record_ids": ["R9941", "R100690"]}
   ],
-  "context": {"client_ids": ["CL09", "CL15"], "categories": ["e-commerce", "education"]}
+  "context": {"client_ids": ["CL09", "CL15"], "categories": ["e-commerce", "education"]},
+  "review": {"reviewable": true, "reason": null, "flag_id": "FL93b6b96d", "flag_source": "Both", "open_decision_id": null,
+             "open_proposed_by": null, "open_is_mine": false, "final_decision_id": null, "effective_outcome": null}
 }
 ```
 
@@ -242,6 +271,7 @@ Query parameters:
 
 - **Score buckets** are placed around the cutoff, because LOF scores are not 0 to 1: `< 1.1`, `1.1-1.3`, `1.3-cutoff`, `cutoff (1.445)-2.0`, `>= 2.0`.
 - **`flag_sources`** counts the latest run's agents by `flag_source`.
+- **`review`** (issue #28) counts proposals by status, overdue ones and corrections. `overrule_rate` = overruled ÷ (agreed + overruled): the share of compliance decisions that overruled the analyst. Withdrawn and open proposals are left out, corrections are counted separately, and it is `null` until an officer has decided something.
 
 ```json
 {
@@ -250,7 +280,9 @@ Query parameters:
                    {"flag_source": "Both", "count": 73}, {"flag_source": "None", "count": 826}],
   "score_distribution": [{"bucket": "< 1.1", "count": 572}, {"bucket": "1.1-1.3", "count": 210}],
   "region_breakdown": [{"region": "Kericho", "flagged": 6, "total": 25}],
-  "platform_averages": {"submission_frequency": 15.8, "time_of_day_dist": 0.778, "customer_similarity": 0.109}
+  "platform_averages": {"submission_frequency": 15.8, "time_of_day_dist": 0.778, "customer_similarity": 0.109},
+  "review": {"proposals": 6, "open": 2, "overdue": 1, "withdrawn": 1, "agreed": 2, "overruled": 1, "corrections": 1,
+             "overrule_rate": 0.3333, "overdue_hours": 72}
 }
 ```
 
@@ -279,7 +311,7 @@ Status of the most recent detection run, whatever its outcome (scheduler, manual
 
 ### POST /api/review-decisions
 
-**Analyst only.** Body: `{"flag_id": "FL93b6b96d", "decision_outcome": "confirmed_fraud", "notes": "Shares customers with two agents in Kisumu."}`. Creates a decision in `pending_confirmation` and records a `propose_decision` audit entry whose details hold the notes.
+**Analyst only.** Body: `{"flag_id": "FL93b6b96d", "decision_outcome": "confirmed_fraud", "notes": "Shares customers with two agents in Kisumu."}`. Creates a decision in `pending_confirmation` with the latest run's `run_id` and the agent's `flag_source`, and records a `propose_decision` audit entry whose details hold the notes. The agent must be flagged (`ML`, `Rule` or `Both`) in the latest run; see "Review workflow".
 
 **`decision_outcome` (required):** exactly `"confirmed_fraud"` or `"legitimate"` (case-sensitive, no surrounding spaces). Anything else returns `400` with "decision_outcome must be one of ['confirmed_fraud', 'legitimate'], got ..." and writes nothing (no decision, no audit entry).
 
@@ -290,31 +322,70 @@ Status of the most recent detection run, whatever its outcome (scheduler, manual
 
 ```json
 {"message": "Review decision proposed; awaiting compliance confirmation", "decision_id": "RD1a2b3c4d", "status": "pending_confirmation",
- "notes": "Shares customers with two agents in Kisumu."}
+ "notes": "Shares customers with two agents in Kisumu.", "run_id": "RUN20261013172621c4f8ca", "flag_source": "Both"}
 ```
 
-Errors: `400` (missing `flag_id` or `decision_outcome`; `decision_outcome` not one of the two values; `notes` missing or null: "notes is required: give a short plain-text reason for the decision"; "notes must not be empty"; "notes must be a string"; "notes must be at most 1000 characters (got N)"; "notes must be plain text ..."), `403` (wrong role), `404` (unknown flag).
+Errors: `400` (missing `flag_id` or `decision_outcome`; `decision_outcome` not one of the two values; `notes` missing or null: "notes is required: give a short plain-text reason for the decision"; "notes must not be empty"; "notes must be a string"; "notes must be at most 1000 characters (got N)"; "notes must be plain text ..."), `403` (wrong role), `404` (unknown flag), `409` (the agent is not flagged in the latest run; the flag is from an earlier analysis period; the flag already has an open proposal or a final decision).
 
-### POST /api/review-decisions/<decision_id>/confirm
+The other review actions take `notes` with the same rules (required unless stated).
 
-**Compliance only.** No body. Confirms a pending decision proposed by a different admin, and records a `confirm_decision` audit entry whose details repeat the proposal's notes.
+### POST /api/review-decisions/<decision_id>/withdraw
+
+**The proposing analyst only.** Body: `{"notes": "Proposed on the wrong agent."}`. Closes an open proposal as `withdrawn` and records `withdraw_decision`.
 
 ```json
-{"message": "Review decision confirmed", "decision_id": "RD1a2b3c4d", "status": "confirmed", "confirmed_by": "ADM_COMPLIANCE_01",
- "notes": "Shares customers with two agents in Kisumu."}
+{"message": "Proposal withdrawn", "decision_id": "RD1a2b3c4d", "status": "withdrawn", "closed_by": "ADM_ANALYST_01",
+ "closed_at": "2026-10-14T09:12:00.120000", "close_note": "Proposed on the wrong agent."}
 ```
 
-Errors: `403` (wrong role, or confirming your own proposal), `404` (unknown decision), `409` (already confirmed).
+Errors: `400` (notes), `403` (wrong role, or not your proposal), `404`, `409` (no longer open).
+
+### POST /api/review-decisions/<decision_id>/agree
+
+**Compliance only, not the proposer.** Body optional: `{"notes": "Evidence checked."}`. Closes the proposal as `agreed` with `final_outcome` equal to the proposed outcome, and records `agree_decision`.
+
+```json
+{"message": "Proposal agreed", "decision_id": "RD1a2b3c4d", "status": "agreed", "decision_outcome": "confirmed_fraud",
+ "final_outcome": "confirmed_fraud", "closed_by": "ADM_COMPLIANCE_01", "closed_at": "2026-10-14T10:00:00.000000",
+ "close_note": null, "notes": "Shares customers with two agents in Kisumu."}
+```
+
+Errors: `400` (notes given but invalid), `403` (wrong role, or your own proposal), `404`, `409` (no longer open). `POST .../confirm` no longer exists.
+
+### POST /api/review-decisions/<decision_id>/overrule
+
+**Compliance only, not the proposer.** Body: `{"final_outcome": "legitimate", "notes": "The shared customers are one family."}`. `final_outcome` must differ from the proposed outcome (`400` otherwise; to keep it, agree). Closes the proposal as `overruled` and records `overrule_decision`. The response has the same fields as agree.
+
+Errors: `400` (notes, `final_outcome`), `403`, `404`, `409`.
+
+### POST /api/review-decisions/<decision_id>/corrections
+
+**Compliance only, not the proposer** (the officer who decided may correct). Body: `{"new_outcome": "legitimate", "expected_current_outcome": "confirmed_fraud", "notes": "The customer list was from the wrong month."}`. Adds a correction to an agreed or overruled decision and records `correct_decision`; the decision itself is not changed. `expected_current_outcome` is the outcome in force that the officer saw: if another correction changed it meanwhile, the request is refused with `409`.
+
+```json
+{"message": "Correction recorded", "decision_id": "RD1a2b3c4d", "correction_id": "RC5e6f7a8b",
+ "previous_outcome": "confirmed_fraud", "new_outcome": "legitimate", "corrected_by": "ADM_COMPLIANCE_02",
+ "corrected_at": "2026-10-15T08:30:00.000000", "note": "The customer list was from the wrong month.", "effective_outcome": "legitimate"}
+```
+
+Errors: `400` (notes; outcomes not one of the two values; `new_outcome` equal to `expected_current_outcome`), `403`, `404`, `409` (not agreed or overruled; outcome changed meanwhile).
 
 ### GET /api/review-decisions
 
 ```json
-{"count": 1, "decisions": [{"decision_id": "RD1a2b3c4d", "agent_id": "A35485", "reviewer_id": "ADM_ANALYST_01",
-  "decision_outcome": "confirmed_fraud", "decision_timestamp": "2026-10-13T15:10:00", "status": "confirmed",
-  "confirmed_by": "ADM_COMPLIANCE_01", "notes": "Shares customers with two agents in Kisumu."}]}
+{"count": 1, "overdue_hours": 72, "decisions": [{
+  "decision_id": "RD1a2b3c4d", "flag_id": "FL93b6b96d", "agent_id": "A35485", "reviewer_id": "ADM_ANALYST_01",
+  "decision_outcome": "confirmed_fraud", "decision_timestamp": "2026-10-13T15:10:00", "notes": "Shares customers with two agents in Kisumu.",
+  "run_id": "RUN20261013172621c4f8ca", "flag_source": "Both", "status": "agreed", "final_outcome": "confirmed_fraud",
+  "closed_by": "ADM_COMPLIANCE_01", "closed_at": "2026-10-14T10:00:00", "close_note": null,
+  "corrections": [{"correction_id": "RC5e6f7a8b", "previous_outcome": "confirmed_fraud", "new_outcome": "legitimate",
+                   "corrected_by": "ADM_COMPLIANCE_02", "corrected_at": "2026-10-15T08:30:00", "note": "The customer list was from the wrong month."}],
+  "effective_outcome": "legitimate", "overdue": false, "still_flagged": true}]}
 ```
 
-`notes` is `null` for decisions recorded before notes existed; `confirmed_by` is `null` until a decision is confirmed.
+- `notes` is `null` for decisions recorded before notes existed; `run_id` and `flag_source` are `null` for decisions made before issue #28.
+- The closing fields are `null` while a proposal is open. `closed_by` is the analyst for a withdrawal and the officer otherwise; it replaces `confirmed_by`, which the migration copied into it.
+- `effective_outcome` is `null` while open or withdrawn. `still_flagged` is `false` when the agent is no longer flagged in the latest run; an open proposal stays open.
 
 ### GET /api/audit-log
 

@@ -36,23 +36,23 @@ action are recorded in the admin_action_log table.
 
 import os
 import re
-import uuid
 from datetime import datetime
 from flask import Flask, g, jsonify, request, session
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from sqlalchemy import and_, func
+from sqlalchemy.exc import IntegrityError
 from src.db import (
     get_session, Agent, ActivationRecord, FeatureVector, FraudFlag, ReviewDecision,
-    AdminActionLog, DECISION_PENDING, DECISION_CONFIRMED, DECISION_OUTCOMES, AgentCategory, AgentIdentity, AgentScore, Client,
+    AdminActionLog, DECISION_AGREED, DECISION_OUTCOMES, AgentCategory, AgentIdentity, AgentScore, Client,
     DetectionRun, DuplicateEvidence, FLAG_SOURCES,
 )
 from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER, ROLE_ADMIN, DEACTIVATED,
     VALID_ROLES,
 )
-from src import accounts, reports, threat_intel
+from src import accounts, reports, review, threat_intel
 from src import audit
 from src.config import load_config
 from src.pipeline import compute_client_category_breakdown
@@ -485,6 +485,9 @@ def get_agent_detail(agent_id):
                 "flag_status": flag.flag_status,
                 "model_version": flag.model_version,
             } if flag else None,
+            # Issue #28: whether this agent's flag can be reviewed now (any flag_source but None in the
+            # latest run), with its open and final decisions. The screen uses this, not the flag object.
+            "review": review.review_block(db_session, vector, flag, run, viewer_id=session.get("admin_id")),
             # Pass-through context from other SalesMesh modules -- not used as a
             # detection feature, kept separate from "features" for that reason.
             # An agent can work across several clients/categories, so this is a
@@ -497,9 +500,30 @@ def get_agent_detail(agent_id):
         db_session.close()
 
 
+def review_refused(error, **details):
+    """
+    The response for a broken review rule (issue #28). A 409 is recorded as review_refused, in its own
+    transaction because the action's is rolled back; a 403 is recorded as access_denied by
+    audit_denied_requests.
+    """
+    if error.status == 409:
+        audit.record_now(session["admin_id"], "review_refused", "review",
+                         details={"route": request.path, "reason": error.message, **details},
+                         request_ip=request.remote_addr)
+    return jsonify({"error": error.message}), error.status
+
+
+def review_body():
+    """(body, notes, error response): the JSON body and its cleaned notes, or a 400."""
+    data = request.get_json(silent=True) or {}
+    notes, notes_error = clean_notes(data.get("notes"))
+    return data, notes, ((jsonify({"error": notes_error}), 400) if notes_error else None)
+
+
 @app.route("/api/review-decisions", methods=["POST"])
 @role_required(ROLE_FRAUD_ANALYST)
 def submit_review_decision():
+    """Issue #28: a flagged agent (ML, Rule or Both in the latest run), one open proposal per flag, a note."""
     db_session = get_session()
     try:
         data = request.get_json(silent=True) or {}
@@ -511,37 +535,36 @@ def submit_review_decision():
         if data["decision_outcome"] not in DECISION_OUTCOMES:
             return jsonify({"error": f"decision_outcome must be one of {list(DECISION_OUTCOMES)}, "
                                      f"got {str(data['decision_outcome'])[:50]!r}"}), 400
-        notes, notes_error = clean_notes(data.get("notes"))
-        if notes_error:
-            return jsonify({"error": notes_error}), 400
+        _, notes, invalid = review_body()
+        if invalid:
+            return invalid
+        flag_id = str(data["flag_id"])
 
-        flag = db_session.query(FraudFlag).filter(FraudFlag.flag_id == data["flag_id"]).first()
-        if not flag:
-            return jsonify({"error": "Fraud flag not found"}), 404
-
-        decision = ReviewDecision(
-            decision_id=f"RD{uuid.uuid4().hex[:8]}",
-            flag_id=data["flag_id"],
-            reviewer_id=session["admin_id"],
-            decision_outcome=data["decision_outcome"],
-            decision_timestamp=datetime.utcnow(),
-            status=DECISION_PENDING,
-            notes=notes,
-        )
-        db_session.add(decision)
-        log_admin_action(
-            db_session, session["admin_id"], "propose_decision",
-            target_agent_id=agent_id_for_flag(db_session, data["flag_id"]),
-            details={"decision_id": decision.decision_id, "flag_id": data["flag_id"],
-                     "decision_outcome": data["decision_outcome"], "notes": notes},
-        )
-        db_session.commit()
+        try:
+            decision, agent_id = review.propose(db_session, session["admin_id"], flag_id,
+                                                data["decision_outcome"], notes)
+            log_admin_action(
+                db_session, session["admin_id"], "propose_decision", target_agent_id=agent_id,
+                details={"decision_id": decision.decision_id, "flag_id": flag_id,
+                         "decision_outcome": data["decision_outcome"], "notes": notes,
+                         "run_id": decision.run_id, "flag_source": decision.flag_source},
+            )
+            db_session.commit()
+        except review.ReviewError as e:
+            db_session.rollback()
+            return review_refused(e, flag_id=flag_id)
+        except IntegrityError:
+            # Two proposals at the same moment: the one-open-proposal index refuses the second.
+            db_session.rollback()
+            return review_refused(review.ReviewError(409, "This flag already has an open proposal"), flag_id=flag_id)
 
         return jsonify({
             "message": "Review decision proposed; awaiting compliance confirmation",
             "decision_id": decision.decision_id,
             "status": decision.status,
             "notes": decision.notes,
+            "run_id": decision.run_id,
+            "flag_source": decision.flag_source,
         }), 201
     except Exception as e:
         db_session.rollback()
@@ -550,42 +573,162 @@ def submit_review_decision():
         db_session.close()
 
 
-@app.route("/api/review-decisions/<decision_id>/confirm", methods=["POST"])
-@role_required(ROLE_COMPLIANCE_OFFICER)
-def confirm_review_decision(decision_id):
+@app.route("/api/review-decisions/<decision_id>/withdraw", methods=["POST"])
+@role_required(ROLE_FRAUD_ANALYST)
+def withdraw_review_decision(decision_id):
+    """Issue #28: the proposing analyst withdraws their open proposal, with a note."""
     db_session = get_session()
     try:
-        # Row lock so two concurrent confirmations can't both see "pending".
-        decision = (
-            db_session.query(ReviewDecision)
-            .filter(ReviewDecision.decision_id == decision_id)
-            .with_for_update()
-            .first()
-        )
-        if not decision:
-            return jsonify({"error": "Review decision not found"}), 404
-        if decision.reviewer_id == session["admin_id"]:
-            return jsonify({"error": "A decision cannot be confirmed by the admin who proposed it"}), 403
-        if decision.status != DECISION_PENDING:
-            return jsonify({"error": f"Decision is already {decision.status}"}), 409
-
-        decision.status = DECISION_CONFIRMED
-        decision.confirmed_by = session["admin_id"]
+        _, notes, invalid = review_body()
+        if invalid:
+            return invalid
+        try:
+            decision = review.withdraw(db_session, session["admin_id"], decision_id, notes)
+        except review.ReviewError as e:
+            db_session.rollback()
+            return review_refused(e, decision_id=decision_id)
         log_admin_action(
-            db_session, session["admin_id"], "confirm_decision",
+            db_session, session["admin_id"], "withdraw_decision",
             target_agent_id=agent_id_for_flag(db_session, decision.flag_id),
             details={"decision_id": decision.decision_id, "flag_id": decision.flag_id,
-                     "proposed_by": decision.reviewer_id, "notes": decision.notes},
+                     "decision_outcome": decision.decision_outcome, "notes": notes},
         )
         db_session.commit()
-
         return jsonify({
-            "message": "Review decision confirmed",
+            "message": "Proposal withdrawn",
             "decision_id": decision.decision_id,
             "status": decision.status,
-            "confirmed_by": decision.confirmed_by,
+            "closed_by": decision.closed_by,
+            "closed_at": decision.closed_at.isoformat(),
+            "close_note": decision.close_note,
+        })
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+
+def close_review_decision(decision_id, final_outcome, notes):
+    """Issue #28: agree or overrule an open proposal (review.close), with its audit entry, in one transaction."""
+    db_session = get_session()
+    try:
+        try:
+            decision = review.close(db_session, session["admin_id"], decision_id, final_outcome, notes)
+        except review.ReviewError as e:
+            db_session.rollback()
+            return review_refused(e, decision_id=decision_id)
+        action = "agree_decision" if decision.status == DECISION_AGREED else "overrule_decision"
+        log_admin_action(
+            db_session, session["admin_id"], action,
+            target_agent_id=agent_id_for_flag(db_session, decision.flag_id),
+            details={"decision_id": decision.decision_id, "flag_id": decision.flag_id,
+                     "proposed_by": decision.reviewer_id, "decision_outcome": decision.decision_outcome,
+                     "final_outcome": decision.final_outcome, "notes": notes, "proposal_notes": decision.notes},
+        )
+        db_session.commit()
+        return jsonify({
+            "message": "Proposal agreed" if action == "agree_decision" else "Proposal overruled",
+            "decision_id": decision.decision_id,
+            "status": decision.status,
+            "decision_outcome": decision.decision_outcome,
+            "final_outcome": decision.final_outcome,
+            "closed_by": decision.closed_by,
+            "closed_at": decision.closed_at.isoformat(),
+            "close_note": decision.close_note,
             "notes": decision.notes,
         })
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+
+@app.route("/api/review-decisions/<decision_id>/agree", methods=["POST"])
+@role_required(ROLE_COMPLIANCE_OFFICER)
+def agree_review_decision(decision_id):
+    """Issue #28: a compliance officer other than the proposer agrees; the note is optional."""
+    data = request.get_json(silent=True) or {}
+    notes = None
+    if data.get("notes") is not None:
+        notes, notes_error = clean_notes(data["notes"])
+        if notes_error:
+            return jsonify({"error": notes_error}), 400
+    db_session = get_session()
+    try:
+        decision = db_session.get(ReviewDecision, decision_id)
+        outcome = decision.decision_outcome if decision else None
+    finally:
+        db_session.close()
+    # An unknown decision gets its 404 from review.close; the outcome is re-read under the row lock there.
+    return close_review_decision(decision_id, outcome, notes)
+
+
+@app.route("/api/review-decisions/<decision_id>/overrule", methods=["POST"])
+@role_required(ROLE_COMPLIANCE_OFFICER)
+def overrule_review_decision(decision_id):
+    """Issue #28: a compliance officer other than the proposer picks the other outcome, with a note."""
+    data, notes, invalid = review_body()
+    if invalid:
+        return invalid
+    final_outcome = data.get("final_outcome")
+    if final_outcome not in DECISION_OUTCOMES:
+        return jsonify({"error": f"final_outcome must be one of {list(DECISION_OUTCOMES)}, "
+                                 f"got {str(final_outcome)[:50]!r}"}), 400
+    db_session = get_session()
+    try:
+        decision = db_session.get(ReviewDecision, decision_id)
+        if decision is not None and final_outcome == decision.decision_outcome:
+            return jsonify({"error": "final_outcome must differ from the proposed outcome; to keep it, agree instead"}), 400
+    finally:
+        db_session.close()
+    return close_review_decision(decision_id, final_outcome, notes)
+
+
+@app.route("/api/review-decisions/<decision_id>/corrections", methods=["POST"])
+@role_required(ROLE_COMPLIANCE_OFFICER)
+def correct_review_decision(decision_id):
+    """
+    Issue #28: a compliance officer other than the proposer corrects an agreed or overruled decision, with a
+    note. The decision itself is never changed; the correction is a new row, and the history shows both.
+    """
+    data, notes, invalid = review_body()
+    if invalid:
+        return invalid
+    new_outcome, expected = data.get("new_outcome"), data.get("expected_current_outcome")
+    for name, value in (("new_outcome", new_outcome), ("expected_current_outcome", expected)):
+        if value not in DECISION_OUTCOMES:
+            return jsonify({"error": f"{name} must be one of {list(DECISION_OUTCOMES)}, got {str(value)[:50]!r}"}), 400
+    if new_outcome == expected:
+        return jsonify({"error": "new_outcome must differ from the current outcome"}), 400
+    db_session = get_session()
+    try:
+        try:
+            decision, correction = review.correct(db_session, session["admin_id"], decision_id, new_outcome,
+                                                  expected, notes)
+        except review.ReviewError as e:
+            db_session.rollback()
+            return review_refused(e, decision_id=decision_id)
+        log_admin_action(
+            db_session, session["admin_id"], "correct_decision",
+            target_agent_id=agent_id_for_flag(db_session, decision.flag_id),
+            details={"decision_id": decision_id, "correction_id": correction.correction_id,
+                     "flag_id": decision.flag_id, "previous_outcome": correction.previous_outcome,
+                     "new_outcome": correction.new_outcome, "notes": notes},
+        )
+        db_session.commit()
+        return jsonify({
+            "message": "Correction recorded",
+            "decision_id": decision_id,
+            "correction_id": correction.correction_id,
+            "previous_outcome": correction.previous_outcome,
+            "new_outcome": correction.new_outcome,
+            "corrected_by": correction.corrected_by,
+            "corrected_at": correction.corrected_at.isoformat(),
+            "note": correction.note,
+            "effective_outcome": correction.new_outcome,
+        }), 201
     except Exception as e:
         db_session.rollback()
         return jsonify({"error": str(e)}), 500
@@ -596,6 +739,10 @@ def confirm_review_decision(decision_id):
 @app.route("/api/review-decisions", methods=["GET"])
 @login_required
 def list_review_decisions():
+    """
+    Every decision, newest first, with its closing fields, corrections, the outcome in force, whether it is
+    overdue (open for more than review.OVERDUE_HOURS) and whether its agent is still flagged (issue #28).
+    """
     db_session = get_session()
     try:
         decisions = (
@@ -603,24 +750,17 @@ def list_review_decisions():
             .order_by(ReviewDecision.decision_timestamp.desc())
             .all()
         )
+        agents = dict(db_session.query(FraudFlag.flag_id, FeatureVector.agent_id)
+                      .join(FeatureVector, FraudFlag.vector_id == FeatureVector.vector_id)
+                      .filter(FraudFlag.flag_id.in_({d.flag_id for d in decisions})).all()) if decisions else {}
+        sources = {agent_id: s.flag_source for agent_id, s in latest_scores_by_agent(db_session).items()}
+        now = datetime.utcnow()
         results = []
         for d in decisions:
-            flag = db_session.query(FraudFlag).filter(FraudFlag.flag_id == d.flag_id).first()
-            vector = (
-                db_session.query(FeatureVector).filter(FeatureVector.vector_id == flag.vector_id).first()
-                if flag else None
-            )
-            results.append({
-                "decision_id": d.decision_id,
-                "agent_id": vector.agent_id if vector else None,
-                "reviewer_id": d.reviewer_id,
-                "decision_outcome": d.decision_outcome,
-                "decision_timestamp": d.decision_timestamp.isoformat(),
-                "status": d.status,
-                "confirmed_by": d.confirmed_by,
-                "notes": d.notes,
-            })
-        return jsonify({"count": len(results), "decisions": results})
+            agent_id = agents.get(d.flag_id)
+            results.append(review.decision_payload(
+                d, agent_id, still_flagged=sources.get(agent_id) in review.REVIEWABLE_SOURCES, now=now))
+        return jsonify({"count": len(results), "overdue_hours": review.OVERDUE_HOURS, "decisions": results})
     finally:
         db_session.close()
 
@@ -706,6 +846,8 @@ def get_analytics():
                 "time_of_day_dist": round(dist_sum / count, 3),
                 "customer_similarity": round(sim_sum / count, 3),
             },
+            # Issue #28: proposal counts and the overrule rate (src/review.py, review_stats).
+            "review": review.review_stats(db_session),
         })
     finally:
         db_session.close()
@@ -785,14 +927,15 @@ def list_clients():
         db_session.close()
 
 
-def _threat_view(name, compute):
+def _threat_view(name):
     def view():
         db_session = get_session()
         try:
             run = threat_intel.latest_run(db_session)
             if run is None:
                 return jsonify({"error": "No successful detection run yet"}), 404
-            return jsonify(compute(db_session, run))
+            # Stored with the run (issue #28); computed now only for a run without a current stored copy.
+            return jsonify(threat_intel.view_payload(db_session, run, name))
         finally:
             db_session.close()
 
@@ -801,8 +944,8 @@ def _threat_view(name, compute):
 
 
 # Read only, any authenticated role (issue #18).
-for _name, _compute in threat_intel.VIEWS.items():
-    app.add_url_rule(f"/api/threat-intelligence/{_name}", view_func=_threat_view(_name, _compute), methods=["GET"])
+for _name in threat_intel.VIEWS:
+    app.add_url_rule(f"/api/threat-intelligence/{_name}", view_func=_threat_view(_name), methods=["GET"])
 
 
 def _download(name, extension, mimetype, build):

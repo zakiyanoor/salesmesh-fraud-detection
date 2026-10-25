@@ -204,7 +204,7 @@ describe("console", () => {
     await userEvent.click(within(panel).getByLabelText("Legitimate"));
     await userEvent.type(within(panel).getByLabelText(/Notes/), "Checked.");
     await userEvent.click(within(panel).getByRole("button", { name: "Propose decision" }));
-    await within(panel).findByRole("status");
+    await screen.findByRole("status");
     for (const spy of spies) expect(spy).not.toHaveBeenCalled();
   });
 });

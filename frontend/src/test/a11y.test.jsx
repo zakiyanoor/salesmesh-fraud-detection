@@ -113,10 +113,10 @@ describe("accessibility (axe)", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
   });
 
-  it("confirm and account dialogs have no violations", async () => {
+  it.each(["Agree with", "Overrule"])("the %s dialog in the confirm queue has no violations", async (action) => {
     mockApi({ ...sessionRoutes("compliance_officer"), ...DATA });
     renderApp("/review/confirm");
-    await userEvent.click(await screen.findByRole("button", { name: "Confirm the decision for A10001" }));
+    await userEvent.click(await screen.findByRole("button", { name: `${action} the proposal for A10001` }));
     await screen.findByRole("dialog");
     expect(await axe(document.body)).toHaveNoViolations();
   });

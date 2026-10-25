@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useLocation, useParams, useNavigate, Link as RouterLink } from "react-router-dom";
 import {
   Alert, Box, Button, Divider, Link, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
@@ -6,14 +6,16 @@ import {
 import PageHeader from "../components/PageHeader";
 import RiskBadge from "../components/RiskBadge";
 import ReviewPanel from "../components/ReviewPanel";
+import NoteDialog from "../components/NoteDialog";
 import DecisionTimeline from "../components/DecisionTimeline";
 import SectionCard from "../components/SectionCard";
 import { FlagSourceChip } from "../components/chips";
 import { LoadStatus } from "../components/states";
 import { useApi } from "../hooks/useApi";
 import { useAuth } from "../auth/authContext";
-import { FRAUD_ANALYST, PAGES } from "../auth/roles";
-import { CUTOFF, FEATURES, formatDate, formatNumber, initials } from "../format";
+import { COMPLIANCE_OFFICER, FRAUD_ANALYST, PAGES } from "../auth/roles";
+import { CUTOFF, FEATURES, OUTCOME_LABELS, formatDate, formatNumber, initials } from "../format";
+import { PROPOSED_MESSAGE, WITHDRAWN_MESSAGE, correctedMessage, otherOutcome } from "../review";
 import { mono } from "../theme";
 import { api } from "../api";
 
@@ -124,26 +126,102 @@ function Evidence({ detail }) {
   );
 }
 
-function ReviewSection({ role, detail, onProposed }) {
-  const flagId = detail.flag?.flag_id;
-  const source = detail.score?.flag_source ?? detail.flag_source;
-
-  if (!flagId) {
-    const why = source === "Rule"
-      ? "Only the duplicate rule flagged this agent. The model did not, so there is no model flag to review. The evidence on this page is read-only."
-      : "This agent is not flagged by the model in the latest run, so there is nothing to review.";
-    return <Alert severity="info" variant="outlined">{why}</Alert>;
-  }
-  if (role === FRAUD_ANALYST) return <ReviewPanel flagId={flagId} onProposed={onProposed} />;
+function ReviewNote({ children, action }) {
   return (
     <Paper component="section" aria-label="Review" sx={{ p: 3 }}>
       <Typography variant="overline" color="text.secondary" component="h2">Review</Typography>
       <Divider sx={{ mb: 2, mt: 1 }} />
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Fraud analysts propose decisions here. Compliance officers confirm them from the confirm queue.
-      </Typography>
-      <Button component={RouterLink} to={CONFIRM_PATH} variant="outlined">Open the confirm queue</Button>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: action ? 2 : 0 }}>{children}</Typography>
+      {action}
     </Paper>
+  );
+}
+
+/**
+ * What this viewer can do with the agent's flag (issue #28), from the server's review block: an analyst
+ * proposes on any flagged agent or withdraws their own open proposal; a compliance officer corrects a
+ * final decision here and agrees or overrules in the confirm queue.
+ */
+function ReviewSection({ role, detail, onDone }) {
+  const review = detail.review || {};
+  const [dialog, setDialog] = useState(null);
+  const queue = <Button component={RouterLink} to={CONFIRM_PATH} variant="outlined">Open the confirm queue</Button>;
+  const outcome = OUTCOME_LABELS[review.effective_outcome];
+
+  if (role === FRAUD_ANALYST) {
+    if (review.reviewable) {
+      return <ReviewPanel flagId={review.flag_id} flagSource={review.flag_source} onProposed={() => onDone(PROPOSED_MESSAGE)} />;
+    }
+    if (review.open_decision_id) {
+      return (
+        <>
+          <ReviewNote
+            action={review.open_is_mine && (
+              <Button variant="outlined" onClick={() => setDialog("withdraw")}>Withdraw proposal</Button>
+            )}
+          >
+            {review.open_is_mine
+              ? "Your proposal is waiting for a compliance officer. You can withdraw it until they act."
+              : `A proposal by ${review.open_proposed_by} is waiting for a compliance officer.`}
+          </ReviewNote>
+          {dialog === "withdraw" && (
+            <NoteDialog
+              id="withdraw"
+              title="Withdraw this proposal?"
+              description="Say why you are withdrawing it. The history keeps the proposal and your note."
+              noteRequired
+              submitLabel="Withdraw proposal"
+              onClose={() => setDialog(null)}
+              onSubmit={async ({ notes }) => {
+                await api.withdrawDecision({ decisionId: review.open_decision_id, notes });
+                setDialog(null);
+                onDone(WITHDRAWN_MESSAGE);
+              }}
+            />
+          )}
+        </>
+      );
+    }
+    if (review.final_decision_id) {
+      return <ReviewNote>{`Final outcome: ${outcome}. Only a compliance officer can correct it.`}</ReviewNote>;
+    }
+    return <Alert severity="info" variant="outlined">{review.reason || "There is nothing to review for this agent."}</Alert>;
+  }
+
+  if (role === COMPLIANCE_OFFICER && review.final_decision_id) {
+    return (
+      <>
+        <ReviewNote action={<Button variant="outlined" onClick={() => setDialog("correct")}>Record a correction</Button>}>
+          {`Final outcome: ${outcome}. A correction never changes the decision; it is added to the history with your note.`}
+        </ReviewNote>
+        {dialog === "correct" && (
+          <NoteDialog
+            id="correct"
+            title="Record a correction"
+            description={`The outcome in force is ${outcome}. Choose the corrected outcome and explain why.`}
+            outcome={otherOutcome(review.effective_outcome)}
+            noteRequired
+            submitLabel="Record correction"
+            onClose={() => setDialog(null)}
+            onSubmit={async ({ outcome: newOutcome, notes }) => {
+              await api.correctDecision({
+                decisionId: review.final_decision_id, newOutcome, expectedCurrentOutcome: review.effective_outcome, notes,
+              });
+              setDialog(null);
+              onDone(correctedMessage(detail.agent_id, OUTCOME_LABELS[newOutcome]));
+            }}
+          />
+        )}
+      </>
+    );
+  }
+  if (role === COMPLIANCE_OFFICER && review.open_decision_id) {
+    return <ReviewNote action={queue}>A proposal on this agent is waiting in the confirm queue.</ReviewNote>;
+  }
+  return (
+    <ReviewNote action={queue}>
+      Fraud analysts propose decisions here. Compliance officers agree or overrule them from the confirm queue.
+    </ReviewNote>
   );
 }
 
@@ -155,6 +233,9 @@ export default function AgentDetail() {
   const load = useCallback(() => Promise.all([api.getAgentDetail(agentId), api.getAnalytics()]), [agentId]);
   const result = useApi(load);
   const decisions = useApi(api.getReviewDecisions);
+  // After a review action the detail is fetched again quietly, so the page keeps its place and the message.
+  const [fresh, setFresh] = useState(null);
+  const [notice, setNotice] = useState(null);
   const own = useMemo(
     () => ({ ...decisions, data: decisions.data && decisions.data.decisions.filter((d) => d.agent_id === agentId) }),
     [decisions, agentId],
@@ -173,7 +254,13 @@ export default function AgentDetail() {
     );
   }
 
-  const [detail, analytics] = result.data;
+  const [loaded, analytics] = result.data;
+  const detail = fresh?.agent_id === agentId ? fresh : loaded;
+  const reviewDone = async (message) => {
+    setNotice({ agentId, message });
+    decisions.retry();
+    setFresh(await api.getAgentDetail(agentId));
+  };
   const identity = detail.identity || {};
   const score = detail.score?.anomaly_score ?? detail.flag?.suspicion_score;
 
@@ -199,7 +286,10 @@ export default function AgentDetail() {
           </Paper>
         </Box>
         <Box sx={{ display: "grid", gap: 3, minWidth: 0 }}>
-          <ReviewSection role={user?.role} detail={detail} onProposed={decisions.retry} />
+          {notice?.agentId === agentId && (
+            <Alert severity="success" role="status" onClose={() => setNotice(null)}>{notice.message}</Alert>
+          )}
+          <ReviewSection key={detail.review?.open_decision_id ?? detail.review?.final_decision_id ?? "none"} role={user?.role} detail={detail} onDone={reviewDone} />
           <SectionCard title="Decision history" result={own}>
             {(list) => <DecisionTimeline decisions={list} />}
           </SectionCard>

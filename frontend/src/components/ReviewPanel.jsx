@@ -3,12 +3,15 @@ import {
   Alert, Box, Button, Divider, FormControl, FormControlLabel, FormHelperText, FormLabel, Paper, Radio, RadioGroup,
   TextField, Typography,
 } from "@mui/material";
-import { NOTES_HINT, NOTES_MAX, PROPOSED_MESSAGE, notesError } from "../review";
-import { OUTCOME_LABELS } from "../format";
+import { NOTES_HINT, NOTES_MAX, notesError } from "../review";
+import { FLAG_SOURCE_LABELS, OUTCOME_LABELS } from "../format";
 import { api } from "../api";
 
-/** Fraud analysts propose a decision on a model flag; a compliance officer confirms it later. */
-export default function ReviewPanel({ flagId, onProposed }) {
+/**
+ * Fraud analysts propose a decision on a flagged agent, whether the model, the rule or both flagged it
+ * (issue #28); a compliance officer agrees or overrules it later. onProposed() runs after the server accepts.
+ */
+export default function ReviewPanel({ flagId, flagSource, onProposed }) {
   const [outcome, setOutcome] = useState("");
   const [notes, setNotes] = useState("");
   const [touched, setTouched] = useState(false);
@@ -27,14 +30,9 @@ export default function ReviewPanel({ flagId, onProposed }) {
     setSubmitting(true);
     try {
       await api.proposeDecision({ flagId, decisionOutcome: outcome, notes: notes.trim() });
-      setStatus({ type: "success", message: PROPOSED_MESSAGE });
-      setOutcome("");
-      setNotes("");
-      setTouched(false);
       onProposed?.();
     } catch (err) {
       setStatus({ type: "error", message: err.message });
-    } finally {
       setSubmitting(false);
     }
   };
@@ -43,6 +41,11 @@ export default function ReviewPanel({ flagId, onProposed }) {
     <Paper component="section" aria-label="Propose a decision" sx={{ p: 3 }}>
       <Typography variant="overline" color="text.secondary" component="h2">Propose a decision</Typography>
       <Divider sx={{ mb: 2, mt: 1 }} />
+      {flagSource && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Flagged by: {FLAG_SOURCE_LABELS[flagSource] || flagSource} in the latest detection run.
+        </Typography>
+      )}
       {status && <Alert severity={status.type} sx={{ mb: 2 }} role={status.type === "error" ? "alert" : "status"}>{status.message}</Alert>}
 
       <Box component="form" noValidate onSubmit={handleSubmit}>
@@ -78,7 +81,7 @@ export default function ReviewPanel({ flagId, onProposed }) {
           Propose decision
         </Button>
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>
-          A compliance officer must confirm the decision before it takes effect.
+          A compliance officer must agree or overrule the proposal before it takes effect.
         </Typography>
       </Box>
     </Paper>

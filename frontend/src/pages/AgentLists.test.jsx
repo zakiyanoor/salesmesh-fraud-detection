@@ -16,7 +16,7 @@ const AGENTS = [
 ];
 const DECISIONS = [
   { decision_id: "RD1", agent_id: "A10001", reviewer_id: "ADM_ANALYST_01", decision_outcome: "confirmed_fraud", decision_timestamp: "2026-10-13T15:10:00", status: "pending_confirmation", confirmed_by: null, notes: "x" },
-  { decision_id: "RD2", agent_id: "A30003", reviewer_id: "ADM_ANALYST_01", decision_outcome: "legitimate", decision_timestamp: "2026-10-12T15:10:00", status: "confirmed", confirmed_by: "ADM_COMPLIANCE_01", notes: "y" },
+  { decision_id: "RD2", agent_id: "A30003", reviewer_id: "ADM_ANALYST_01", decision_outcome: "legitimate", decision_timestamp: "2026-10-12T15:10:00", status: "agreed", closed_by: "ADM_COMPLIANCE_01", notes: "y" },
 ];
 
 function routes(agents = AGENTS, decisions = DECISIONS) {
@@ -39,7 +39,7 @@ describe("Flagged agents", () => {
     expect(within(rows).getAllByText("High risk")).toHaveLength(2);
     expect(within(rows).getByText("Rule only")).toBeInTheDocument();
     expect(within(rows).getByText("Proposed")).toBeInTheDocument();
-    expect(within(rows).getByText("Confirmed")).toBeInTheDocument();
+    expect(within(rows).getByText("Agreed")).toBeInTheDocument();
     expect(within(rows).getByRole("link", { name: "A10001" })).toHaveAttribute("href", "/agents/A10001");
     expect(document.title).toBe("Flagged agents · SalesMesh Fraud Detection");
   });

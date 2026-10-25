@@ -12,10 +12,12 @@ export const FLAG_SOURCE_LABELS = {
 
 export const OUTCOME_LABELS = { confirmed_fraud: "Confirmed fraud", legitimate: "Legitimate" };
 
-// A decision is only final once a compliance officer confirms it (dual control).
-export const STATUS_LABELS = { pending_confirmation: "Proposed", confirmed: "Confirmed" };
+// Issue #28: a proposal is open until the analyst withdraws it or a compliance officer agrees or overrules it.
+export const STATUS_LABELS = {
+  pending_confirmation: "Proposed", withdrawn: "Withdrawn", agreed: "Agreed", overruled: "Overruled",
+};
 
-export const REVIEW_STATUS_LABELS = { none: "Not reviewed", pending_confirmation: "Proposed", confirmed: "Confirmed" };
+export const REVIEW_STATUS_LABELS = { none: "Not reviewed", ...STATUS_LABELS };
 
 /** The four model inputs, in the order the model uses them. `key` is the field name in API payloads. */
 export const FEATURES = [

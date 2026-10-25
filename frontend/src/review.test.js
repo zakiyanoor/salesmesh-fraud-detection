@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NOTES_MAX, PROPOSED_MESSAGE, confirmedMessage, notesError } from "./review";
+import { NOTES_MAX, PROPOSED_MESSAGE, closedMessage, correctedMessage, notesError, otherOutcome } from "./review";
 
 describe("notes validation (same rules as the server)", () => {
   it.each([
@@ -22,7 +22,14 @@ describe("proposed versus confirmed wording", () => {
     expect(PROPOSED_MESSAGE).not.toMatch(/saved|recorded|final/i);
   });
 
-  it("only a confirmation is called final", () => {
-    expect(confirmedMessage("A35485")).toBe("Decision for A35485 confirmed. It is now final.");
+  it("an agreement or an overrule gives the final outcome (issue #28)", () => {
+    expect(closedMessage("A35485", "agreed", "Confirmed fraud")).toBe("Proposal for A35485 agreed. The final outcome is Confirmed fraud.");
+    expect(closedMessage("A35485", "overruled", "Legitimate")).toBe("Proposal for A35485 overruled. The final outcome is Legitimate.");
+  });
+
+  it("a correction says the original decision stays in the history", () => {
+    expect(correctedMessage("A35485", "Legitimate")).toMatch(/now Legitimate; the history keeps the original decision/);
+    expect(otherOutcome("confirmed_fraud")).toBe("legitimate");
+    expect(otherOutcome("legitimate")).toBe("confirmed_fraud");
   });
 });

@@ -90,14 +90,26 @@ def known_agent_id(database):
 
 def _delete_rows_created_since(started) -> None:
     """
-    Removes review decisions the test accounts created during a test. Audit
-    entries stay: the audit log is append only (a database trigger refuses
-    deletes), so tests compare entries before and after instead.
+    Removes review decisions the test accounts created during a test, with their
+    corrections. Review rows are write once (issue #28), so this cleanup sets
+    salesmesh.review_maintenance for its transaction. Audit entries stay: the
+    audit log is append only (a database trigger refuses deletes), so tests
+    compare entries before and after instead.
     """
-    from src.db import ReviewDecision, get_session
+    from sqlalchemy import text
+
+    from src.db import ReviewCorrection, ReviewDecision, get_session
 
     db_session = get_session()
     try:
+        db_session.execute(text("SET LOCAL salesmesh.review_maintenance = 'on'"))
+        created = db_session.query(ReviewDecision.decision_id).filter(
+            ReviewDecision.reviewer_id.in_(TEST_ADMIN_IDS),
+            ReviewDecision.decision_timestamp >= started,
+        )
+        db_session.query(ReviewCorrection).filter(
+            ReviewCorrection.decision_id.in_(created.scalar_subquery()) | (ReviewCorrection.corrected_at >= started)
+        ).delete(synchronize_session=False)
         db_session.query(ReviewDecision).filter(
             ReviewDecision.reviewer_id.in_(TEST_ADMIN_IDS),
             ReviewDecision.decision_timestamp >= started,

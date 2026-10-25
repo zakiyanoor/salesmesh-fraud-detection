@@ -15,6 +15,7 @@ import SectionCard from "../components/SectionCard";
 import { flagSourceTable, riskBandTable } from "../chartTables";
 import { DonutChart } from "../components/DonutCard";
 import { useApi } from "../hooks/useApi";
+import { useLatestRun } from "../latestRun/latestRunContext";
 import { FLAG_SOURCE_LABELS, formatDateTime } from "../format";
 import { api } from "../api";
 
@@ -55,7 +56,7 @@ function RiskBandChart({ bands }) {
 export default function Dashboard() {
   const theme = useTheme();
   const summary = useApi(api.getThreatSummary);
-  const run = useApi(api.getLatestDetectionRun);
+  const run = useLatestRun();
   const scores = useApi(loadTopScores);
 
   const s = summary.data;

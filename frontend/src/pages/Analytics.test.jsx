@@ -31,6 +31,9 @@ describe("Analytics", () => {
       const region = await card(name);
       expect(within(region).queryByRole("alert")).not.toBeInTheDocument();
     }
+    const review = await card("Review outcomes");
+    expect(within(review).getByText("33.3% overruled")).toBeInTheDocument();
+    expect(within(review).getByText("1 of 3 compliance decisions")).toBeInTheDocument();
     const averages = await card("Platform average behaviour");
     expect(within(averages).getByText("14.0")).toBeInTheDocument();
     expect(within(averages).getByText("Customer similarity")).toBeInTheDocument();

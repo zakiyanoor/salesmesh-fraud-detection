@@ -136,7 +136,12 @@ def remove_stale(conn, frames, allow_deleting_reviews=False):
         raise DataLoadError(f"{reviews} review decisions belong to agents not in the new data; "
                             "rerun with allow_deleting_reviews to delete them")
     removed = {"review_decisions": reviews}
+    if reviews:
+        # Issue #28: review rows are write once; only this explicitly allowed path may delete them.
+        conn.execute(text("SET LOCAL salesmesh.review_maintenance = 'on'"))
+    stale_decisions = f"SELECT decision_id FROM review_decisions WHERE flag_id IN ({stale_flags})"
     statements = [
+        ("review_corrections", f"DELETE FROM review_corrections WHERE decision_id IN ({stale_decisions})"),
         ("review_decisions", f"DELETE FROM review_decisions WHERE flag_id IN ({stale_flags})"),
         ("fraud_flags", f"DELETE FROM fraud_flags WHERE vector_id IN ({stale_vectors})"),
         ("feature_vectors", f"DELETE FROM feature_vectors WHERE agent_id IN ({stale})"),

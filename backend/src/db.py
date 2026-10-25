@@ -6,7 +6,8 @@ Agents, Activation Records, Feature Vectors, Fraud Flags, Review Decisions,
 plus the Admin Action Log audit trail, and the v3 tables: clients,
 agent_identity (fictional personal data, never a model input), agent_categories,
 agent_scores and duplicate_evidence (one row set per detection run),
-detection_runs (scheduler status) and data_loads (loader provenance).
+detection_runs (scheduler status), threat_views (the threat intelligence
+views computed once per run) and data_loads (loader provenance).
 
 DB_NAME (default salesmesh_fraud_detection) and the other DB_* settings come
 from the environment, so the tests can use their own database.
@@ -17,7 +18,8 @@ Uses SQLAlchemy as the ORM (Section 3.5.4), connecting to PostgreSQL.
 import os
 from dotenv import load_dotenv
 from sqlalchemy import (
-    create_engine, text, Column, String, Integer, Float, DateTime, ForeignKey, Boolean, Text, JSON, UniqueConstraint,
+    create_engine, text, CheckConstraint, Column, String, Integer, Float, DateTime, ForeignKey, Boolean, Text, JSON,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship, validates
 from datetime import datetime
@@ -36,9 +38,16 @@ engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
+# Review workflow (issue #28): a proposal is open until the analyst withdraws it or a compliance officer
+# agrees or overrules it. A closed decision is never changed; a correction is a new review_corrections row.
 DECISION_PENDING = "pending_confirmation"
-DECISION_CONFIRMED = "confirmed"
-DECISION_STATUSES = (DECISION_PENDING, DECISION_CONFIRMED)
+DECISION_WITHDRAWN = "withdrawn"
+DECISION_AGREED = "agreed"
+DECISION_OVERRULED = "overruled"
+DECISION_STATUSES = (DECISION_PENDING, DECISION_WITHDRAWN, DECISION_AGREED, DECISION_OVERRULED)
+DECISION_FINAL = (DECISION_AGREED, DECISION_OVERRULED)
+# Before issue #28 an agreed decision was stored as "confirmed"; the migration renames it.
+DECISION_LEGACY_CONFIRMED = "confirmed"
 DECISION_OUTCOMES = ("confirmed_fraud", "legitimate")
 
 
@@ -127,14 +136,43 @@ class ReviewDecision(Base):
     confirmed_by = Column(String)
     # Issue #13: the proposer's plain-text reason. Null for decisions made before notes existed.
     notes = Column(Text)
+    # Issue #28: what was reviewed (null for decisions made before then).
+    run_id = Column(String, ForeignKey("detection_runs.run_id"))
+    flag_source = Column(String)
+    # Issue #28: set once, when the proposal is withdrawn, agreed or overruled (closed_by is the
+    # analyst for a withdrawal and the compliance officer otherwise). confirmed_by is kept for older rows.
+    final_outcome = Column(String)
+    closed_by = Column(String)
+    closed_at = Column(DateTime)
+    close_note = Column(Text)
 
     fraud_flag = relationship("FraudFlag", back_populates="review_decision")
+    corrections = relationship("ReviewCorrection", back_populates="decision", order_by="ReviewCorrection.corrected_at")
 
     @validates("status")
     def validate_status(self, key, value):
         if value not in DECISION_STATUSES:
             raise ValueError(f"status must be one of {DECISION_STATUSES}, got {value!r}")
         return value
+
+
+class ReviewCorrection(Base):
+    """A compliance officer's correction of a closed decision (issue #28). Rows are only ever added."""
+    __tablename__ = "review_corrections"
+    __table_args__ = (
+        CheckConstraint("previous_outcome <> new_outcome", name="ck_review_corrections_changes_outcome"),
+        CheckConstraint("new_outcome IN ('confirmed_fraud', 'legitimate')", name="ck_review_corrections_outcome"),
+    )
+
+    correction_id = Column(String, primary_key=True)
+    decision_id = Column(String, ForeignKey("review_decisions.decision_id"), nullable=False, index=True)
+    corrected_by = Column(String, nullable=False)
+    corrected_at = Column(DateTime, nullable=False)
+    previous_outcome = Column(String, nullable=False)
+    new_outcome = Column(String, nullable=False)
+    note = Column(Text, nullable=False)
+
+    decision = relationship("ReviewDecision", back_populates="corrections")
 
 
 # --- Audit trail: Admin Action Log ---
@@ -249,6 +287,20 @@ class DuplicateEvidence(Base):
         return value
 
 
+class ThreatView(Base):
+    """
+    A threat intelligence view computed once for a detection run (issue #28), as the JSON the API returns.
+    view_version is the code version that computed it (src.threat_intel.VIEW_VERSIONS).
+    """
+    __tablename__ = "threat_views"
+
+    run_id = Column(String, ForeignKey("detection_runs.run_id"), primary_key=True)
+    view = Column(String, primary_key=True)
+    view_version = Column(Integer, nullable=False)
+    payload = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class DataLoad(Base):
     __tablename__ = "data_loads"
 
@@ -336,6 +388,123 @@ def migrate_schema():
             ))
         conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_admin_action_log_timestamp ON admin_action_log (timestamp)"
+        ))
+        # Issue #28: a detection run only calls migrate_schema(), so the new table is created here too.
+        ThreatView.__table__.create(conn, checkfirst=True)
+        migrate_review_workflow(conn)
+
+
+REVIEW_DECISION_COLUMNS = {"run_id": "VARCHAR REFERENCES detection_runs (run_id)", "flag_source": "VARCHAR",
+                           "final_outcome": "VARCHAR", "closed_by": "VARCHAR", "closed_at": "TIMESTAMP",
+                           "close_note": "TEXT"}
+# Columns of a proposal that never change once it is written.
+REVIEW_DECISION_FIXED = ("decision_id", "flag_id", "reviewer_id", "decision_outcome", "decision_timestamp",
+                         "confirmed_by", "notes", "run_id", "flag_source")
+REVIEW_DECISION_CHECKS = {
+    "ck_review_decisions_status": "status IN ('pending_confirmation', 'withdrawn', 'agreed', 'overruled')",
+    "ck_review_decisions_closing": (
+        "(status = 'pending_confirmation' AND final_outcome IS NULL AND closed_by IS NULL AND closed_at IS NULL "
+        "AND close_note IS NULL) "
+        "OR (status = 'withdrawn' AND final_outcome IS NULL AND closed_by IS NOT NULL AND closed_at IS NOT NULL "
+        "AND close_note IS NOT NULL) "
+        "OR (status = 'agreed' AND final_outcome = decision_outcome AND closed_by IS NOT NULL) "
+        "OR (status = 'overruled' AND final_outcome IN ('confirmed_fraud', 'legitimate') "
+        "AND final_outcome <> decision_outcome AND closed_by IS NOT NULL AND closed_at IS NOT NULL "
+        "AND close_note IS NOT NULL)"
+    ),
+}
+# Write once (issue #28): an open proposal may be closed once, setting only the closing columns; nothing
+# else is ever updated or deleted. Only a transaction that sets salesmesh.review_maintenance (the loader's
+# allow_deleting_reviews path and test cleanup) is let through.
+REVIEW_WRITE_ONCE_FUNCTION = f"""
+CREATE OR REPLACE FUNCTION review_decisions_write_once() RETURNS trigger AS $fn$
+BEGIN
+    IF current_setting('salesmesh.review_maintenance', true) = 'on' THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+    IF TG_OP <> 'UPDATE' THEN
+        RAISE EXCEPTION 'review decisions are never deleted';
+    END IF;
+    IF OLD.status <> 'pending_confirmation' THEN
+        RAISE EXCEPTION 'review decision % is closed and cannot be changed', OLD.decision_id;
+    END IF;
+    IF NEW.status = 'pending_confirmation' THEN
+        RAISE EXCEPTION 'an open review decision can only be closed';
+    END IF;
+    IF ({", ".join(f"NEW.{c}" for c in REVIEW_DECISION_FIXED)}) IS DISTINCT FROM
+       ({", ".join(f"OLD.{c}" for c in REVIEW_DECISION_FIXED)}) THEN
+        RAISE EXCEPTION 'only the closing fields of review decision % can be set', OLD.decision_id;
+    END IF;
+    RETURN NEW;
+END;
+$fn$ LANGUAGE plpgsql;
+"""
+REVIEW_APPEND_ONLY_FUNCTION = """
+CREATE OR REPLACE FUNCTION review_corrections_append_only() RETURNS trigger AS $fn$
+BEGIN
+    IF current_setting('salesmesh.review_maintenance', true) = 'on' THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+    RAISE EXCEPTION 'review corrections are never changed or deleted';
+END;
+$fn$ LANGUAGE plpgsql;
+"""
+REVIEW_TRIGGERS = (
+    ("review_decisions_write_once", "BEFORE UPDATE OR DELETE ON review_decisions FOR EACH ROW",
+     "review_decisions_write_once"),
+    ("review_decisions_no_truncate", "BEFORE TRUNCATE ON review_decisions FOR EACH STATEMENT",
+     "review_decisions_write_once"),
+    ("review_corrections_append_only", "BEFORE UPDATE OR DELETE ON review_corrections FOR EACH ROW",
+     "review_corrections_append_only"),
+    ("review_corrections_no_truncate", "BEFORE TRUNCATE ON review_corrections FOR EACH STATEMENT",
+     "review_corrections_append_only"),
+)
+
+
+class ReviewMigrationError(RuntimeError):
+    """The review data cannot be migrated as it is (issue #28)."""
+
+
+def migrate_review_workflow(conn):
+    """
+    Issue #28, idempotent: the closing columns, review_corrections, older "confirmed" decisions renamed to
+    "agreed" (closed_at taken from their confirm_decision audit entry), then the checks, the one-open-proposal
+    index and the write-once triggers. Stops, changing nothing, if a flag has more than one open proposal.
+    """
+    for column, kind in REVIEW_DECISION_COLUMNS.items():
+        conn.execute(text(f"ALTER TABLE review_decisions ADD COLUMN IF NOT EXISTS {column} {kind}"))
+    ReviewCorrection.__table__.create(conn, checkfirst=True)
+    conn.execute(text("SET LOCAL salesmesh.review_maintenance = 'on'"))
+    conn.execute(text(
+        "UPDATE review_decisions d SET status = 'agreed', final_outcome = d.decision_outcome, "
+        "closed_by = d.confirmed_by, closed_at = (SELECT min(a.timestamp) FROM admin_action_log a "
+        "WHERE a.action = 'confirm_decision' AND a.details::json ->> 'decision_id' = d.decision_id) "
+        "WHERE d.status = :legacy"
+    ), {"legacy": DECISION_LEGACY_CONFIRMED})
+    conn.execute(text("SET LOCAL salesmesh.review_maintenance = 'off'"))
+    duplicates = conn.execute(text(
+        "SELECT flag_id, count(*) FROM review_decisions WHERE status = 'pending_confirmation' "
+        "GROUP BY flag_id HAVING count(*) > 1 ORDER BY flag_id"
+    )).all()
+    if duplicates:
+        raise ReviewMigrationError(
+            "flags with more than one open proposal; resolve them before migrating: "
+            + ", ".join(f"{flag} ({count})" for flag, count in duplicates))
+    for name, check in REVIEW_DECISION_CHECKS.items():
+        conn.execute(text(
+            f"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '{name}') THEN "
+            f"ALTER TABLE review_decisions ADD CONSTRAINT {name} CHECK ({check}); END IF; END $$"
+        ))
+    conn.execute(text(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_review_decisions_one_open ON review_decisions (flag_id) "
+        "WHERE status = 'pending_confirmation'"
+    ))
+    conn.execute(text(REVIEW_WRITE_ONCE_FUNCTION))
+    conn.execute(text(REVIEW_APPEND_ONLY_FUNCTION))
+    for name, timing, function in REVIEW_TRIGGERS:
+        conn.execute(text(
+            f"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = '{name}') THEN "
+            f"CREATE TRIGGER {name} {timing} EXECUTE FUNCTION {function}(); END IF; END $$"
         ))
 
 

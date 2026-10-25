@@ -27,12 +27,17 @@ export const FIXTURES = {
     score_distribution: [{ bucket: "1.0-1.5", count: 1 }],
     region_breakdown: [{ region: "Nairobi", flagged: 1, total: 1 }],
     platform_averages: { submission_frequency: 14, time_of_day_dist: 0.78, customer_similarity: 0.102 },
+    review: { proposals: 6, open: 2, overdue: 1, withdrawn: 1, agreed: 2, overruled: 1, corrections: 1, overrule_rate: 0.3333, overdue_hours: 72 },
   },
   "GET /api/review-decisions": { count: 0, decisions: [] },
   "GET /api/agents/A10001": {
     ...AGENT, registration_timestamp: "2026-06-11T20:56:24",
     features: { submission_frequency: 20, time_of_day_dist: 0.8, customer_similarity: 0.1, collusion_score: 0.3 },
     flag: { flag_id: "FL1", flag_status: "flagged", model_version: "lof_v3_4f", suspicion_score: 3.2 },
+    review: {
+      reviewable: true, reason: null, flag_id: "FL1", flag_source: "ML", open_decision_id: null, open_proposed_by: null,
+      open_is_mine: false, final_decision_id: null, effective_outcome: null,
+    },
   },
   "POST /api/logout": { message: "Logged out successfully" },
   "GET /api/threat-intelligence/summary": {

@@ -6,20 +6,44 @@ import RemoveCircleOutlineOutlined from "@mui/icons-material/RemoveCircleOutline
 import GavelOutlined from "@mui/icons-material/GavelOutlined";
 import BlockOutlined from "@mui/icons-material/BlockOutlined";
 import ErrorOutlineOutlined from "@mui/icons-material/ErrorOutlineOutlined";
-import { FLAG_SOURCE_LABELS, OUTCOME_LABELS, REVIEW_STATUS_LABELS } from "../format";
+import UndoOutlined from "@mui/icons-material/UndoOutlined";
+import SwapHorizOutlined from "@mui/icons-material/SwapHorizOutlined";
+import ScheduleOutlined from "@mui/icons-material/ScheduleOutlined";
+import EditNoteOutlined from "@mui/icons-material/EditNoteOutlined";
+import FlagOutlined from "@mui/icons-material/OutlinedFlag";
+import { FLAG_SOURCE_LABELS, OUTCOME_LABELS, REVIEW_STATUS_LABELS, STATUS_LABELS } from "../format";
 import { auditResult } from "../audit";
 
 const chip = { size: "small", variant: "outlined" };
 
 /** Decision status: Proposed (waiting for compliance) or Confirmed. Label and icon, never colour alone. */
 export function DecisionStatusChip({ status }) {
-  if (status === "confirmed") {
-    return <Chip {...chip} color="success" icon={<TaskAltOutlined fontSize="small" />} label="Confirmed" />;
+  const icons = {
+    pending_confirmation: [<HourglassEmptyOutlined fontSize="small" key="i" />, "warning"],
+    agreed: [<TaskAltOutlined fontSize="small" key="i" />, "success"],
+    overruled: [<SwapHorizOutlined fontSize="small" key="i" />, "info"],
+    withdrawn: [<UndoOutlined fontSize="small" key="i" />, "default"],
+  };
+  if (!icons[status]) {
+    return <Chip {...chip} icon={<RemoveCircleOutlineOutlined fontSize="small" />} label={REVIEW_STATUS_LABELS.none} />;
   }
-  if (status === "pending_confirmation") {
-    return <Chip {...chip} color="warning" icon={<HourglassEmptyOutlined fontSize="small" />} label="Proposed" />;
-  }
-  return <Chip {...chip} icon={<RemoveCircleOutlineOutlined fontSize="small" />} label={REVIEW_STATUS_LABELS.none} />;
+  const [icon, color] = icons[status];
+  return <Chip {...chip} color={color} icon={icon} label={STATUS_LABELS[status]} />;
+}
+
+/** An open proposal waiting longer than the server's limit (3 days). Nothing decides it automatically. */
+export function OverdueChip() {
+  return <Chip {...chip} color="error" icon={<ScheduleOutlined fontSize="small" />} label="Overdue" />;
+}
+
+/** A final decision that a compliance officer corrected since; the history shows each step. */
+export function CorrectedChip() {
+  return <Chip {...chip} icon={<EditNoteOutlined fontSize="small" />} label="Corrected" />;
+}
+
+/** The agent was flagged when the proposal was made but not in the latest detection run. */
+export function NoLongerFlaggedChip() {
+  return <Chip {...chip} icon={<FlagOutlined fontSize="small" />} label="No longer flagged in the latest run" />;
 }
 
 export function OutcomeChip({ outcome }) {

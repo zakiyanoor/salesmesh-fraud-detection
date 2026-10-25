@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { mockApi, renderApp, reply, sessionRoutes } from "../test/server";
-import { PROPOSED_MESSAGE } from "../review";
+import { PROPOSED_MESSAGE, WITHDRAWN_MESSAGE } from "../review";
 
 const DETAIL = {
   agent_id: "A35485", region: "Elgeyo-Marakwet", account_status: "active", risk_band: "high",
@@ -17,14 +17,31 @@ const DETAIL = {
   duplicate_evidence: [
     { customer_id: "CUST16131148", client_id: "CL09", other_agent_id: "A62923", reason: "shared customer", record_ids: ["R1", "R2"] },
   ],
+  review: {
+    reviewable: true, reason: null, flag_id: "FL93b6b96d", flag_source: "Both", open_decision_id: null,
+    open_proposed_by: null, open_is_mine: false, final_decision_id: null, effective_outcome: null,
+  },
 };
+// As the API returns them: every agent has a flag row (status "clear" when the model did not flag it).
 const RULE_ONLY = {
-  ...DETAIL, agent_id: "A20002", risk_band: "review", flag: null,
+  ...DETAIL, agent_id: "A20002", risk_band: "review",
+  flag: { flag_id: "FL20002", flag_status: "clear", model_version: "lof_v3_4f", suspicion_score: 1.2 },
   score: { ...DETAIL.score, anomaly_score: 1.2, flagged: false, flag_source: "Rule", risk_band: "review" },
+  review: { ...DETAIL.review, flag_id: "FL20002", flag_source: "Rule" },
 };
+const NOT_FLAGGED = {
+  ...DETAIL, agent_id: "A10053", risk_band: "low", duplicate_evidence: [],
+  flag: { flag_id: "FL10053", flag_status: "clear", model_version: "lof_v3_4f", suspicion_score: 1.08 },
+  score: { ...DETAIL.score, anomaly_score: 1.077, flagged: false, rule_flagged: false, duplicate_pairs: 0, flag_source: "None", risk_band: "low" },
+  review: { ...DETAIL.review, reviewable: false, reason: "This agent is not flagged in the latest detection run", flag_id: "FL10053", flag_source: "None" },
+};
+const withReview = (review) => ({ ...DETAIL, review: { ...DETAIL.review, reviewable: false, ...review } });
+const MY_OPEN = withReview({ reason: "This flag already has an open proposal", open_decision_id: "RD2", open_proposed_by: "ADM_ANALYST_01", open_is_mine: true });
+const FINAL = withReview({ reason: "This flag already has a final decision", final_decision_id: "RD1", effective_outcome: "confirmed_fraud" });
 const PAST = {
   decision_id: "RD1", agent_id: "A35485", reviewer_id: "ADM_ANALYST_01", decision_outcome: "confirmed_fraud",
-  decision_timestamp: "2026-10-13T15:10:00", status: "confirmed", confirmed_by: "ADM_COMPLIANCE_01",
+  decision_timestamp: "2026-10-13T15:10:00", status: "agreed", closed_by: "ADM_COMPLIANCE_01",
+  closed_at: "2026-10-13T16:00:00", final_outcome: "confirmed_fraud", effective_outcome: "confirmed_fraud", corrections: [],
   notes: "Shares customers with two agents.",
 };
 
@@ -33,6 +50,7 @@ function routes(role, extra = {}) {
     ...sessionRoutes(role),
     "GET /api/agents/A35485": DETAIL,
     "GET /api/agents/A20002": RULE_ONLY,
+    "GET /api/agents/A10053": NOT_FLAGGED,
     "GET /api/review-decisions": { count: 1, decisions: [PAST] },
     ...extra,
   };
@@ -73,9 +91,9 @@ describe("Agent detail", () => {
     renderApp("/agents/A35485");
     const history = await screen.findByRole("list", { name: "Decision history" });
     expect(within(history).getByText("Confirmed fraud")).toBeInTheDocument();
-    expect(within(history).getByText("Confirmed")).toBeInTheDocument();
+    expect(within(history).getByText("Agreed")).toBeInTheDocument();
     expect(within(history).getByText(/Proposed by ADM_ANALYST_01/)).toBeInTheDocument();
-    expect(within(history).getByText("Confirmed by ADM_COMPLIANCE_01")).toBeInTheDocument();
+    expect(within(history).getByText(/Agreed by ADM_COMPLIANCE_01/)).toBeInTheDocument();
     expect(within(history).getByText("Shares customers with two agents.")).toBeInTheDocument();
   });
 
@@ -115,21 +133,25 @@ describe("Agent detail", () => {
   });
 
   it("proposes a decision with trimmed notes and says it awaits compliance confirmation", async () => {
+    let detail = DETAIL;
     let decisions = [PAST];
     const { calls } = mockApi(routes("fraud_analyst", {
+      "GET /api/agents/A35485": () => detail,
       "GET /api/review-decisions": () => ({ count: decisions.length, decisions }),
       "POST /api/review-decisions": (request) => {
         decisions = [{ ...PAST, decision_id: "RD2", status: "pending_confirmation", confirmed_by: null, notes: request.body.notes, decision_outcome: request.body.decision_outcome }, ...decisions];
+        detail = MY_OPEN;
         return reply(201, { message: "Review decision proposed; awaiting compliance confirmation", decision_id: "RD2", status: "pending_confirmation", notes: request.body.notes });
       },
     }));
     renderApp("/agents/A35485");
     await screen.findByRole("region", { name: "Propose a decision" });
+    expect(within(panel()).getByText("Flagged by: Model and rule in the latest detection run.")).toBeInTheDocument();
     await userEvent.click(within(panel()).getByLabelText("Confirmed fraud"));
     await userEvent.type(within(panel()).getByLabelText(/Notes/), "  Same customers as A62923.  ");
     await userEvent.click(within(panel()).getByRole("button", { name: "Propose decision" }));
 
-    const status = await within(panel()).findByRole("status");
+    const status = await screen.findByRole("status");
     expect(status).toHaveTextContent(PROPOSED_MESSAGE);
     expect(status.textContent).toMatch(/proposed/i);
     expect(status.textContent).toMatch(/waiting for a compliance officer/i);
@@ -137,10 +159,11 @@ describe("Agent detail", () => {
 
     const post = calls.find((c) => c.method === "POST");
     expect(post.body).toEqual({ flag_id: "FL93b6b96d", decision_outcome: "confirmed_fraud", notes: "Same customers as A62923." });
+    expect(await screen.findByRole("button", { name: "Withdraw proposal" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Propose a decision" })).not.toBeInTheDocument();
     const history = screen.getByRole("list", { name: "Decision history" });
     expect(await within(history).findByText("Same customers as A62923.")).toBeInTheDocument();
     expect(within(history).getByText("Proposed")).toBeInTheDocument();
-    expect(within(history).getByText("Waiting for compliance confirmation")).toBeInTheDocument();
   });
 
   it("shows the server's message when a proposal is refused", async () => {
@@ -153,13 +176,93 @@ describe("Agent detail", () => {
     expect(await within(panel()).findByRole("alert")).toHaveTextContent("notes must not be empty");
   });
 
-  it("shows rule-only evidence read-only and explains why it cannot be reviewed", async () => {
+  it("lets an analyst propose on an agent only the duplicate rule flagged", async () => {
     mockApi(routes("fraud_analyst"));
     renderApp("/agents/A20002");
-    expect(await screen.findByText(/Only the duplicate rule flagged this agent/)).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Propose a decision" })).not.toBeInTheDocument();
+    const form = await screen.findByRole("region", { name: "Propose a decision" });
+    expect(within(form).getByText("Flagged by: Rule only in the latest detection run.")).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Duplicate activation evidence" })).toBeInTheDocument();
     expect(screen.getByText("Rule only")).toBeInTheDocument();
+  });
+
+  it("explains that an agent nobody flagged has nothing to review", async () => {
+    mockApi(routes("fraud_analyst"));
+    renderApp("/agents/A10053");
+    expect(await screen.findByText("This agent is not flagged in the latest detection run")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Propose a decision" })).not.toBeInTheDocument();
+  });
+
+  it("withdraws the analyst's own open proposal with a required note", async () => {
+    let detail = MY_OPEN;
+    const { calls } = mockApi(routes("fraud_analyst", {
+      "GET /api/agents/A35485": () => detail,
+      "POST /api/review-decisions/RD2/withdraw": () => { detail = DETAIL; return { status: "withdrawn" }; },
+    }));
+    renderApp("/agents/A35485");
+    expect(await screen.findByText(/Your proposal is waiting for a compliance officer/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Withdraw proposal" }));
+    const dialog = screen.getByRole("dialog", { name: "Withdraw this proposal?" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Withdraw proposal" }));
+    expect(within(dialog).getByText("Notes are required.")).toBeInTheDocument();
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
+
+    await userEvent.type(within(dialog).getByLabelText(/Note/), " Proposed on the wrong agent. ");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Withdraw proposal" }));
+    expect(await screen.findByRole("status")).toHaveTextContent(WITHDRAWN_MESSAGE);
+    expect(calls.find((c) => c.method === "POST").body).toEqual({ notes: "Proposed on the wrong agent." });
+    expect(await screen.findByRole("region", { name: "Propose a decision" })).toBeInTheDocument();
+  });
+
+  it("shows another analyst's open proposal without a withdraw button", async () => {
+    mockApi(routes("fraud_analyst", { "GET /api/agents/A35485": { ...MY_OPEN, review: { ...MY_OPEN.review, open_proposed_by: "ADM_ANALYST_02", open_is_mine: false } } }));
+    renderApp("/agents/A35485");
+    expect(await screen.findByText("A proposal by ADM_ANALYST_02 is waiting for a compliance officer.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Withdraw proposal" })).not.toBeInTheDocument();
+  });
+
+  it("tells an analyst that only a compliance officer can change a final decision", async () => {
+    mockApi(routes("fraud_analyst", { "GET /api/agents/A35485": FINAL }));
+    renderApp("/agents/A35485");
+    expect(await screen.findByText("Final outcome: Confirmed fraud. Only a compliance officer can correct it.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /correction/i })).not.toBeInTheDocument();
+  });
+
+  it("lets a compliance officer record a correction with the other outcome preset and a required note", async () => {
+    let detail = FINAL;
+    const { calls } = mockApi(routes("compliance_officer", {
+      "GET /api/agents/A35485": () => detail,
+      "POST /api/review-decisions/RD1/corrections": () => {
+        detail = withReview({ final_decision_id: "RD1", effective_outcome: "legitimate" });
+        return reply(201, { effective_outcome: "legitimate" });
+      },
+    }));
+    renderApp("/agents/A35485");
+    await userEvent.click(await screen.findByRole("button", { name: "Record a correction" }));
+    const dialog = screen.getByRole("dialog", { name: "Record a correction" });
+    expect(within(dialog).getByLabelText("Legitimate")).toBeChecked();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Record correction" }));
+    expect(within(dialog).getByText("Notes are required.")).toBeInTheDocument();
+
+    await userEvent.type(within(dialog).getByLabelText(/Note/), "The customer list was from the wrong month.");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Record correction" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("The outcome in force is now Legitimate");
+    expect(calls.find((c) => c.method === "POST").body).toEqual({
+      new_outcome: "legitimate", expected_current_outcome: "confirmed_fraud", notes: "The customer list was from the wrong month.",
+    });
+    expect(await screen.findByText(/Final outcome: Legitimate/)).toBeInTheDocument();
+  });
+
+  it("keeps the correction dialog open with the server's message when it is refused", async () => {
+    mockApi(routes("compliance_officer", {
+      "GET /api/agents/A35485": FINAL,
+      "POST /api/review-decisions/RD1/corrections": reply(409, { error: "The decision's outcome is now legitimate, not confirmed_fraud; reload and try again" }),
+    }));
+    renderApp("/agents/A35485");
+    await userEvent.click(await screen.findByRole("button", { name: "Record a correction" }));
+    const dialog = screen.getByRole("dialog", { name: "Record a correction" });
+    await userEvent.type(within(dialog).getByLabelText(/Note/), "Wrong month.");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Record correction" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("reload and try again");
   });
 
   it("sends a compliance officer to the confirm queue instead of showing the form", async () => {

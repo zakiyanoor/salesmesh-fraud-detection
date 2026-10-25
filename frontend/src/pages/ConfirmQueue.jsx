@@ -1,28 +1,28 @@
 import { useMemo, useRef, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import {
-  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, Link, Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Divider, Link } from "@mui/material";
 import DataTable from "../components/DataTable";
+import NoteDialog from "../components/NoteDialog";
 import PageHeader from "../components/PageHeader";
-import { OutcomeChip } from "../components/chips";
+import { FlagSourceChip, NoLongerFlaggedChip, OutcomeChip, OverdueChip } from "../components/chips";
 import { LoadStatus } from "../components/states";
 import { nextSort } from "../components/tableState";
 import { useApi } from "../hooks/useApi";
 import { OUTCOME_LABELS, formatDateTime } from "../format";
-import { confirmedMessage } from "../review";
+import { closedMessage, otherOutcome } from "../review";
 import { mono } from "../theme";
 import { api } from "../api";
 
 const notesSx = { whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxWidth: 420 };
 
-/** Compliance officers confirm decisions that a fraud analyst proposed (#16). */
+/**
+ * Compliance officers agree with or overrule proposals that a fraud analyst made (#16, #28). A proposal
+ * waiting more than 3 days is marked overdue; nothing here or on the server decides one automatically.
+ */
 export default function ConfirmQueue() {
   const result = useApi(api.getReviewDecisions);
   const [done, setDone] = useState(() => new Set());
-  const [selected, setSelected] = useState(null);
-  const [dialogError, setDialogError] = useState(null);
-  const [busy, setBusy] = useState(false);
+  const [action, setAction] = useState(null);
   const [notice, setNotice] = useState(null);
   const [sort, setSort] = useState({ key: "proposed", dir: "asc" });
   const [page, setPage] = useState(0);
@@ -34,35 +34,24 @@ export default function ConfirmQueue() {
     [result.data, done],
   );
 
-  const close = () => {
-    if (busy) return;
-    setSelected(null);
-    setDialogError(null);
-  };
-
   const finish = (decision, message, severity) => {
     setDone((prev) => new Set(prev).add(decision.decision_id));
-    setSelected(null);
-    setDialogError(null);
+    setAction(null);
     setNotice({ message, severity });
     // The row is gone, so focus moves to the message instead of being lost.
     setTimeout(() => noticeRef.current?.focus(), 0);
   };
 
-  const confirm = async () => {
-    setBusy(true);
-    setDialogError(null);
+  const submit = async (decision, send) => {
     try {
-      await api.confirmDecision(selected.decision_id);
-      finish(selected, confirmedMessage(selected.agent_id), "success");
+      const closed = await send();
+      finish(decision, closedMessage(decision.agent_id, closed.status, OUTCOME_LABELS[closed.final_outcome]), "success");
     } catch (err) {
       if (err.status === 409) {
-        finish(selected, `The decision for ${selected.agent_id} was already confirmed by someone else.`, "info");
-      } else {
-        setDialogError(err.status === 403 ? `${err.message}. Another compliance officer must confirm it.` : err.message);
+        finish(decision, `The proposal for ${decision.agent_id} was already withdrawn or decided by someone else.`, "info");
+        return;
       }
-    } finally {
-      setBusy(false);
+      throw err.status === 403 ? new Error(`${err.message}. Another compliance officer must decide it.`) : err;
     }
   };
 
@@ -76,14 +65,30 @@ export default function ConfirmQueue() {
         <Link component={RouterLink} to={`/agents/${d.agent_id}`} color="primary.dark" sx={mono}>{d.agent_id}</Link>
       ) : "—"),
     },
+    {
+      key: "source",
+      label: "Flagged by",
+      sortValue: (d) => d.flag_source || "",
+      render: (d) => (
+        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+          {d.flag_source ? <FlagSourceChip source={d.flag_source} /> : "—"}
+          {d.still_flagged === false && <NoLongerFlaggedChip />}
+        </Box>
+      ),
+    },
     { key: "proposer", label: "Proposed by", sortValue: (d) => d.reviewer_id, render: (d) => d.reviewer_id },
-    { key: "outcome", label: "Outcome", sortValue: (d) => OUTCOME_LABELS[d.decision_outcome], render: (d) => <OutcomeChip outcome={d.decision_outcome} /> },
+    { key: "outcome", label: "Proposed outcome", sortValue: (d) => OUTCOME_LABELS[d.decision_outcome], render: (d) => <OutcomeChip outcome={d.decision_outcome} /> },
     { key: "notes", label: "Notes", render: (d) => <Box sx={notesSx}>{d.notes || "—"}</Box> },
     {
       key: "proposed",
       label: "Proposed on",
       sortValue: (d) => d.decision_timestamp,
-      render: (d) => <Box component="span" sx={{ whiteSpace: "nowrap" }}>{formatDateTime(d.decision_timestamp)}</Box>,
+      render: (d) => (
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+          <Box component="span" sx={{ whiteSpace: "nowrap" }}>{formatDateTime(d.decision_timestamp)}</Box>
+          {d.overdue && <OverdueChip />}
+        </Box>
+      ),
     },
     {
       key: "action",
@@ -91,9 +96,14 @@ export default function ConfirmQueue() {
       action: true,
       align: "right",
       render: (d) => (
-        <Button variant="outlined" size="small" onClick={() => setSelected(d)} aria-label={`Confirm the decision for ${d.agent_id}`}>
-          Confirm
-        </Button>
+        <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <Button variant="outlined" size="small" onClick={() => setAction({ kind: "agree", decision: d })} aria-label={`Agree with the proposal for ${d.agent_id}`}>
+            Agree
+          </Button>
+          <Button variant="outlined" size="small" onClick={() => setAction({ kind: "overrule", decision: d })} aria-label={`Overrule the proposal for ${d.agent_id}`}>
+            Overrule
+          </Button>
+        </Box>
       ),
     },
   ];
@@ -101,10 +111,13 @@ export default function ConfirmQueue() {
   const header = (
     <PageHeader
       title="Confirm queue"
-      subtitle="Decisions fraud analysts proposed. Each takes effect only once a compliance officer other than the proposer confirms it."
+      subtitle="Proposals from fraud analysts. A compliance officer other than the proposer agrees or overrules each one. A proposal waiting more than 3 days is marked overdue; nothing is decided automatically."
     />
   );
   if (!result.data) return <>{header}<LoadStatus result={result} /></>;
+
+  const selected = action?.decision;
+  const summary = selected && `Agent ${selected.agent_id}: ${selected.reviewer_id} proposed ${OUTCOME_LABELS[selected.decision_outcome]} on ${formatDateTime(selected.decision_timestamp)}. Notes: ${selected.notes || "none"}.`;
 
   return (
     <>
@@ -129,31 +142,28 @@ export default function ConfirmQueue() {
         emptyText="No decisions are waiting for confirmation."
       />
 
-      <Dialog open={Boolean(selected)} onClose={close} aria-labelledby="confirm-title" aria-describedby="confirm-description" fullWidth maxWidth="sm">
-        {selected && (
-          <>
-            <DialogTitle id="confirm-title">Confirm this decision?</DialogTitle>
-            <DialogContent>
-              {dialogError && <Alert severity="error" role="alert" sx={{ mb: 2 }}>{dialogError}</Alert>}
-              <DialogContentText id="confirm-description" sx={{ mb: 2 }}>
-                Once confirmed, the decision on agent {selected.agent_id} is final.
-              </DialogContentText>
-              <Box component="dl" sx={{ m: 0, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 2, rowGap: 1 }}>
-                <Typography component="dt" variant="body2" color="text.secondary">Outcome</Typography>
-                <Box component="dd" sx={{ m: 0 }}><OutcomeChip outcome={selected.decision_outcome} /></Box>
-                <Typography component="dt" variant="body2" color="text.secondary">Proposed by</Typography>
-                <Typography component="dd" variant="body2" sx={{ m: 0 }}>{selected.reviewer_id} on {formatDateTime(selected.decision_timestamp)}</Typography>
-                <Typography component="dt" variant="body2" color="text.secondary">Notes</Typography>
-                <Typography component="dd" variant="body2" sx={{ m: 0, ...notesSx }}>{selected.notes || "—"}</Typography>
-              </Box>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={close} disabled={busy}>Cancel</Button>
-              <Button variant="contained" onClick={confirm} disabled={busy}>Confirm decision</Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
+      {action?.kind === "agree" && (
+        <NoteDialog
+          id="agree"
+          title="Agree with this proposal?"
+          description={`${summary} Once you agree, the outcome is final; only a correction can change it.`}
+          submitLabel="Agree"
+          onClose={() => setAction(null)}
+          onSubmit={({ notes }) => submit(selected, () => api.agreeDecision({ decisionId: selected.decision_id, notes }))}
+        />
+      )}
+      {action?.kind === "overrule" && (
+        <NoteDialog
+          id="overrule"
+          title="Overrule this proposal?"
+          description={`${summary} Choose the final outcome and explain why you disagree.`}
+          outcome={otherOutcome(selected.decision_outcome)}
+          noteRequired
+          submitLabel="Overrule"
+          onClose={() => setAction(null)}
+          onSubmit={({ outcome, notes }) => submit(selected, () => api.overruleDecision({ decisionId: selected.decision_id, finalOutcome: outcome, notes }))}
+        />
+      )}
     </>
   );
 }

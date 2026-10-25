@@ -6,6 +6,7 @@ import MenuIcon from "@mui/icons-material/MenuOutlined";
 import Sidebar from "./Sidebar";
 import ErrorBoundary from "./ErrorBoundary";
 import AppFooter from "./AppFooter";
+import LatestRunProvider from "../latestRun/LatestRunProvider";
 import { PageSkeleton } from "./states";
 
 /** First stop for keyboard users: jumps past the menu to the page content. Hidden until focused. */
@@ -43,43 +44,45 @@ export default function Layout() {
   const location = useLocation();
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh" }}>
-      <SkipLink />
-      {!desktop && (
-        <AppBar
-          position="fixed"
-          color="inherit"
-          elevation={0}
-          sx={{ bgcolor: "background.paper", border: 0, borderBottom: 1, borderColor: "divider" }}
-        >
-          <Toolbar>
-            <IconButton edge="start" aria-label="Open menu" onClick={() => setMenuOpen(true)} sx={{ mr: 1 }}>
-              <MenuIcon />
-            </IconButton>
-            <Typography variant="h6" component="div">SalesMesh</Typography>
-          </Toolbar>
-        </AppBar>
-      )}
+    <LatestRunProvider>
+      <Box sx={{ display: "flex", minHeight: "100vh" }}>
+        <SkipLink />
+        {!desktop && (
+          <AppBar
+            position="fixed"
+            color="inherit"
+            elevation={0}
+            sx={{ bgcolor: "background.paper", border: 0, borderBottom: 1, borderColor: "divider" }}
+          >
+            <Toolbar>
+              <IconButton edge="start" aria-label="Open menu" onClick={() => setMenuOpen(true)} sx={{ mr: 1 }}>
+                <MenuIcon />
+              </IconButton>
+              <Typography variant="h6" component="div">SalesMesh</Typography>
+            </Toolbar>
+          </AppBar>
+        )}
 
-      <Sidebar
-        variant={desktop ? "permanent" : "temporary"}
-        open={desktop || menuOpen}
-        onClose={() => setMenuOpen(false)}
-        onNavigate={() => setMenuOpen(false)}
-      />
+        <Sidebar
+          variant={desktop ? "permanent" : "temporary"}
+          open={desktop || menuOpen}
+          onClose={() => setMenuOpen(false)}
+          onNavigate={() => setMenuOpen(false)}
+        />
 
-      {/* The permanent drawer already takes its 240px in this row, so the content needs no margin. */}
-      <Box sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, md: 5 }, display: "flex", flexDirection: "column" }}>
-        {!desktop && <Toolbar />}
-        <Box component="main" id="main-content" tabIndex={-1} sx={{ flexGrow: 1, minWidth: 0, "&:focus": { outline: "none" } }}>
-          <ErrorBoundary key={location.pathname}>
-            <Suspense fallback={<PageSkeleton cards={2} rows={6} />}>
-              <Outlet />
-            </Suspense>
-          </ErrorBoundary>
+        {/* The permanent drawer already takes its 240px in this row, so the content needs no margin. */}
+        <Box sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, md: 5 }, display: "flex", flexDirection: "column" }}>
+          {!desktop && <Toolbar />}
+          <Box component="main" id="main-content" tabIndex={-1} sx={{ flexGrow: 1, minWidth: 0, "&:focus": { outline: "none" } }}>
+            <ErrorBoundary key={location.pathname}>
+              <Suspense fallback={<PageSkeleton cards={2} rows={6} />}>
+                <Outlet />
+              </Suspense>
+            </ErrorBoundary>
+          </Box>
+          <AppFooter />
         </Box>
-        <AppFooter />
       </Box>
-    </Box>
+    </LatestRunProvider>
   );
 }

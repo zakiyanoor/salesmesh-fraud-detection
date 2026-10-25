@@ -38,3 +38,26 @@ def recreate_test_database(name):
             conn.execute(text(f'CREATE DATABASE "{name}"'))
     finally:
         server.dispose()
+
+
+def reviewable_flag(sources=("ML", "Both"), skip=0):
+    """
+    (flag_id, agent_id) of an agent whose flag_source in the latest run is one of sources, in the latest
+    analysis period, with no review decision on its flag (issue #28). skip picks a later one.
+    """
+    from sqlalchemy import text
+
+    from src.db import engine
+
+    with engine.connect() as conn:
+        row = conn.execute(text(
+            "SELECT f.flag_id, v.agent_id FROM fraud_flags f JOIN feature_vectors v ON v.vector_id = f.vector_id "
+            "JOIN agent_scores s ON s.agent_id = v.agent_id AND s.run_id = (SELECT run_id FROM detection_runs "
+            "  WHERE status = 'succeeded' ORDER BY finished_at DESC LIMIT 1) "
+            "WHERE s.flag_source = ANY(:sources) "
+            "AND v.analysis_period = (SELECT max(analysis_period) FROM feature_vectors w WHERE w.agent_id = v.agent_id) "
+            "AND NOT EXISTS (SELECT 1 FROM review_decisions d WHERE d.flag_id = f.flag_id) "
+            "ORDER BY s.anomaly_score DESC, f.flag_id OFFSET :skip LIMIT 1"
+        ), {"sources": list(sources), "skip": skip}).first()
+    assert row is not None, f"no reviewable flag with flag_source in {sources}"
+    return tuple(row)
