@@ -1,5 +1,19 @@
 # Backend changes
 
+## Sprint 10: screens (issue #28)
+
+Branch `feature/sprint-3-screens`.
+
+### Daily activity for an agent
+
+- **New endpoint `GET /api/agents/<agent_id>/activity`** (`src/activity.py`): one row per day of the data window, with activations, completed activations and whether the day holds a record in the agent's duplicate evidence for the latest run; plus activations per hour of day.
+  - The data window is the first to the last day of all activation records, so every agent covers the same days.
+  - Same roles as agent detail; reads are not audited; a request without a session is refused and logged by the existing rule.
+- **Days and hours are as recorded in the data.** No day is called flagged, because the flag belongs to the agent for the whole run.
+- **No customer IDs and no identity data.**
+- **Speed:** counted in SQL on the existing `agent_id` index, about 35 ms for the agent with the most records (481).
+- **Tests:** `tests/test_activity.py` checks the window, the counts per day and per hour, and the evidence days against SQL; that reads are not audited; that no customer ID appears; and that the response is fast for the agent with the most records.
+
 ## Sprint 9: clickable customers in the evidence (issue #28)
 
 Branch `feature/clickable-customers`. The "Why flagged" panel and masking customer IDs are on hold and not built.

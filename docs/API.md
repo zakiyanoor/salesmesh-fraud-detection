@@ -111,6 +111,7 @@ Issue #28. A flag is a request for human review, and a decision never changes a 
 | GET | `/api/flagged-agents` | all | Agents the model flagged |
 | GET | `/api/all-agents` | all | Every agent with status, features and `risk_band` |
 | GET | `/api/agents/<agent_id>` | all | One agent: features, flag, score, rule evidence, identity (masked) |
+| GET | `/api/agents/<agent_id>/activity` | all | One agent's activations per day and per hour of day |
 | GET | `/api/customers/<customer_ref>` | fraud_analyst, compliance_officer | One customer from the latest run's duplicate evidence; every open is audited |
 | GET | `/api/agent-scores` | all | Latest run's scores, filterable by `flag_source` |
 | GET | `/api/analytics` | all | Platform statistics |
@@ -246,6 +247,25 @@ Path parameter: `agent_id` (for example `A35485`). `404` if the agent does not e
 ```
 
 `reason` in `duplicate_evidence` is `shared customer` (with `other_agent_id`) or `repeat after completed`. Each entry also has `customer_ref` (issue #28), the reference that opens the customer view.
+
+### GET /api/agents/<agent_id>/activity
+
+Same roles as agent detail (any signed-in account); reads are not audited. `404` if the agent does not exist. Issue #28.
+
+- `days`: one row per day of the data window, which runs from the first to the last day in `activation_records` for all agents, so every agent covers the same days. Each row has `activations`, `completed` and `duplicate_evidence`: whether the day holds a record in this agent's duplicate evidence for the latest successful run.
+- `hours`: activations per hour of day, 0 to 23.
+- Days and hours are as recorded in the data (naive local timestamps, never converted). The flag belongs to the agent for the whole run, so no day is called flagged.
+- No customer IDs and no identity data. Counted in SQL on the `agent_id` index (about 35 ms for the agent with the most records).
+
+```json
+{
+  "agent_id": "A32962", "run_id": "RUN20261013172621c4f8ca", "first_day": "2026-08-01", "last_day": "2026-08-30",
+  "days": [{"date": "2026-08-01", "activations": 18, "completed": 17, "duplicate_evidence": true}],
+  "hours": [{"hour": 0, "activations": 3}],
+  "totals": {"activations": 481, "completed": 439},
+  "note": "Days and hours are as recorded in the data."
+}
+```
 
 ### GET /api/customers/<customer_ref>
 
