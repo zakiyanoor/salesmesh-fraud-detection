@@ -58,6 +58,7 @@ const PAGES = [
   ["compliance_officer", "/threat-intelligence", "Threat intelligence"],
   ["compliance_officer", "/review/confirm", "Confirm queue"],
   ["admin", "/audit-log", "Audit log"],
+  ["admin", "/how-it-works", "How the model works"],
   ["admin", "/reports", "Reports"],
   ["admin", "/accounts", "Accounts"],
   ["admin", "/flagged", "Access denied"],

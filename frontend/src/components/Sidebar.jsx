@@ -10,6 +10,7 @@ import FactCheckIcon from "@mui/icons-material/FactCheckOutlined";
 import ReceiptIcon from "@mui/icons-material/ReceiptLongOutlined";
 import DownloadIcon from "@mui/icons-material/FileDownloadOutlined";
 import ManageAccountsIcon from "@mui/icons-material/ManageAccountsOutlined";
+import HelpIcon from "@mui/icons-material/HelpOutlineOutlined";
 import ColorModeToggle from "./ColorModeToggle";
 import { useAuth } from "../auth/authContext";
 import { ROLE_LABELS, menuFor } from "../auth/roles";
@@ -27,6 +28,7 @@ const ICONS = {
   audit: <ReceiptIcon />,
   reports: <DownloadIcon />,
   accounts: <ManageAccountsIcon />,
+  howItWorks: <HelpIcon />,
 };
 
 /** Permanent from md up; below md a temporary drawer that closes after each choice. */

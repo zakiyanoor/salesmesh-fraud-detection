@@ -21,6 +21,7 @@ const PAGE_COMPONENTS = {
   audit: lazy(() => import("./pages/AuditLog")),
   reports: lazy(() => import("./pages/Reports")),
   accounts: lazy(() => import("./pages/Accounts")),
+  howItWorks: lazy(() => import("./pages/HowItWorks")),
 };
 
 export default function App() {

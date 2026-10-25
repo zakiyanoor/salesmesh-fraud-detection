@@ -25,6 +25,7 @@ export const PAGES = [
   { key: "audit", path: "/audit-log", label: "Audit log", roles: [ADMIN], menu: true },
   { key: "reports", path: "/reports", label: "Reports", roles: [ADMIN], menu: true },
   { key: "accounts", path: "/accounts", label: "Accounts", roles: [ADMIN], menu: true },
+  { key: "howItWorks", path: "/how-it-works", label: "How the model works", roles: EVERYONE, menu: true },
 ];
 
 export function menuFor(role) {
