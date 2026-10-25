@@ -13,6 +13,7 @@ Endpoints:
   GET  /api/flagged-agents        -> list of flagged agents (protected, FR-02)
   GET  /api/all-agents            -> every agent with current status (protected)
   GET  /api/agents/<agent_id>     -> feature evidence for one agent (protected, FR-03)
+  GET  /api/agents/<agent_id>/activity -> activations per day and per hour for one agent (protected, #28)
   GET  /api/customers/<ref>       -> one customer from the duplicate evidence, audited (analyst, compliance; #28)
   POST /api/review-decisions      -> propose a review decision (fraud_analyst only, FR-04)
   POST /api/review-decisions/<decision_id>/confirm
@@ -53,7 +54,7 @@ from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER, ROLE_ADMIN, DEACTIVATED,
     VALID_ROLES,
 )
-from src import accounts, customers, reports, review, threat_intel
+from src import accounts, activity, customers, reports, review, threat_intel
 from src import audit
 from src.config import load_config
 from src.pipeline import compute_client_category_breakdown
@@ -521,6 +522,19 @@ def review_body():
     data = request.get_json(silent=True) or {}
     notes, notes_error = clean_notes(data.get("notes"))
     return data, notes, ((jsonify({"error": notes_error}), 400) if notes_error else None)
+
+
+@app.route("/api/agents/<agent_id>/activity", methods=["GET"])
+@login_required
+def get_agent_activity(agent_id):
+    """Issue #28: the agent's activations per day of the data window and per hour of day (src/activity.py)."""
+    db_session = get_session()
+    try:
+        if db_session.get(Agent, agent_id) is None:
+            return jsonify({"error": "Agent not found"}), 404
+        return jsonify(activity.agent_activity(db_session, latest_run(db_session), agent_id))
+    finally:
+        db_session.close()
 
 
 @app.route("/api/customers/<customer_ref>", methods=["GET"])
