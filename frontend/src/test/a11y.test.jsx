@@ -78,9 +78,18 @@ describe("accessibility (axe)", () => {
     expect(screen.getByRole("contentinfo")).toBeInTheDocument();
   });
 
-  it("the sign-in page has no violations", async () => {
+  it.each([360, 1280])("the landing page has no violations at %ipx", async (width) => {
+    window.innerWidth = width;
     mockApi(sessionRoutes(null));
     renderApp("/");
+    await screen.findByRole("heading", { level: 1, name: "SalesMesh Fraud Detection" });
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(await axe(document.body)).toHaveNoViolations();
+  });
+
+  it("the sign-in page has no violations", async () => {
+    mockApi(sessionRoutes(null));
+    renderApp("/sign-in");
     await screen.findByRole("button", { name: "Sign in" });
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(await axe(document.body)).toHaveNoViolations();

@@ -19,7 +19,7 @@ describe("session restore", () => {
 
   it("shows the sign-in page without a message when there is no session", async () => {
     mockApi(sessionRoutes(null));
-    renderApp("/");
+    renderApp("/sign-in");
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(document.title).toBe("Sign in · SalesMesh Fraud Detection");
@@ -43,7 +43,7 @@ describe("session restore", () => {
 
   it("shows a wrong password on the form", async () => {
     mockApi({ ...sessionRoutes(null), "POST /api/login": reply(401, { error: "Invalid username or password" }) });
-    renderApp("/");
+    renderApp("/sign-in");
     await userEvent.type(await screen.findByLabelText("Username"), "analyst_01");
     await userEvent.type(screen.getByLabelText("Password"), "wrong");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
@@ -152,7 +152,8 @@ describe("error handling", () => {
     renderApp("/");
     await screen.findByRole("heading", { name: "Overview" });
     await userEvent.click(within(menu()).getByRole("button", { name: "Sign out" }));
-    expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    // Signed out at the root: the landing page, with its Sign in link (issue #28).
+    expect(await within(await screen.findByRole("banner")).findByRole("link", { name: "Sign in" })).toBeInTheDocument();
   });
 });
 
@@ -166,7 +167,7 @@ describe("storage", () => {
     };
     try {
       mockApi({ ...sessionRoutes(null), "POST /api/login": { message: "Login successful", ...ACCOUNTS.fraud_analyst } });
-      renderApp("/");
+      renderApp("/sign-in");
       await userEvent.type(await screen.findByLabelText("Username"), "analyst_01");
       await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
       await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
