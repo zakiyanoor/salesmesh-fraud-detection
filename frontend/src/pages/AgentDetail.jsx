@@ -8,6 +8,7 @@ import RiskBadge from "../components/RiskBadge";
 import ReviewPanel from "../components/ReviewPanel";
 import NoteDialog from "../components/NoteDialog";
 import CustomerDialog from "../components/CustomerDialog";
+import AgentActivity from "../components/AgentActivity";
 import DecisionTimeline from "../components/DecisionTimeline";
 import SectionCard from "../components/SectionCard";
 import { FlagSourceChip } from "../components/chips";
@@ -334,6 +335,7 @@ export default function AgentDetail() {
         <Typography variant="overline" color="text.secondary" component="h2">Evidence</Typography>
         <Box sx={{ mt: 1 }}><Evidence detail={detail} /></Box>
       </Paper>
+      <AgentActivity agentId={detail.agent_id} />
     </Box>
   );
 }

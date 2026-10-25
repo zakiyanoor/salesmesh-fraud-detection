@@ -43,6 +43,16 @@ export const FIXTURES = {
     },
   },
   "POST /api/logout": { message: "Logged out successfully" },
+  "GET /api/agents/A10001/activity": {
+    agent_id: "A10001", run_id: "RUN1", first_day: "2026-08-01", last_day: "2026-08-03",
+    days: [
+      { date: "2026-08-01", activations: 5, completed: 4, duplicate_evidence: true },
+      { date: "2026-08-02", activations: 0, completed: 0, duplicate_evidence: false },
+      { date: "2026-08-03", activations: 2, completed: 2, duplicate_evidence: false },
+    ],
+    hours: Array.from({ length: 24 }, (_, hour) => ({ hour, activations: hour === 9 ? 4 : hour === 14 ? 3 : 0 })),
+    totals: { activations: 7, completed: 6 }, note: "Days and hours are as recorded in the data.",
+  },
   "GET /api/customers/c_00112233445566778899aabb": {
     customer: { customer_ref: "c_00112233445566778899aabb", customer_id: "CUST10000001" }, run_id: "RUN1",
     agent_count: 2, client_count: 1, client_ids: ["CL01"], first_seen: "2026-08-02T10:00:00", last_seen: "2026-08-05T11:00:00",

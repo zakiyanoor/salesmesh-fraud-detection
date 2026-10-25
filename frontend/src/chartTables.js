@@ -33,6 +33,11 @@ export const regionBreakdownTable = (analytics) => ({
   rows: analytics.region_breakdown,
 });
 
+export const hourTable = (activity) => ({
+  columns: [{ key: "hour", label: "Hour of day" }, { key: "activations", label: "Activations" }],
+  rows: activity.hours.map((h) => ({ hour: h.hour, activations: h.activations })),
+});
+
 export const topFeatureTable = (summary) => ({
   columns: [{ key: "feature", label: "Strongest feature" }, { key: "agents", label: "Flagged agents" }],
   rows: summary.top_features.as_top_feature.map((f) => ({ feature: MODEL_FEATURE_LABELS[f.feature] || f.feature, agents: f.agents })),
