@@ -78,21 +78,33 @@ describe("accessibility (axe)", () => {
     expect(screen.getByRole("contentinfo")).toBeInTheDocument();
   });
 
-  it.each([360, 1280])("the landing page has no violations at %ipx", async (width) => {
+  it.each([
+    ["light", 360], ["light", 1280], ["dark", 360], ["dark", 1280],
+  ])("the landing page has no violations in the %s scheme at %ipx", async (scheme, width) => {
+    window.localStorage.setItem("salesmesh.colorMode", scheme);
     window.innerWidth = width;
     mockApi(sessionRoutes(null));
     renderApp("/");
-    await screen.findByRole("heading", { level: 1, name: "SalesMesh Fraud Detection" });
+    await screen.findByRole("heading", { level: 1, name: /^Fraud detection for sales agent networks/ });
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(await axe(document.body)).toHaveNoViolations();
   });
 
-  it("the sign-in page has no violations", async () => {
+  it.each(["light", "dark"])("the sign-in page has no violations in the %s scheme", async (scheme) => {
+    window.localStorage.setItem("salesmesh.colorMode", scheme);
     mockApi(sessionRoutes(null));
     renderApp("/sign-in");
     await screen.findByRole("button", { name: "Sign in" });
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(await axe(document.body)).toHaveNoViolations();
+  });
+
+  it("a signed-in page with charts and the ring graph has no violations in the dark scheme", async () => {
+    window.localStorage.setItem("salesmesh.colorMode", "dark");
+    mockApi({ ...sessionRoutes("fraud_analyst"), ...DATA });
+    renderApp("/threat-intelligence");
+    await screen.findByRole("group", { name: /Graph of ring candidate cand_01/ });
+    await expectNoViolations();
   });
 
   it("the phone layout has no violations, with the menu open", async () => {

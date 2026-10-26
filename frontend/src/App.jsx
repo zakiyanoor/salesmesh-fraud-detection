@@ -6,7 +6,8 @@ import { PAGES } from "./auth/roles";
 import RequireRole from "./auth/RequireRole";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
-import Landing, { SIGN_IN_PATH } from "./pages/Landing";
+import Landing from "./pages/Landing";
+import { SIGN_IN_PATH } from "./pages/landingContent";
 import { AccessDenied, NotFound } from "./pages/StatusPages";
 
 // Every page is its own chunk, loaded on first visit; Login and the layout shell stay in the main bundle.
