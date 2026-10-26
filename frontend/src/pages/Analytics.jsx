@@ -103,12 +103,12 @@ export default function Analytics() {
         </SectionCard>
 
         <SectionCard
-          title="Highest flagged rates by region"
+          title="Highest flagged rates by county"
           table={regionRateTable}
-          subtitle="Share of each region's agents the model flagged; regions with at least 5 agents"
+          subtitle="Share of each county's agents the model flagged; counties with at least 5 agents"
           result={regions}
           isEmpty={(data) => !data?.top_by_flagged_rate?.length}
-          emptyText="No region has enough agents yet."
+          emptyText="No county has enough agents yet."
           sx={half}
         >
           {(data) => (
@@ -118,9 +118,9 @@ export default function Analytics() {
       </Box>
 
       <SectionCard
-        title="Flagged agents by region"
+        title="Flagged agents by county"
         table={regionBreakdownTable}
-        subtitle="Flagged and total agents per region"
+        subtitle="Flagged and total agents per county"
         result={analytics}
         isEmpty={(data) => !data?.region_breakdown?.length}
         emptyText="No agents are loaded yet."

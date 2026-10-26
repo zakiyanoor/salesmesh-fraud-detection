@@ -37,7 +37,7 @@ Light and dark are both full colour schemes (MUI `colorSchemes`, issue #28), bui
 | `chart.grid` | `divider` | `divider` | Cartesian grid lines (dashed `3 3`) |
 | `chart.axis` | `text.secondary` | `text.secondary` | Axis lines and tick labels (12px) |
 | `chart.neutral` | `#8A9199` | `#6E7A87` | Context bars (for example "total" beside "flagged") |
-| `chart.region` | `#1976D2`, `#00897B`, `#F59E0B`, `#8E24AA`, `#546E7A` | `#64A8F0`, `#26A69A`, `#F59E0B`, `#BA68C8`, `#90A4AE` | Categorical series such as regions. Kept apart from red, amber and green, which mean status and risk |
+| `chart.region` | `#1976D2`, `#00897B`, `#F59E0B`, `#8E24AA`, `#546E7A` | `#64A8F0`, `#26A69A`, `#F59E0B`, `#BA68C8`, `#90A4AE` | Categorical series such as counties. Kept apart from red, amber and green, which mean status and risk |
 
 ## Typography
 
@@ -184,7 +184,7 @@ Checked by `frontend/src/test/security.test.jsx`.
 ## Screenshots
 
 `docs/screenshots/` holds 74 screenshots of every page for each role at 360, 768 and 1280 px, named `<role>-<page>-<width>.png`.
-- **How they were made:** `npm run screenshots`, against the production build with fictional mocked data. Agent ids, regions, masked numbers and notes are made up, and there is no real personal data.
+- **How they were made:** `npm run screenshots`, against the production build with fictional mocked data. Agent ids, counties, masked numbers and notes are made up, and there is no real personal data.
 - **Capture:** full page, except open drawers and menus, which are captured at viewport size.
 - **`report.json`:** records, for each screenshot, sideways scroll (all 0) and touch targets under 44px (none).
 
@@ -256,8 +256,8 @@ A proposal is never called saved, recorded or final; tests check this.
 | `/agents/:agentId` | Agent detail, evidence (customers open the customer dialog), daily activity and activations by hour of day, decision timeline; propose and withdraw (fraud_analyst), record a correction (compliance_officer) | fraud_analyst, compliance_officer | `/api/agents/<id>`, `/api/agents/<id>/activity`, `/api/analytics`, `/api/review-decisions`, `/api/customers/<ref>`, `POST /api/review-decisions`, `POST .../withdraw`, `POST .../corrections` |
 | `/review/confirm` | Confirm queue: agree or overrule, overdue and "no longer flagged" markers | compliance_officer | `/api/review-decisions`, `POST /api/review-decisions/<id>/agree`, `POST .../overrule` |
 | `/history` | Review history: status, outcome in force, who closed it, each decision's timeline | fraud_analyst, compliance_officer | `/api/review-decisions` |
-| `/analytics` | Analytics: daily activations, score distribution, region rates, review outcomes and overrule rate, averages | all | `/api/analytics`, `/api/threat-intelligence/timeline`, `/api/threat-intelligence/by-region` |
-| `/threat-intelligence` | Threat intelligence: summary, flag sources, drivers, timeline, regional rates, top risk agents, ring candidates with a ring graph and group activity, connected agents | all | `/api/threat-intelligence/summary`, `/timeline`, `/by-region`, `/customer-sharing`, `/ring-candidates`, `/ring-candidates/<id>`, `/api/agent-scores?limit=10` |
+| `/analytics` | Analytics: daily activations, score distribution, county rates, review outcomes and overrule rate, averages | all | `/api/analytics`, `/api/threat-intelligence/timeline`, `/api/threat-intelligence/by-region` |
+| `/threat-intelligence` | Threat intelligence: summary, flag sources, drivers, timeline, county rates, top risk agents, ring candidates with a ring graph and group activity, connected agents | all | `/api/threat-intelligence/summary`, `/timeline`, `/by-region`, `/customer-sharing`, `/ring-candidates`, `/ring-candidates/<id>`, `/api/agent-scores?limit=10` |
 | `/audit-log` | Audit log with server-side filters and paging, details drawer | admin | `/api/audit-log` |
 | `/how-it-works` | How the model works: what the system does, the four signals, the rule, flag sources and risk bands, scores and the cutoff, test results, glossary | all | `/api/model-info` |
 | `/reports` | Report downloads | admin | `/api/reports/flagged-agents.csv`, `/api/reports/audit-log.csv`, `/api/reports/detection-summary.pdf` |

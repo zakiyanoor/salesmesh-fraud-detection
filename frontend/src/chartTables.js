@@ -19,7 +19,7 @@ export const timelineTable = (timeline) => ({
 });
 
 export const regionRateTable = (regions) => ({
-  columns: [{ key: "region", label: "Region" }, { key: "rate", label: "Flagged rate" }, { key: "flagged", label: "Flagged" }, { key: "agents", label: "Agents" }],
+  columns: [{ key: "region", label: "County" }, { key: "rate", label: "Flagged rate" }, { key: "flagged", label: "Flagged" }, { key: "agents", label: "Agents" }],
   rows: regions.top_by_flagged_rate.map((r) => ({ region: r.region, rate: formatPercent(r.flagged_rate), flagged: r.flagged, agents: r.agents })),
 });
 
@@ -29,7 +29,7 @@ export const scoreDistributionTable = (analytics) => ({
 });
 
 export const regionBreakdownTable = (analytics) => ({
-  columns: [{ key: "region", label: "Region" }, { key: "flagged", label: "Flagged" }, { key: "total", label: "Total" }],
+  columns: [{ key: "region", label: "County" }, { key: "flagged", label: "Flagged" }, { key: "total", label: "Total" }],
   rows: analytics.region_breakdown,
 });
 

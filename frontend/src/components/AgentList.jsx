@@ -54,7 +54,7 @@ export default function AgentList({ label, agents, decisions, sources, emptyText
           <Link component={RouterLink} to={`/agents/${a.agent_id}`} color="primary.dark" sx={mono}>{a.agent_id}</Link>
         ),
       },
-      { key: "region", label: "Region", sortValue: (a) => a.region, render: (a) => a.region ?? "—" },
+      { key: "region", label: "County", sortValue: (a) => a.region, render: (a) => a.region ?? "—" },
       {
         key: "score",
         label: "Score (rank)",

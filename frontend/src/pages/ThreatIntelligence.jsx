@@ -172,12 +172,12 @@ export default function ThreatIntelligence() {
       </SectionCard>
 
       <SectionCard
-        title="Regional flagged rates"
+        title="County flagged rates"
         table={regionRateTable}
-        subtitle="The 10 highest flagged rates among regions with at least 5 agents"
+        subtitle="The 10 highest flagged rates among counties with at least 5 agents"
         result={regions}
         isEmpty={(d) => !d?.top_by_flagged_rate?.length}
-        emptyText="No region has enough agents yet."
+        emptyText="No county has enough agents yet."
         sx={{ mb: 3 }}
       >
         {(d) => <RegionRateChart regions={d.top_by_flagged_rate} />}

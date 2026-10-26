@@ -101,7 +101,7 @@ export default function Reports() {
         <ReportCard
           title="Detection summary"
           format="PDF"
-          description="One page: run status, model version and cutoff, counts by flag source and risk band, and the top 10 regions by flagged rate."
+          description="One page: run status, model version and cutoff, counts by flag source and risk band, and the top 10 counties by flagged rate."
           download={api.downloadDetectionSummaryPdf}
         />
       </Box>

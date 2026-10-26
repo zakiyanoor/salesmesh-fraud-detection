@@ -27,7 +27,7 @@ describe("Analytics", () => {
   it.each(["fraud_analyst", "compliance_officer", "admin"])("shows every chart card to a %s", async (role) => {
     mockApi(routes(role));
     renderApp("/analytics");
-    for (const name of ["Daily activations", "Suspicion score distribution", "Highest flagged rates by region", "Flagged agents by region"]) {
+    for (const name of ["Daily activations", "Suspicion score distribution", "Highest flagged rates by county", "Flagged agents by county"]) {
       const region = await card(name);
       expect(within(region).queryByRole("alert")).not.toBeInTheDocument();
     }
@@ -64,6 +64,6 @@ describe("Analytics", () => {
     renderApp("/analytics");
     expect(await within(await card("Daily activations")).findByText("No activation records are loaded yet.")).toBeInTheDocument();
     expect(within(await card("Suspicion score distribution")).getByText("No agents are scored yet.")).toBeInTheDocument();
-    expect(within(await card("Highest flagged rates by region")).getByText("No region has enough agents yet.")).toBeInTheDocument();
+    expect(within(await card("Highest flagged rates by county")).getByText("No county has enough agents yet.")).toBeInTheDocument();
   });
 });

@@ -80,7 +80,7 @@ describe("Threat intelligence", () => {
     expect(await within(summary).findByText("14.5%")).toBeInTheDocument();
     expect(within(summary).getByText("21.5%")).toBeInTheDocument();
     expect(within(await card("Flag sources")).getByText("Rule only")).toBeInTheDocument();
-    for (const name of ["What drives the flags", "Activation timeline", "Regional flagged rates"]) {
+    for (const name of ["What drives the flags", "Activation timeline", "County flagged rates"]) {
       expect(within(await card(name)).queryByRole("alert")).not.toBeInTheDocument();
     }
     const top = await card("Top risk agents");
