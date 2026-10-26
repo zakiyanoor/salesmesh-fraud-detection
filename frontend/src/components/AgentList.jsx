@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { Box, Button, Divider, InputAdornment, Link, MenuItem, TextField } from "@mui/material";
+import { Box, Button, Chip, Divider, InputAdornment, Link, MenuItem, Paper, TextField, Typography } from "@mui/material";
 import SearchIcon from "@mui/icons-material/SearchOutlined";
+import CloseIcon from "@mui/icons-material/CloseOutlined";
 import DataTable from "./DataTable";
 import RiskBadge from "./RiskBadge";
 import ScoreWithRank from "./ScoreWithRank";
@@ -24,7 +25,13 @@ function reviewStatusOf(agent, latest) {
  * The agent table used by Flagged agents and All agents: filters in the URL, sortable columns,
  * paging and cards on narrow screens. agents come from /api/all-agents, decisions from /api/review-decisions.
  */
-export default function AgentList({ label, agents, decisions, sources, emptyText }) {
+/** "174 flagged agents", or "23 of 174 match your filters" while a filter or search is active. */
+function countLine(shown, total, noun, filtering) {
+  if (filtering) return `${shown} of ${total} match your filters`;
+  return `${total} ${total === 1 ? noun.replace(/s$/, "") : noun}`;
+}
+
+export default function AgentList({ label, agents, decisions, sources, emptyText, refined = false, noun = "agents" }) {
   const [query, setQuery] = useQueryParams(AGENT_FILTER_DEFAULTS);
   const { page, rowsPerPage } = paging(query);
   const latest = useMemo(() => latestDecisionByAgent(decisions), [decisions]);
@@ -42,6 +49,13 @@ export default function AgentList({ label, agents, decisions, sources, emptyText
 
   const setFilter = useCallback((changes) => setQuery({ ...changes, page: 0 }), [setQuery]);
   const filtersActive = ["q", "risk", "source", "review"].some((k) => query[k] !== AGENT_FILTER_DEFAULTS[k]);
+  // One removable chip per active filter, beside Clear filters.
+  const activeFilters = [
+    query.q.trim() && { key: "q", text: `Search: ${query.q.trim()}` },
+    query.risk !== "all" && { key: "risk", text: `Risk: ${RISK_OPTIONS[query.risk] || query.risk}` },
+    query.source !== "all" && { key: "source", text: `Flagged by: ${FLAG_SOURCE_LABELS[query.source] || query.source}` },
+    query.review !== "all" && { key: "review", text: `Review: ${REVIEW_STATUS_LABELS[query.review] || query.review}` },
+  ].filter(Boolean);
 
   const columns = useMemo(
     () => [
@@ -73,7 +87,7 @@ export default function AgentList({ label, agents, decisions, sources, emptyText
     [latest],
   );
 
-  return (
+  const body = (
     <>
       <Box component="form" role="search" aria-label="Filter agents" onSubmit={(e) => e.preventDefault()} sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap", alignItems: "center" }}>
         <TextField
@@ -99,6 +113,16 @@ export default function AgentList({ label, agents, decisions, sources, emptyText
           <MenuItem value="all">All review states</MenuItem>
           {Object.entries(REVIEW_STATUS_LABELS).map(([value, text]) => <MenuItem key={value} value={value}>{text}</MenuItem>)}
         </TextField>
+        {refined && activeFilters.map((f) => (
+          <Chip
+            key={f.key}
+            size="small"
+            variant="outlined"
+            label={f.text}
+            onDelete={() => setFilter({ [f.key]: AGENT_FILTER_DEFAULTS[f.key] })}
+            deleteIcon={<CloseIcon aria-label={`Remove filter ${f.text}`} />}
+          />
+        ))}
         {filtersActive && (
           <Button onClick={() => setFilter({ q: "", risk: "all", source: "all", review: "all" })}>Clear filters</Button>
         )}
@@ -106,7 +130,14 @@ export default function AgentList({ label, agents, decisions, sources, emptyText
 
       <Divider sx={{ mb: 2 }} />
 
+      {refined && (
+        <Typography aria-live="polite" sx={{ fontSize: 14, fontWeight: 500, fontVariantNumeric: "tabular-nums", mb: 1.5 }}>
+          {countLine(filtered.length, agents.length, noun, filtersActive)}
+        </Typography>
+      )}
+
       <DataTable
+        refined={refined}
         label={label}
         columns={columns}
         rows={filtered}
@@ -124,4 +155,6 @@ export default function AgentList({ label, agents, decisions, sources, emptyText
       />
     </>
   );
+  // Refined (Flagged agents): the filters, the count and the table in one bordered container.
+  return refined ? <Paper sx={{ p: 2.5, borderRadius: "8px", boxShadow: "none" }}>{body}</Paper> : body;
 }
