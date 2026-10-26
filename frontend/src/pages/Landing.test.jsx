@@ -3,11 +3,6 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ACCOUNTS, currentLocation, mockApi, renderApp, sessionRoutes } from "../test/server";
 import { SHARED_PAGES, signInHref } from "../auth/redirect";
-import { readFileSync, readdirSync } from "node:fs";
-import { resolve } from "node:path";
-import { cwd } from "node:process";
-import { AUDIT_ACTIONS } from "../audit";
-import { AUDIT_ROWS, FLAGGED_TITLE, RANKED_AGENTS } from "./platformExcerpts";
 import { CARDS, COPYRIGHT, HEADLINE, SECURITY_POINTS, SUBLINE, TAGLINE } from "./landingContent";
 
 async function open(width = 1280) {
@@ -63,45 +58,43 @@ describe("Landing page", () => {
     await waitFor(() => expect(button).toHaveAttribute("aria-expanded", "false"));
   });
 
-  it("explains the platform in four flat cards, each with a short excerpt of the real interface", async () => {
+  it("explains the platform in four calm cards: a chip, a heading, the paragraph and one link", async () => {
     await open();
     const section = screen.getByRole("region", { name: "What the platform does" });
     const cards = within(section).getAllByRole("listitem");
     expect(cards).toHaveLength(4);
     expect(within(section).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Detection", "Review", "Investigation", "Accountability"]);
-    for (const [i, [title, text]] of CARDS.entries()) {
-      expect(within(cards[i]).getByRole("heading", { name: title })).toBeInTheDocument();
-      expect(within(cards[i]).getByText(text)).toBeInTheDocument();
-      // One illustration per card, described in one sentence, so no fake table reaches a screen reader.
-      const excerpt = within(cards[i]).getByRole("img");
-      expect(excerpt.getAttribute("aria-label")).toMatch(/^Example of /);
+    expect(CARDS.map((c) => c.chip)).toEqual(["Scoring", "Decisions", "Analysis", "Records"]);
+    expect(CARDS.map((c) => c.link)).toEqual(["How the model works", "Open analytics", "Open threat intelligence", "Open the overview"]);
+    for (const [i, card] of CARDS.entries()) {
+      expect(cards[i].textContent).toBe(`${card.chip}${card.title}${card.text}${card.link}`);
+      const links = within(cards[i]).getAllByRole("link");
+      expect(links).toHaveLength(1);
+      expect(links[0]).toHaveAccessibleName(card.link);
+      // Signed out, each link goes to sign in and remembers the page.
+      expect(links[0]).toHaveAttribute("href", signInHref(card.path));
     }
-    expect(within(section).queryByRole("table")).not.toBeInTheDocument();
-    expect(within(section).queryByRole("article")).not.toBeInTheDocument();
-    // Not interactive, so no tab stops, and no drawings: the only SVGs are the app's own chip icons.
+    // Only the links are focus stops: no tabindex on a card, no interface excerpts, no drawings.
     expect(section.querySelectorAll("[tabindex]")).toHaveLength(0);
-    expect(section.querySelector("[data-testid^=drawing-]")).toBeNull();
-    for (const svg of section.querySelectorAll("svg")) expect(svg.closest(".MuiChip-root")).not.toBeNull();
-    // The app's own vocabulary.
-    expect(within(cards[0]).getByText("Model and rule")).toBeInTheDocument();
-    expect(within(cards[0]).getAllByText("Rule only").length).toBeGreaterThan(0);
-    expect(within(cards[0]).getByText(FLAGGED_TITLE)).toBeInTheDocument();
-    expect(within(cards[0]).getAllByText("Not reviewed").length).toBeGreaterThan(0);
-    expect(within(cards[1]).getByText("Proposed by fraud analyst")).toBeInTheDocument();
-    expect(within(cards[1]).getByText("Agreed by compliance officer")).toBeInTheDocument();
-    expect(within(cards[1]).getByText("Confirmed fraud")).toBeInTheDocument();
-    for (const { action } of AUDIT_ROWS) expect(within(cards[3]).getByText(action)).toBeInTheDocument();
-    expect(section.textContent).not.toMatch(/%|accura|precision|recall/i);
+    expect(section.querySelectorAll("svg, table, [role=img], .MuiChip-root")).toHaveLength(0);
+    expect(section.querySelector("[data-testid^=drawing-], [data-testid=excerpt]")).toBeNull();
   });
 
-  it("uses only audit actions that the server records and the audit log page knows", () => {
-    const backend = readdirSync(resolve(cwd(), "..", "backend", "src")).filter((name) => name.endsWith(".py"))
-      .map((name) => readFileSync(resolve(cwd(), "..", "backend", "src", name), "utf-8")).join("\n");
-    for (const { action } of AUDIT_ROWS) {
-      expect(backend, action).toMatch(new RegExp(`["']${action}["']`));
-      expect(Object.keys(AUDIT_ACTIONS), action).toContain(action);
-    }
-    expect(RANKED_AGENTS.every((a) => /^A\d{5}$/.test(a.agent_id))).toBe(true);
+  it("links each card only to a page every role may open", () => {
+    const shared = SHARED_PAGES.map((page) => page.path);
+    for (const card of CARDS) expect(shared, card.title).toContain(card.path);
+  });
+
+  it("opens a card's page after signing in", async () => {
+    mockApi({ ...sessionRoutes(null), "POST /api/login": { message: "Login successful", ...ACCOUNTS.admin } });
+    renderApp("/");
+    const section = await screen.findByRole("region", { name: "What the platform does" });
+    await userEvent.click(within(section).getByRole("link", { name: "Open threat intelligence" }));
+    expect(currentLocation()).toBe("/sign-in?next=%2Fthreat-intelligence");
+    await userEvent.type(await screen.findByLabelText("Username"), "admin_01");
+    await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => expect(currentLocation()).toBe("/threat-intelligence"));
   });
 
   it("has a footer with the name, a short line, link groups, the security points and a plain bottom bar", async () => {

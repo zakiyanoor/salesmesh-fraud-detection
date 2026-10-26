@@ -5,6 +5,7 @@ import { alpha, darken, useTheme } from "@mui/material/styles";
 
 export const RADIUS = "6px";
 export const TEXTURE_STEP = 18;
+export const GRID_STEP = 32;
 
 /** Page tokens for the active scheme. */
 export function useSurface() {
@@ -27,6 +28,8 @@ export function useSurface() {
     section: dark ? alpha("#000000", 0.18) : alpha(palette.text.primary, 0.028),
     footer: dark ? palette.background.default : palette.background.paper,
     // A fine dot texture at very low contrast.
+    grid: `linear-gradient(${alpha(palette.text.primary, dark ? 0.035 : 0.04)} 1px, transparent 1px), `
+      + `linear-gradient(90deg, ${alpha(palette.text.primary, dark ? 0.035 : 0.04)} 1px, transparent 1px)`,
     texture: `radial-gradient(${alpha(palette.text.primary, dark ? 0.09 : 0.1)} 1px, transparent 1.2px)`,
   };
 }

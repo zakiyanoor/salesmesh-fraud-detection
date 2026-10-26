@@ -8,7 +8,7 @@ import { useAuth } from "../auth/authContext";
 import { SHARED_PAGES, signInHref } from "../auth/redirect";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import PlatformCards from "./PlatformCards";
-import { RADIUS, TEXTURE_STEP, accentButtonSx, linkSx, useSurface } from "./surfaces";
+import { GRID_STEP, RADIUS, TEXTURE_STEP, accentButtonSx, linkSx, useSurface } from "./surfaces";
 import { CARDS, COPYRIGHT, HEADLINE, LOCATION, SECURITY_POINTS, SIGN_IN_PATH, SUBLINE, TAGLINE } from "./landingContent";
 
 // The globe and cobe load in their own chunk, after the first paint.
@@ -147,12 +147,16 @@ export default function Landing() {
           </Box>
         </Box>
 
-        <Box component="section" aria-labelledby="platform-title" sx={{ bgcolor: t.section, borderBottom: `1px solid ${t.rule}` }}>
+        <Box component="section" aria-labelledby="platform-title" sx={{
+          bgcolor: t.section, borderBottom: `1px solid ${t.rule}`,
+          // A very faint fine grid on the section only, behind the cards.
+          backgroundImage: t.grid, backgroundSize: `${GRID_STEP}px ${GRID_STEP}px`,
+        }}>
           <Box sx={{ ...PAGE, py: { xs: 6, md: 9 } }}>
             <Typography id="platform-title" component="h2" sx={{ fontSize: { xs: 22, md: 26 }, fontWeight: 600, letterSpacing: "-0.01em", fontFamily: (th) => th.typography.h2.fontFamily, mb: 3 }}>
               What the platform does
             </Typography>
-            <PlatformCards cards={CARDS} />
+            <PlatformCards cards={CARDS} href={href} />
           </Box>
         </Box>
       </Box>
