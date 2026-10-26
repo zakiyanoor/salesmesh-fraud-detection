@@ -43,27 +43,37 @@ export const mono = { fontFamily: (theme) => theme.typography.fontFamilyMono };
 // Touch screens get 44px targets; with a mouse the compact look stays.
 const TOUCH = "@media (pointer: coarse)";
 
-export function createAppTheme(mode = "light") {
+/** One colour scheme's palette, built from PALETTES (issue #28: light and dark are both full schemes). */
+export function schemePalette(mode) {
   const p = PALETTES[mode];
-  return createTheme({
-    palette: {
-      mode,
-      background: p.background,
-      text: p.text,
-      divider: p.divider,
-      primary: p.primary,
-      error: p.error,
-      warning: p.warning,
-      success: p.success,
-      action: { selected: p.selected },
-      risk: {
-        high: p.error.main,
-        review: p.warning.main,
-        low: p.success.main,
-        none: p.text.secondary,
-      },
-      chart: { grid: p.divider, axis: p.text.secondary, neutral: p.chartNeutral, region: p.region },
+  return {
+    background: p.background,
+    text: p.text,
+    divider: p.divider,
+    primary: p.primary,
+    error: p.error,
+    warning: p.warning,
+    success: p.success,
+    action: { selected: p.selected },
+    risk: {
+      high: p.error.main,
+      review: p.warning.main,
+      low: p.success.main,
+      none: p.text.secondary,
     },
+    chart: { grid: p.divider, axis: p.text.secondary, neutral: p.chartNeutral, region: p.region },
+  };
+}
+
+/**
+ * The app theme with a light and a dark colour scheme (MUI colorSchemes, issue #28). The provider picks the
+ * scheme (light, dark or the device's setting) and gives components that scheme's palette, so charts and
+ * SVG drawings that read theme.palette follow it. CSS variables are off on purpose: every colour a component
+ * reads is a real value it can pass to an SVG attribute.
+ */
+export function createAppTheme() {
+  return createTheme({
+    colorSchemes: { light: { palette: schemePalette("light") }, dark: { palette: schemePalette("dark") } },
     typography: {
       fontFamily: SANS,
       fontFamilyMono: MONO,

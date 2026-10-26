@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Box, Paper, TextField, Button, Typography, Alert } from "@mui/material";
 import { useAuth } from "../auth/authContext";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import ThemeMenu from "../components/ThemeMenu";
 
 export default function Login() {
   const { login, notice } = useAuth();
@@ -37,6 +38,9 @@ export default function Login() {
         p: 2,
       }}
     >
+      <Box sx={{ position: "fixed", top: 12, right: 12 }}>
+        <ThemeMenu />
+      </Box>
       <Paper sx={{ p: { xs: 3, sm: 5 }, width: "100%", maxWidth: 380, boxSizing: "border-box" }}>
         <Typography variant="h5" component="h1" gutterBottom>
           SalesMesh

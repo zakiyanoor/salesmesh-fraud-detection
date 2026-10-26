@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { cwd } from "node:process";
+import { resolve } from "node:path";
 import { PALETTES, createAppTheme } from "./theme";
+import { STORAGE_KEY } from "./colorMode/colorModeContext";
 
 function luminance(hex) {
   const [r, g, b] = hex.replace("#", "").match(/../g).map((h) => {
@@ -55,13 +59,34 @@ describe.each(["light", "dark"])("%s palette", (mode) => {
   });
 
   it("risk tokens reuse the status colours", () => {
-    const { risk } = createAppTheme(mode).palette;
+    const { risk } = createAppTheme().colorSchemes[mode].palette;
     expect(risk).toMatchObject({ high: p.error.main, review: p.warning.main, low: p.success.main });
   });
 });
 
+it("has a light and a dark scheme built from PALETTES (issue #28)", () => {
+  const { colorSchemes } = createAppTheme();
+  for (const mode of ["light", "dark"]) {
+    const palette = colorSchemes[mode].palette;
+    expect(palette.mode).toBe(mode);
+    expect(palette.background).toMatchObject(PALETTES[mode].background);
+    expect([palette.primary.main, palette.error.main, palette.text.primary]).toEqual(
+      [PALETTES[mode].primary.main, PALETTES[mode].error.main, PALETTES[mode].text.primary]);
+  }
+});
+
+it("index.html paints the first frame with the palette backgrounds and the stored choice", () => {
+  // Vitest runs from frontend/.
+  const html = readFileSync(resolve(cwd(), "index.html"), "utf-8");
+  expect(html).toContain(`html { background: ${PALETTES.light.background.default}; color-scheme: light; }`);
+  expect(html).toContain(`html[data-color-scheme="dark"] { background: ${PALETTES.dark.background.default}; color-scheme: dark; }`);
+  expect(html).toContain(`window.localStorage.getItem("${STORAGE_KEY}")`);
+  expect(html).toContain("try {");
+});
+
 it("light mode keeps the original look", () => {
-  const { palette, typography, shape } = createAppTheme("light");
+  const { typography, shape, colorSchemes } = createAppTheme();
+  const palette = colorSchemes.light.palette;
   expect(palette.mode).toBe("light");
   expect(palette.background).toMatchObject({ default: "#F5F7FA", paper: "#FFFFFF" });
   expect(palette.primary.main).toBe("#1976D2");

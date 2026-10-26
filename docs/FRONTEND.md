@@ -2,7 +2,7 @@
 
 This is the visual identity of the SalesMesh fraud detection dashboard, written down from the look it already had. **Every new page follows it.** All values below live as tokens in `frontend/src/theme.js`; components never hard-code a colour or font.
 
-The light theme is the default. Dark mode is optional, behind a toggle, and is derived from the same palette.
+Light and dark are both full colour schemes (MUI `colorSchemes`, issue #28), built from the palettes below. The default follows the device setting. The theme menu (System, Light, Dark) is in the landing header, on the sign-in page and in the signed-in header (the sidebar on desktop, the top bar on phones); MUI remembers the choice under `salesmesh.colorMode`, with storage access wrapped in try and catch, so blocked storage only means the choice is not remembered. A small first-party script in `index.html` sets the first paint's background from that choice or the device setting, so there is no flash of the wrong scheme; `theme.test.js` checks its colours match the palettes. CSS variables are off, so every colour that charts and SVG drawings read from the theme is the active scheme's real value.
 
 ## Palette tokens
 
@@ -86,7 +86,8 @@ The light theme is the default. Dark mode is optional, behind a toggle, and is d
 - 240px wide drawer on `background.paper`, with a 1px `divider` right border and 24px padding.
 - "SalesMesh" in `h6` above "Fraud Detection" in `caption`, `text.secondary`, with 32px below.
 - Menu items: outlined icons with 36px minimum icon width, label in `body2`, radius 4px, 4px apart. The active item has an `action.selected` background with `primary.dark` text and icon.
-- Footer: a divider, "Signed in as" with the username and role in `caption`, the dark mode toggle and the "Sign out" text button.
+- Header: the brand, with the theme menu beside it on desktop (on phones the top bar has it).
+- Footer: a divider, "Signed in as" with the username and role in `caption`, and the "Sign out" text button.
 - **From `md` up** the drawer is permanent. **Below `md`** it is a temporary drawer opened by a menu button in a top bar.
 
 ## Charts
@@ -141,7 +142,7 @@ Checked at 360, 768 and 1280 px by `npm run screenshots` (see "Screenshots" belo
 
 ## Accessibility rules
 
-Checked by `frontend/src/test/a11y.test.jsx` (axe on every page for its roles, the landing page at 360 and 1280 px, the sign-in page, the phone menu, the audit drawer, the agree and overrule dialogs, the customer dialog, the ring graph with a selected agent and a chart's table view) and `frontend/src/theme.test.js` (contrast).
+Checked by `frontend/src/test/a11y.test.jsx` (axe on every page for its roles, the landing page at 360 and 1280 px and the sign-in page in both schemes, a signed-in page with charts and the ring graph in the dark scheme, the phone menu, the audit drawer, the agree and overrule dialogs, the customer dialog, the ring graph with a selected agent and a chart's table view) and `frontend/src/theme.test.js` (contrast).
 
 - **Structure:**
   - one `h1` per page (the page title); section titles are `h2`;
@@ -262,7 +263,7 @@ A proposal is never called saved, recorded or final; tests check this.
 | `/reports` | Report downloads | admin | `/api/reports/flagged-agents.csv`, `/api/reports/audit-log.csv`, `/api/reports/detection-summary.pdf` |
 | `/accounts` | Accounts: list, change role, deactivate, reactivate | admin | `/api/admin/accounts`, `PATCH .../role`, `POST .../deactivate`, `POST .../reactivate` |
 | every signed-in page | Footer: model version and last detection run | all | `/api/detection-runs/latest` |
-| `/` (signed out) | Landing page: what the system does, how it works, security design; Sign in at the top | anyone | none (the session check that runs before any page is the only request) |
+| `/` (signed out) | Landing page: hero, how a flag is made (diagram), what it looks at, from flag to decision, who can do what, security design, footer | anyone | none (the session check that runs before any page is the only request) |
 | `/sign-in` | The sign-in form; once signed in it opens the usual home page (`/`) | anyone | `POST /api/login` |
 | `/403`, any other address | Access denied, Page not found | all | none |
 
@@ -274,7 +275,17 @@ A proposal is never called saved, recorded or final; tests check this.
   - Signed out at the site root, the landing page opens; any other address still shows the sign-in form and opens that address after signing in. If the sign-in form has a message (for example a deactivated account or an unreachable server), the root shows the form with it instead.
   - "Sign in" at the top leads to `/sign-in`. A signed-in user at the root sees the usual home page, Overview.
   - It makes no API calls of its own, loads no third-party script or font, and has no tracking.
-  - Checked at 360, 768 and 1280 px in Chrome: no horizontal scroll, and Sign in is the first Tab stop.
+  - Design (issue #28):
+    - type: the existing fonts, with a fixed scale (headline 30 or 40px, section headings 22 or 28px, sub-headings 18px, body 17px with a 1.6 line height), text kept under about 68 characters a line;
+    - colour and shape: the blue accent only on Sign in buttons and links, one 6px corner radius, dividers instead of shadows, no gradients or all caps labels;
+    - structure: a diagram, definition lists, a numbered sequence and a table rather than rows of identical boxes, with deliberately uneven spacing between sections;
+    - the copy lives in `pages/landingContent.js` and `components/flowDiagramContent.js`.
+  - "How a flag is made" (`components/FlowDiagram.jsx`) is one inline SVG in the theme's colours, with a title, a description and the same steps as a list for screen readers. Two fixed layouts: side by side from 900px, stacked below. The flag sources use the app's colours for them, Model and Both the high risk colour and Rule only the review colour, each labelled in text.
+  - The signal sentences are checked against `ml/feature_engineering.py`, and the rule's against `duplicate_activation_counts` in `ml/baselines.py`. Busiest 24 hours is any 24 hours in a row, not a calendar day; the rule works on customer and client pairs, and a retry after a failure does not count.
+  - "Who can do what" is the role matrix in `docs/API.md`, checked against the role checks in `backend/src/api.py`; on phones it is a list of each action and the roles that can take it.
+  - Every section, the diagram and each security point has an id; the footer's links jump to them, with a scroll margin for the sticky header. The footer columns sit four across from 1200px, two from 600px and one below.
+  - Checked at 360, 768 and 1280 px in Chrome in both schemes: no horizontal scroll, Sign in is the first Tab stop, footer links land below the header, and nothing moves on load.
+  - Masked identifiers are not on the page: the change that would mask customer IDs is on hold and not in `main`.
   - Its security design section has four points, each backed by code:
     - role based access: `backend/src/auth.py` (`role_required`, `refresh_session`);
     - two person review of every decision: `backend/src/review.py` (the proposer can never agree, overrule or correct) and the write-once triggers in `backend/src/db.py`;

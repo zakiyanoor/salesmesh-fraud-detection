@@ -1,5 +1,13 @@
 # Backend changes
 
+## Sprint 11: landing page and themes (issue #28)
+
+Branch `feature/landing-and-themes`. Frontend only: no backend change, no migration.
+
+- **Light and dark colour schemes** (MUI `colorSchemes`). The default follows the device setting, and a theme menu (System, Light, Dark) on the landing page, the sign-in page and the signed-in header remembers the choice. A small first-party script in `frontend/index.html` paints the first frame in the right scheme.
+- **Landing page redesign**: a hero, a diagram of how a flag is made, the four signals and the rule as definition lists (checked against `ml/feature_engineering.py` and `ml/baselines.py`), the sequence from flag to decision, the role matrix (checked against `backend/src/api.py`), the security design, and a footer whose links jump to each section. Details and the code behind each security point are in `docs/FRONTEND.md`.
+- **Ring graph**: edge labels are placed so they do not land on each other or on the agents' names, and names have a halo where an edge passes behind them.
+
 ## Sprint 10: screens (issue #28)
 
 Branch `feature/sprint-3-screens`.

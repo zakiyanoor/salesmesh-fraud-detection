@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { Box, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import { layout } from "./ringLayout";
+import { layout, placeLabels } from "./ringLayout";
 
 const NODE_RADIUS = 18;
-// Labels sit part of the way along each edge, from its first agent, so the labels of edges that cross in
-// the middle of the circle (for example the diagonals of a ring of 6) do not land on top of each other.
-const LABEL_AT = 0.35;
+// Edge labels are placed by placeLabels (ringLayout.js) so they do not land on each other or on an agent.
 
 /**
  * A ring candidate as a graph in plain SVG (issue #28). Agents are nodes; an edge means the two agents share
@@ -17,11 +15,14 @@ export default function RingGraph({ graph }) {
   const theme = useTheme();
   const [selected, setSelected] = useState(null);
   const ids = graph.nodes.map((n) => n.agent_id);
-  const { size, positions } = layout(ids);
+  const { size, radius, positions } = layout(ids);
+  const labels = placeLabels(graph.edges, positions, radius);
   const touches = (e) => selected && (e.source === selected || e.target === selected);
   const maxShared = Math.max(1, ...graph.edges.map((e) => e.shared_customers));
   const linked = selected ? graph.edges.filter(touches) : [];
 
+  // Text drawn over a stroke in the card colour stays readable where an edge passes behind it.
+  const halo = { stroke: theme.palette.background.paper, strokeWidth: 4, paintOrder: "stroke" };
   const toggle = (id) => setSelected((current) => (current === id ? null : id));
 
   return (
@@ -42,8 +43,7 @@ export default function RingGraph({ graph }) {
           const a = positions[e.source];
           const b = positions[e.target];
           const dim = selected && !touches(e);
-          const x = a.x + (b.x - a.x) * LABEL_AT;
-          const y = a.y + (b.y - a.y) * LABEL_AT;
+          const { x, y } = labels[`${e.source}-${e.target}`];
           return (
             <g key={`${e.source}-${e.target}`} opacity={dim ? 0.15 : 1} aria-hidden="true">
               <line
@@ -86,8 +86,8 @@ export default function RingGraph({ graph }) {
                 fill={active ? theme.palette.primary.main : theme.palette.background.paper}
                 stroke={theme.palette.primary.main} strokeWidth={active ? 3 : 2}
               />
-              <text x={p.x} y={p.y + NODE_RADIUS + 14} textAnchor="middle" fontSize={12} fill={theme.palette.text.primary}>{n.agent_id}</text>
-              <text x={p.x} y={p.y + NODE_RADIUS + 28} textAnchor="middle" fontSize={11} fill={theme.palette.text.secondary}>{n.county}</text>
+              <text x={p.x} y={p.y + NODE_RADIUS + 14} textAnchor="middle" fontSize={12} fill={theme.palette.text.primary} {...halo}>{n.agent_id}</text>
+              <text x={p.x} y={p.y + NODE_RADIUS + 28} textAnchor="middle" fontSize={11} fill={theme.palette.text.secondary} {...halo}>{n.county}</text>
             </g>
           );
         })}

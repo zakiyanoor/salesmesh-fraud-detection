@@ -11,7 +11,7 @@ import ReceiptIcon from "@mui/icons-material/ReceiptLongOutlined";
 import DownloadIcon from "@mui/icons-material/FileDownloadOutlined";
 import ManageAccountsIcon from "@mui/icons-material/ManageAccountsOutlined";
 import HelpIcon from "@mui/icons-material/HelpOutlineOutlined";
-import ColorModeToggle from "./ColorModeToggle";
+import ThemeMenu from "./ThemeMenu";
 import { useAuth } from "../auth/authContext";
 import { ROLE_LABELS, menuFor } from "../auth/roles";
 
@@ -57,11 +57,15 @@ export default function Sidebar({ variant = "permanent", open = true, onClose, o
       }}
     >
       {/* The brand is the page banner on desktop; in the phone drawer the top bar already is. */}
-      <Box component={variant === "permanent" ? "header" : "div"}>
-        <Typography variant="h6" component="p">SalesMesh</Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 4 }}>
-          Fraud Detection
-        </Typography>
+      <Box component={variant === "permanent" ? "header" : "div"} sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1, mb: 4 }}>
+        <Box>
+          <Typography variant="h6" component="p">SalesMesh</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+            Fraud Detection
+          </Typography>
+        </Box>
+        {/* On phones the top bar has the theme menu; the drawer does not repeat it. */}
+        {variant === "permanent" && <ThemeMenu />}
       </Box>
       <Box component="nav" aria-label="Main menu" sx={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
 
@@ -94,12 +98,9 @@ export default function Sidebar({ variant = "permanent", open = true, onClose, o
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
             {ROLE_LABELS[user?.role] || user?.role}
           </Typography>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Button size="small" onClick={logout} sx={{ px: 0 }}>
-              Sign out
-            </Button>
-            <ColorModeToggle />
-          </Box>
+          <Button size="small" onClick={logout} sx={{ px: 0 }}>
+            Sign out
+          </Button>
         </Box>
       </Box>
     </Drawer>

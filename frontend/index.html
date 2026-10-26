@@ -3,8 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>SalesMesh Fraud Detection</title>
+    <!-- First paint in the right colour scheme (issue #28): the backgrounds are PALETTES in src/theme.js
+         (theme.test.js checks they match), and the key is STORAGE_KEY in src/colorMode/colorModeContext.js. -->
+    <style>
+      html { background: #F5F7FA; color-scheme: light; }
+      html[data-color-scheme="dark"] { background: #0F141A; color-scheme: dark; }
+    </style>
+    <script>
+      (function () {
+        var mode = "system";
+        try { mode = window.localStorage.getItem("salesmesh.colorMode") || "system"; } catch (e) { mode = "system"; }
+        var dark = mode === "dark" || (mode !== "light" && !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.setAttribute("data-color-scheme", dark ? "dark" : "light");
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
