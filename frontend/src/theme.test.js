@@ -82,6 +82,9 @@ it("index.html paints the first frame with the palette backgrounds and the store
   expect(html).toContain(`html[data-color-scheme="dark"] { background: ${PALETTES.dark.background.default}; color-scheme: dark; }`);
   expect(html).toContain(`window.localStorage.getItem("${STORAGE_KEY}")`);
   expect(html).toContain("try {");
+  // Light unless dark was chosen: the device setting is no longer followed.
+  expect(html).toContain(`getItem("${STORAGE_KEY}") === "dark"`);
+  expect(html).not.toContain("prefers-color-scheme");
 });
 
 it("light mode keeps the original look", () => {

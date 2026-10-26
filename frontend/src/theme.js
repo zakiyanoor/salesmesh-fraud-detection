@@ -8,8 +8,9 @@ const MONO = '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, mo
 export const PALETTES = {
   light: {
     background: { default: "#F5F7FA", paper: "#FFFFFF" },
-    text: { primary: "#1A1D21", secondary: "#6B7280" },
-    divider: "#E0E4E8",
+    // Secondary text is a deep slate (7.5:1 on white), so it never reads as grey on grey.
+    text: { primary: "#14171C", secondary: "#4B5563" },
+    divider: "#D9DEE5",
     // primary.dark is for primary-coloured text on the page background or a tinted surface (AA there).
     primary: { main: "#1976D2", dark: "#1565C0", contrastText: "#FFFFFF" },
     // Status colours are darkened so they stay readable as text on white (AA).

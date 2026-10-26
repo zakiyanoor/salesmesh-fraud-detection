@@ -2,10 +2,10 @@
 
 ## Sprint 11: landing page and themes (issue #28)
 
-Branch `feature/landing-and-themes`. Frontend only: no backend change, no migration.
+Branch `feature/landing-page`. Frontend only: no backend change, no migration.
 
-- **Light and dark colour schemes** (MUI `colorSchemes`). The default follows the device setting, and a theme menu (System, Light, Dark) on the landing page, the sign-in page and the signed-in header remembers the choice. A small first-party script in `frontend/index.html` paints the first frame in the right scheme.
-- **Landing page redesign**: a hero, a diagram of how a flag is made, the four signals and the rule as definition lists (checked against `ml/feature_engineering.py` and `ml/baselines.py`), the sequence from flag to decision, the role matrix (checked against `backend/src/api.py`), the security design, and a footer whose links jump to each section. Details and the code behind each security point are in `docs/FRONTEND.md`.
+- **Light and dark colour schemes** (MUI `colorSchemes`). Light is the default whatever the device prefers. A theme menu with Light and Dark on the landing page, the sign-in page and the signed-in header remembers the choice; an older stored "system" counts as light. A small first-party script in `frontend/index.html` paints the first frame in the right scheme.
+- **Landing page** (replacing the first version from Sprint 10): a top navigation with the pages every role may open (Overview, Threat intelligence, Analytics, How the model works; signed out, each goes to sign in and opens after it, with only known relative paths accepted), a hero with the headline, Sign in and a globe that draws only Kenya with a dot for each of the 47 county headquarters, four cards under "What the platform does" (Detection, Review, Investigation, Accountability, each with one link), and a footer with the Platform pages, the four security points and "2026 SalesMesh" and "Nairobi, Kenya". The globe uses the npm package `cobe` (MIT, no dependencies, bundled), stays a dark sphere in both schemes, pauses when hidden, is still with reduced motion, and falls back to an SVG drawing without WebGL. The sign-in page shares the landing page's surfaces. Details and the code behind each security point are in `docs/FRONTEND.md`.
 - **Ring graph**: edge labels are placed so they do not land on each other or on the agents' names, and names have a halo where an edge passes behind them.
 
 ## Sprint 10: screens (issue #28)
@@ -14,7 +14,7 @@ Branch `feature/sprint-3-screens`.
 
 ### Landing page (frontend only)
 
-- A landing page at the site root before sign in, with Sign in at the top leading to the existing form at `/sign-in`. No backend change; `docs/FRONTEND.md` lists the code behind each of its four security points.
+- A first landing page at the site root before sign in, with Sign in leading to the existing form at `/sign-in`. No backend change. Replaced in Sprint 11 (see above).
 
 ### Model information
 

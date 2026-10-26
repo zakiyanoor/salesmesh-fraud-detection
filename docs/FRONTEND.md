@@ -2,7 +2,7 @@
 
 This is the visual identity of the SalesMesh fraud detection dashboard, written down from the look it already had. **Every new page follows it.** All values below live as tokens in `frontend/src/theme.js`; components never hard-code a colour or font.
 
-Light and dark are both full colour schemes (MUI `colorSchemes`, issue #28), built from the palettes below. The default follows the device setting. The theme menu (System, Light, Dark) is in the landing header, on the sign-in page and in the signed-in header (the sidebar on desktop, the top bar on phones); MUI remembers the choice under `salesmesh.colorMode`, with storage access wrapped in try and catch, so blocked storage only means the choice is not remembered. A small first-party script in `index.html` sets the first paint's background from that choice or the device setting, so there is no flash of the wrong scheme; `theme.test.js` checks its colours match the palettes. CSS variables are off, so every colour that charts and SVG drawings read from the theme is the active scheme's real value.
+Light and dark are both full colour schemes (MUI `colorSchemes`, issue #28), built from the palettes below. The default is light, whatever the device prefers. The theme menu (Light, Dark) is in the landing header, on the sign-in page and in the signed-in header (the sidebar on desktop, the top bar on phones); MUI remembers the choice under `salesmesh.colorMode`, with storage access wrapped in try and catch, so blocked storage only means the choice is not remembered. A stored value other than light or dark (such as "system" from an earlier version) is switched to light through MUI before the first paint (a layout effect in `ColorModeProvider`), and MUI stores light; no app code touches storage. A small first-party script in `index.html` paints dark only when dark is stored, light otherwise, so there is no flash of the wrong scheme; `theme.test.js` checks its colours match the palettes. CSS variables are off, so every colour that charts and SVG drawings read from the theme is the active scheme's real value.
 
 ## Palette tokens
 
@@ -10,9 +10,9 @@ Light and dark are both full colour schemes (MUI `colorSchemes`, issue #28), bui
 |---|---|---|---|
 | `background.default` | `#F5F7FA` | `#0F141A` | Page background |
 | `background.paper` | `#FFFFFF` | `#171D24` | Cards, drawer, tables, tooltips |
-| `divider` | `#E0E4E8` | `#2A333D` | Card borders, table rules, chart grid |
-| `text.primary` | `#1A1D21` | `#E6E9ED` | Body text, numbers |
-| `text.secondary` | `#6B7280` | `#9AA4B1` | Captions, overlines, column hints |
+| `divider` | `#D9DEE5` | `#2A333D` | Card borders, table rules, chart grid |
+| `text.primary` | `#14171C` | `#E6E9ED` | Body text, numbers |
+| `text.secondary` | `#4B5563` | `#9AA4B1` | Captions, overlines, column hints |
 | `primary.main` | `#1976D2` | `#64A8F0` | Contained buttons, focus, the score figure, primary bars |
 | `primary.dark` | `#1565C0` | `#8DC0F5` | Primary-coloured **text** on page or tinted backgrounds (text buttons, active menu item) |
 | `primary.contrastText` | `#FFFFFF` | `#0F141A` | Text on contained primary buttons |
@@ -263,30 +263,32 @@ A proposal is never called saved, recorded or final; tests check this.
 | `/reports` | Report downloads | admin | `/api/reports/flagged-agents.csv`, `/api/reports/audit-log.csv`, `/api/reports/detection-summary.pdf` |
 | `/accounts` | Accounts: list, change role, deactivate, reactivate | admin | `/api/admin/accounts`, `PATCH .../role`, `POST .../deactivate`, `POST .../reactivate` |
 | every signed-in page | Footer: model version and last detection run | all | `/api/detection-runs/latest` |
-| `/` (signed out) | Landing page: hero, how a flag is made (diagram), what it looks at, from flag to decision, who can do what, security design, footer | anyone | none (the session check that runs before any page is the only request) |
-| `/sign-in` | The sign-in form; once signed in it opens the usual home page (`/`) | anyone | `POST /api/login` |
+| `/` (signed out) | Landing page: navigation, headline, Sign in, a globe centred on Kenya, four cards, footer | anyone | none (the session check that runs before any page is the only request) |
+| `/sign-in` | The sign-in form; once signed in it opens the page in `?next=` if it is safe and the role may open it, otherwise the usual home page (`/`) | anyone | `POST /api/login` |
 | `/403`, any other address | Access denied, Page not found | all | none |
 
 **Notes on what is shown:**
 - Agent ids are system codes, not personal data, so they are shown in full.
 - Phone and national ID numbers are masked by the server (last 3 digits). Agent detail shortens the name to initials.
 - Internal ids (flag, decision and run ids) are never shown.
-- **Landing page** (issue #28, `pages/Landing.jsx`):
+- **Landing page** (issue #28, `pages/Landing.jsx`, copy in `pages/landingContent.js`):
   - Signed out at the site root, the landing page opens; any other address still shows the sign-in form and opens that address after signing in. If the sign-in form has a message (for example a deactivated account or an unreachable server), the root shows the form with it instead.
-  - "Sign in" at the top leads to `/sign-in`. A signed-in user at the root sees the usual home page, Overview.
+  - Content: a header with "SalesMesh", the navigation, Sign in and the theme menu; the hero with the headline "Fraud detection for sales agent networks.", one line under it, a Sign in button and the globe; four cards under "What the platform does" (Detection, Review, Investigation, Accountability); a footer. A signed-in user at the root sees the usual home page, Overview.
+  - Navigation (`auth/redirect.js`): the menu pages every role may open, read from `PAGES` in `auth/roles.js` (`SHARED_PAGES`): Overview, Threat intelligence, Analytics and How the model works. The agent lists are for reviewers only, so they are not in it. Signed out, each link goes to `/sign-in?next=<page>`; after signing in, `/sign-in` (`auth/AfterSignIn.jsx`) opens that page. `safeTarget` accepts only a path with a single leading slash, no backslash, space or scheme, that matches a known route the role may open; anything else opens Overview, so the parameter cannot redirect elsewhere. Below 900px the links collapse into a menu button (`aria-expanded`, `aria-controls`) with a list labelled "Main".
+  - Footer: "SalesMesh" and "Fraud detection for sales agent networks."; a wide brand block on the left, then Platform (the same pages as the navigation, through sign in) and Security (plain lines naming the four security points) side by side; a bottom bar with "2026 SalesMesh" and "Nairobi, Kenya", and no link.
+  - Look (`pages/surfaces.js`, shared with the sign-in page): light is the main face and is designed on its own terms. A cool off-white page, a near black headline in the display font, deep slate secondary text, and one accent: in light the deeper blue (`primary.dark`, 5.75:1 with white, 5.35:1 on the page), in dark the lighter blue. Depth comes from structure: crisp visible rules, a lightly tinted hero band with a fine dot texture at very low contrast, white cards on a faintly tinted section with a very faint grid, and a white footer. No shadows except the globe's soft contact shadow. Buttons, links and the menu have hover, pressed and focus states in both schemes; the cards change only their border and left edge on hover. Headline 40, 52 or 64px, the line under it 18 or 20px, cards 15px, footer 14px; a 6px radius (8px on the cards). Two columns in the hero from 900px (text left, globe right); below that the globe sits under the hero and is smaller.
+  - Cards (`pages/PlatformCards.jsx`, content in `CARDS` in `pages/landingContent.js`): four equal cards in a two by two grid from 900px, one column below, with a generous gap. Each card, top to bottom: a small label chip (monospace 12px, thin border, 4px radius, normal case: Scoring, Decisions, Analysis, Records), the heading in the display font at 22px, the paragraph in the secondary colour at about 55 characters a line, and one text link. The links go to pages all three roles may open, through sign in while signed out like the navigation: Detection to How the model works, Review to Analytics ("Open analytics", which holds Review outcomes; the confirm queue is for compliance officers only), Investigation to Threat intelligence, Accountability to Overview ("Open the overview"; the audit log is for admins only). A test checks every card link is in `SHARED_PAGES`. Surfaces are flat: a thin border, an 8px radius, padding 32px, no shadow, gradient or glow; the card is a little lighter than the section (white in light, the deep blue grey paper in dark, with a low contrast blue grey border). On hover, or while the link has focus, the border turns to the accent and a 2px accent edge shows down the left side. The chip is a pale accent tint with the deeper accent text in light, a dark fill with a subtle border and muted accent text in dark. The card is not a tab stop; only its link is. The section behind the cards has a very faint 32px grid.
+  - Sign-in page (`pages/Login.jsx`): the hero's tinted, dotted surface behind a white card with a visible border, the name, the product line and the accent Sign in button.
+  - The globe (`components/globe/KenyaGlobe.jsx`, with a soft contact shadow under it on the page, the npm package `cobe`, bundled by Vite in its own chunk, no outside request): a dark sphere in both schemes (`components/globe/sphereColours.js`, the dark palette), with a thin accent ring, zoomed in (scale 12) so Kenya fills about two thirds of its width, swaying 0.6 degrees either side over 18 seconds, with one accent dot for each of the 47 counties at its headquarters town (`components/globe/kenyaCounties.js`, the county names of `ml/data_generation.py`) over a finer neutral dot grid. No text on the globe.
+    - It mounts after the first paint, in a space reserved from the start, so the headline and Sign in appear at once and nothing moves.
+    - It pauses while the tab is hidden or the globe is off screen. With reduced motion it is one still image facing Kenya: cobe loads its map asynchronously and does not redraw when it arrives, so that same image is repainted for about a second while the map loads, then nothing more is drawn.
+    - Without WebGL, a still SVG drawing stands in (`components/globe/GlobeFallback.jsx`): the same dark sphere with Kenya's outline, its dot grid and the counties, at the same size.
+    - The pixel ratio is capped at 2, the canvas follows its container, and everything is released on unmount.
+    - It is decorative (`aria-hidden`); the text carries the meaning.
   - It makes no API calls of its own, loads no third-party script or font, and has no tracking.
-  - Design (issue #28):
-    - type: the existing fonts, with a fixed scale (headline 30 or 40px, section headings 22 or 28px, sub-headings 18px, body 17px with a 1.6 line height), text kept under about 68 characters a line;
-    - colour and shape: the blue accent only on Sign in buttons and links, one 6px corner radius, dividers instead of shadows, no gradients or all caps labels;
-    - structure: a diagram, definition lists, a numbered sequence and a table rather than rows of identical boxes, with deliberately uneven spacing between sections;
-    - the copy lives in `pages/landingContent.js` and `components/flowDiagramContent.js`.
-  - "How a flag is made" (`components/FlowDiagram.jsx`) is one inline SVG in the theme's colours, with a title, a description and the same steps as a list for screen readers. Two fixed layouts: side by side from 900px, stacked below. The flag sources use the app's colours for them, Model and Both the high risk colour and Rule only the review colour, each labelled in text.
-  - The signal sentences are checked against `ml/feature_engineering.py`, and the rule's against `duplicate_activation_counts` in `ml/baselines.py`. Busiest 24 hours is any 24 hours in a row, not a calendar day; the rule works on customer and client pairs, and a retry after a failure does not count.
-  - "Who can do what" is the role matrix in `docs/API.md`, checked against the role checks in `backend/src/api.py`; on phones it is a list of each action and the roles that can take it.
-  - Every section, the diagram and each security point has an id; the footer's links jump to them, with a scroll margin for the sticky header. The footer columns sit four across from 1200px, two from 600px and one below.
-  - Checked at 360, 768 and 1280 px in Chrome in both schemes: no horizontal scroll, Sign in is the first Tab stop, footer links land below the header, and nothing moves on load.
-  - Masked identifiers are not on the page: the change that would mask customer IDs is on hold and not in `main`.
-  - Its security design section has four points, each backed by code:
+  - Checked at 360, 768, 1000 and 1280 px in Chrome in both schemes: no horizontal scroll, the first Tab stop is the first navigation link (the menu button on narrow screens). The globe drew with WebGL in headless Chrome without a software GL flag.
+  - Masked identifiers are not listed: the change that would mask customer IDs is on hold and not in `main`.
+  - The four security points, each backed by code:
     - role based access: `backend/src/auth.py` (`role_required`, `refresh_session`);
     - two person review of every decision: `backend/src/review.py` (the proposer can never agree, overrule or correct) and the write-once triggers in `backend/src/db.py`;
     - an append only audit log: `backend/src/audit.py` and the trigger in `backend/src/db.py`;

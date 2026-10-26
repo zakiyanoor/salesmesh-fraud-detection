@@ -1,70 +1,116 @@
+import { Suspense, lazy, useEffect, useId, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import {
-  Box, Button, Link, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, useMediaQuery,
-} from "@mui/material";
-import { useTheme } from "@mui/material/styles";
-import FlowDiagram from "../components/FlowDiagram";
+import { Box, Button, IconButton, Link, Menu, MenuItem, Typography } from "@mui/material";
+import { alpha } from "@mui/material/styles";
+import MenuIcon from "@mui/icons-material/MenuOutlined";
 import ThemeMenu from "../components/ThemeMenu";
+import { useAuth } from "../auth/authContext";
+import { SHARED_PAGES, signInHref } from "../auth/redirect";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
-import { DUPLICATE_RULE, FOOTER, PERMISSIONS, ROLES, SECURITY, SIGNALS, SIGN_IN_PATH, STEPS } from "./landingContent";
+import PlatformCards from "./PlatformCards";
+import { GRID_STEP, RADIUS, TEXTURE_STEP, accentButtonSx, linkSx, useSurface } from "./surfaces";
+import { CARDS, COPYRIGHT, HEADLINE, LOCATION, SECURITY_POINTS, SIGN_IN_PATH, SUBLINE, TAGLINE } from "./landingContent";
 
-// One corner radius and a fixed text measure for the whole page (issue #28).
-const RADIUS = "6px";
-const MEASURE = "68ch";
+// The globe and cobe load in their own chunk, after the first paint.
+const KenyaGlobe = lazy(() => import("../components/globe/KenyaGlobe"));
+
 const HEADER_HEIGHT = 64;
-// Footer links land below the sticky header.
-const anchor = { scrollMarginTop: `${HEADER_HEIGHT + 16}px` };
-// Heading and introduction on the left, the list on the right, from md up.
-const split = { display: "grid", gridTemplateColumns: { xs: "1fr", md: "minmax(220px, 300px) 1fr" }, columnGap: 8, alignItems: "start" };
+const PAGE = { maxWidth: 1180, mx: "auto", px: { xs: 2, sm: 4 }, boxSizing: "border-box", width: "100%" };
 
-function whoCan(allowed) {
-  const names = ROLES.filter((_, i) => allowed[i]);
-  if (names.length === ROLES.length) return "All three roles.";
-  return `${names.map((name, i) => (i ? name.toLowerCase() : name)).join(" and ")} only.`;
+/** Where a page link goes: straight there when signed in, otherwise to sign in, remembering the page. */
+function useHref() {
+  const { status } = useAuth();
+  return (path) => (status === "authenticated" ? path : signInHref(path));
 }
 
-function Heading({ id, children, sx }) {
+/** The pages every role may open; a menu button with a list on narrow screens. */
+function Navigation() {
+  const t = useSurface();
+  const href = useHref();
+  const [anchor, setAnchor] = useState(null);
+  const menuId = useId();
+  const navLink = { ...linkSx(t, { color: "text.primary" }), fontSize: 15, fontWeight: 500, px: 1, py: 0.5, display: "inline-block" };
   return (
-    <Typography id={id} variant="h2" sx={{ fontSize: { xs: 22, md: 28 }, lineHeight: 1.25, mb: 2, ...anchor, ...sx }}>
-      {children}
-    </Typography>
+    <>
+      <Box component="nav" aria-label="Main" sx={{ display: { xs: "none", md: "block" } }}>
+        <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0, display: "flex", gap: 1.5 }}>
+          {SHARED_PAGES.map((page) => (
+            <li key={page.key}><Link component={RouterLink} to={href(page.path)} sx={navLink}>{page.label}</Link></li>
+          ))}
+        </Box>
+      </Box>
+      <Box sx={{ display: { xs: "block", md: "none" } }}>
+        <IconButton
+          aria-label="Open navigation"
+          aria-haspopup="true"
+          aria-controls={anchor ? menuId : undefined}
+          aria-expanded={anchor ? "true" : "false"}
+          onClick={(e) => setAnchor(e.currentTarget)}
+          size="small"
+          sx={{ color: "text.primary", "&:hover": { bgcolor: alpha(t.accent, 0.08) } }}
+        >
+          <MenuIcon fontSize="small" />
+        </IconButton>
+        <Menu id={menuId} anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}
+          slotProps={{ list: { "aria-label": "Main" }, paper: { sx: { borderRadius: RADIUS, border: `1px solid ${t.ruleStrong}`, boxShadow: "none", mt: 0.5 } } }}>
+          {SHARED_PAGES.map((page) => (
+            <MenuItem key={page.key} component={RouterLink} to={href(page.path)} onClick={() => setAnchor(null)}
+              sx={{ "&:hover, &.Mui-focusVisible": { bgcolor: alpha(t.accent, 0.08), color: t.link } }}>
+              {page.label}
+            </MenuItem>
+          ))}
+        </Menu>
+      </Box>
+    </>
   );
 }
 
-function Prose({ children, sx }) {
-  return <Typography sx={{ fontSize: 17, lineHeight: 1.6, maxWidth: MEASURE, ...sx }}>{children}</Typography>;
-}
-
-function Definitions({ id, items, labelledBy }) {
+/** The space the globe will take, kept from the first paint so nothing moves when it arrives. */
+function GlobeSpace({ children }) {
+  const t = useSurface();
   return (
-    <Box component="dl" id={id} aria-labelledby={labelledBy} sx={{ m: 0, maxWidth: MEASURE, ...anchor }}>
-      {items.map(([term, meaning, termId]) => (
-        <Box key={term} sx={{ py: 1.75, borderTop: 1, borderColor: "divider" }}>
-          <Typography component="dt" id={termId} sx={{ fontSize: 18, fontWeight: 600, fontFamily: (t) => t.typography.h3.fontFamily, ...(termId ? anchor : {}) }}>
-            {term}
-          </Typography>
-          <Typography component="dd" sx={{ m: 0, mt: 0.5, fontSize: 17, lineHeight: 1.6, color: "text.secondary" }}>{meaning}</Typography>
-        </Box>
-      ))}
+    <Box data-testid="globe-space" sx={{ position: "relative", width: "100%", maxWidth: { xs: 320, sm: 420, md: 520 }, mx: "auto", aspectRatio: "1 / 1" }}>
+      {/* A soft contact shadow, so the dark sphere sits on the page. */}
+      <Box aria-hidden="true" sx={{
+        position: "absolute", left: "18%", right: "18%", bottom: "-5%", height: "9%", borderRadius: "50%",
+        bgcolor: t.dark ? alpha("#000000", 0.55) : alpha("#0B1A33", 0.22), filter: "blur(12px)",
+      }} />
+      {children}
     </Box>
   );
 }
 
-/** The first page at the site root before sign in (issue #28). No API calls of its own, no motion. */
+function FooterGroup({ title, children }) {
+  return (
+    <Box>
+      <Typography component="h2" sx={{ fontSize: 13, fontWeight: 600, mb: 1.75, color: "text.primary" }}>{title}</Typography>
+      <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0, display: "grid", gap: 1.25 }}>{children}</Box>
+    </Box>
+  );
+}
+
+/** The first page at the site root before sign in (issue #28). No requests of its own; the globe is decorative. */
 export default function Landing() {
   useDocumentTitle(null);
-  const theme = useTheme();
-  // Below md the diagram stacks; the side-by-side layout needs about 900px to keep its text readable.
-  const narrow = !useMediaQuery(theme.breakpoints.up("md"), { noSsr: true });
-  const phone = !useMediaQuery(theme.breakpoints.up("sm"), { noSsr: true });
-  const signIn = { component: RouterLink, to: SIGN_IN_PATH, variant: "contained", sx: { borderRadius: RADIUS, boxShadow: "none" } };
-  const page = { maxWidth: 1120, mx: "auto", px: { xs: 2, sm: 4 } };
+  const t = useSurface();
+  const href = useHref();
+  // Mount the globe after the first paint, so the headline and Sign in appear at once.
+  const [globe, setGlobe] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setGlobe(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  const signIn = { component: RouterLink, to: SIGN_IN_PATH, variant: "contained", disableElevation: true, sx: accentButtonSx(t) };
 
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: "background.default", color: "text.primary" }}>
-      <Box component="header" sx={{ position: "sticky", top: 0, zIndex: 2, bgcolor: "background.default", borderBottom: 1, borderColor: "divider" }}>
-        <Box sx={{ ...page, height: HEADER_HEIGHT, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
-          <Typography component="p" sx={{ fontSize: 19, fontWeight: 600, fontFamily: (t) => t.typography.h1.fontFamily }}>SalesMesh</Typography>
+    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column", bgcolor: "background.default", color: "text.primary", overflowX: "clip" }}>
+      <Box component="header" sx={{ borderBottom: `1px solid ${t.rule}`, bgcolor: "background.default" }}>
+        <Box sx={{ ...PAGE, height: HEADER_HEIGHT, display: "flex", alignItems: "center", gap: { xs: 1, md: 3 } }}>
+          <Typography component="p" sx={{ fontSize: 19, fontWeight: 600, letterSpacing: "-0.01em", fontFamily: (th) => th.typography.h1.fontFamily, mr: { md: 2 } }}>SalesMesh</Typography>
+          <Box sx={{ flexGrow: 1, display: "flex", justifyContent: { xs: "flex-end", md: "flex-start" } }}>
+            <Navigation />
+          </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <Button {...signIn}>Sign in</Button>
             <ThemeMenu />
@@ -72,130 +118,76 @@ export default function Landing() {
         </Box>
       </Box>
 
-      <Box component="main" id="main-content" sx={page}>
-        <Box component="section" aria-labelledby="hero-title" sx={{ pt: { xs: 5, md: 10 }, pb: { xs: 5, md: 7 } }}>
-          <Typography id="hero-title" variant="h1" sx={{ fontSize: { xs: 30, md: 40 }, lineHeight: 1.15, maxWidth: "28ch", mb: 3 }}>
-            Fraud detection for sales agent networks, with every decision reviewed by two people and recorded.
-          </Typography>
-          <Prose sx={{ mb: 4, color: "text.secondary" }}>
-            SalesMesh compares each agent's activations with typical agent behaviour and applies a duplicate
-            activation rule. Flagged agents are passed to a fraud analyst with the supporting evidence, and a compliance
-            officer agrees or overrules the proposed outcome.
-          </Prose>
-          <Button {...signIn} size="large">Sign in</Button>
-        </Box>
-
-        <Box component="section" aria-labelledby="how-a-flag-is-made" sx={{ pb: { xs: 7, md: 10 } }}>
-          <Heading id="how-a-flag-is-made" sx={{ fontSize: { xs: 18, md: 20 }, color: "text.secondary", fontWeight: 600 }}>How a flag is made</Heading>
-          <Box sx={{ border: 1, borderColor: "divider", borderRadius: RADIUS, p: { xs: 1.5, sm: 3 } }}>
-            <FlowDiagram tall={narrow} />
+      <Box component="main" id="main-content" sx={{ flexGrow: 1 }}>
+        {/* The hero: a lightly tinted band with a fine dot texture and a rule under it. */}
+        <Box sx={{
+          borderBottom: `1px solid ${t.rule}`, bgcolor: t.band,
+          backgroundImage: t.texture, backgroundSize: `${TEXTURE_STEP}px ${TEXTURE_STEP}px`,
+        }}>
+          <Box sx={{
+            ...PAGE, display: "grid", gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) minmax(0, 1fr)" },
+            alignItems: "center", columnGap: 6, rowGap: { xs: 6, md: 0 }, pt: { xs: 6, md: 10 }, pb: { xs: 8, md: 11 },
+          }}>
+            <Box>
+              <Typography variant="h1" sx={{ fontSize: { xs: 40, sm: 52, md: 64 }, lineHeight: 1.04, letterSpacing: "-0.025em", maxWidth: "13ch", mb: 3, color: "text.primary" }}>
+                {HEADLINE}
+              </Typography>
+              <Typography sx={{ fontSize: { xs: 18, md: 20 }, lineHeight: 1.5, color: "text.secondary", maxWidth: "34ch", mb: 5 }}>
+                {SUBLINE}
+              </Typography>
+              <Button {...signIn} size="large" sx={{ ...signIn.sx, px: 3.5, py: 1.25 }}>Sign in</Button>
+            </Box>
+            <GlobeSpace>
+              {globe && (
+                <Suspense fallback={null}>
+                  <KenyaGlobe />
+                </Suspense>
+              )}
+            </GlobeSpace>
           </Box>
         </Box>
 
-        <Box component="section" aria-labelledby="what-it-looks-at" sx={{ ...split, pb: { xs: 6, md: 8 } }}>
-          <Box>
-            <Heading id="what-it-looks-at">What it looks at</Heading>
-            <Prose sx={{ mb: 2, color: "text.secondary" }}>Four signals from each agent's own activations go into the model, and one rule runs beside it.</Prose>
+        <Box component="section" aria-labelledby="platform-title" sx={{
+          bgcolor: t.section, borderBottom: `1px solid ${t.rule}`,
+          // A very faint fine grid on the section only, behind the cards.
+          backgroundImage: t.grid, backgroundSize: `${GRID_STEP}px ${GRID_STEP}px`,
+        }}>
+          <Box sx={{ ...PAGE, py: { xs: 6, md: 9 } }}>
+            <Typography id="platform-title" component="h2" sx={{ fontSize: { xs: 22, md: 26 }, fontWeight: 600, letterSpacing: "-0.01em", fontFamily: (th) => th.typography.h2.fontFamily, mb: 3 }}>
+              What the platform does
+            </Typography>
+            <PlatformCards cards={CARDS} href={href} />
           </Box>
-          <Box>
-            <Definitions id="signals" items={SIGNALS} />
-            <Typography component="h3" sx={{ fontSize: 15, fontWeight: 600, color: "text.secondary", mt: 4, mb: 1 }}>Beside the model</Typography>
-            <Definitions id="duplicate-rule" items={[DUPLICATE_RULE]} />
-          </Box>
-        </Box>
-
-        <Box component="section" aria-labelledby="flag-to-decision" sx={{ pb: { xs: 6, md: 8 } }}>
-          <Heading id="flag-to-decision">From flag to decision</Heading>
-          <Prose sx={{ mb: 3, fontWeight: 600 }}>A flag prompts a review. It is not a finding.</Prose>
-          <Box component="ol" sx={{ m: 0, p: 0, listStyle: "none", maxWidth: MEASURE, counterReset: "step" }}>
-            {STEPS.map(([title, text], i) => (
-              <Box component="li" key={title} id={i === STEPS.length - 1 ? "corrections" : undefined}
-                sx={{ display: "grid", gridTemplateColumns: "2.25rem 1fr", columnGap: 1.5, py: 1.5, borderTop: 1, borderColor: "divider", ...anchor }}>
-                <Typography aria-hidden="true" sx={{ fontFamily: (t) => t.typography.fontFamilyMono, fontSize: 17, color: "text.secondary" }}>{i + 1}.</Typography>
-                <Box>
-                  <Typography component="h3" sx={{ fontSize: 18, fontWeight: 600, fontFamily: (t) => t.typography.h3.fontFamily }}>{title}</Typography>
-                  <Typography sx={{ fontSize: 17, lineHeight: 1.6, color: "text.secondary", mt: 0.25 }}>{text}</Typography>
-                </Box>
-              </Box>
-            ))}
-          </Box>
-          <Prose sx={{ mt: 3, color: "text.secondary" }}>
-            Every step, from the detection run to each correction, is written to the audit log with who did it and when.
-          </Prose>
-        </Box>
-
-        <Box component="section" aria-labelledby="who-can-do-what" sx={{ pb: { xs: 6, md: 9 } }}>
-          <Heading id="who-can-do-what">Who can do what</Heading>
-          {phone ? (
-            // Three role columns do not fit a phone: each action, then the roles that can take it.
-            <Definitions id="who-can-do-what-list" items={PERMISSIONS.map(([action, allowed]) => [action, whoCan(allowed)])} />
-          ) : (
-            <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: RADIUS, maxWidth: 820, "& .MuiTableCell-root": { fontSize: 15 } }}>
-              <Table size="small" aria-labelledby="who-can-do-what">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Action</TableCell>
-                    {ROLES.map((r) => <TableCell key={r} align="center">{r}</TableCell>)}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {PERMISSIONS.map(([action, allowed]) => (
-                    <TableRow key={action}>
-                      <TableCell component="th" scope="row" sx={{ fontWeight: 400 }}>{action}</TableCell>
-                      {allowed.map((yes, i) => (
-                        <TableCell key={ROLES[i]} align="center" sx={{ color: yes ? "text.primary" : "text.secondary" }}>{yes ? "Yes" : "No"}</TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </Box>
-
-        <Box component="section" aria-labelledby="security-design" sx={{ ...split, pb: { xs: 8, md: 12 } }}>
-          <Box>
-            <Heading id="security-design">Security design</Heading>
-            <Prose sx={{ mb: 2, color: "text.secondary" }}>How access and the record of decisions are protected.</Prose>
-          </Box>
-          <Definitions items={SECURITY.map(([id, term, meaning]) => [term, meaning, id])} />
         </Box>
       </Box>
 
-      <Box component="footer" sx={{ borderTop: 1, borderColor: "divider" }}>
-        <Box sx={{ ...page, pt: { xs: 5, md: 6 }, pb: 4 }}>
-          <Box sx={{ mb: 4, maxWidth: MEASURE }}>
-            <Typography component="p" sx={{ fontSize: 17, fontWeight: 600, fontFamily: (t) => t.typography.h1.fontFamily }}>SalesMesh Fraud Detection</Typography>
-            <Typography sx={{ fontSize: 15, color: "text.secondary", mt: 0.5 }}>Fraud detection for sales agent networks in Kenya.</Typography>
+      <Box component="footer" sx={{ bgcolor: t.footer }}>
+        <Box sx={{
+          ...PAGE, pt: { xs: 5, md: 7 }, pb: { xs: 4, md: 6 }, display: "grid", columnGap: 6, rowGap: 4,
+          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr)" },
+        }}>
+          <Box sx={{ gridColumn: { sm: "1 / -1", md: "auto" } }}>
+            <Typography component="p" sx={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.01em", fontFamily: (th) => th.typography.h1.fontFamily }}>SalesMesh</Typography>
+            <Typography sx={{ fontSize: 15, color: "text.secondary", mt: 0.75, maxWidth: "34ch" }}>{TAGLINE}</Typography>
           </Box>
-          <Box component="nav" aria-label="Page sections" sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(4, 1fr)" }, gap: 4 }}>
-            {FOOTER.map(([title, links]) => (
-              <Box key={title}>
-                <Typography component="h2" sx={{ fontSize: 15, fontWeight: 600, mb: 1 }}>{title}</Typography>
-                <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>
-                  {links.map(([label, target]) => (
-                    <Box component="li" key={target} sx={{ py: 0.5 }}>
-                      <Link href={`#${target}`} sx={{ fontSize: 15, color: "primary.dark", borderRadius: RADIUS }}>{label}</Link>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
+          <nav aria-label="Platform">
+            <FooterGroup title="Platform">
+              {SHARED_PAGES.map((page) => (
+                <li key={page.key}><Link component={RouterLink} to={href(page.path)} sx={{ ...linkSx(t), fontSize: 14 }}>{page.label}</Link></li>
+              ))}
+            </FooterGroup>
+          </nav>
+          <FooterGroup title="Security">
+            {SECURITY_POINTS.map((point) => (
+              <Typography component="li" key={point} sx={{ fontSize: 14, color: "text.secondary" }}>{point}</Typography>
             ))}
-            <Box>
-              <Typography component="h2" sx={{ fontSize: 15, fontWeight: 600, mb: 1 }}>Access</Typography>
-              <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>
-                <Box component="li" sx={{ py: 0.5 }}>
-                  <Link component={RouterLink} to={SIGN_IN_PATH} sx={{ fontSize: 15, color: "primary.dark", borderRadius: RADIUS }}>Sign in</Link>
-                </Box>
-                <Box component="li" sx={{ py: 0.5 }}>
-                  <Typography sx={{ fontSize: 15, color: "text.secondary" }}>Accounts are managed by an administrator.</Typography>
-                </Box>
-              </Box>
-            </Box>
+          </FooterGroup>
+        </Box>
+        <Box sx={{ borderTop: `1px solid ${t.rule}` }}>
+          <Box sx={{ ...PAGE, py: 2.5, display: "flex", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
+            <Typography sx={{ fontSize: 13, color: "text.secondary" }}>{COPYRIGHT}</Typography>
+            <Typography sx={{ fontSize: 13, color: "text.secondary" }}>{LOCATION}</Typography>
           </Box>
-          <Typography sx={{ fontSize: 14, color: "text.secondary", mt: 5, pt: 3, borderTop: 1, borderColor: "divider" }}>
-            SalesMesh Fraud Detection. ICS Project II, 2026.
-          </Typography>
         </Box>
       </Box>
     </Box>
