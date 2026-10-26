@@ -65,6 +65,14 @@ describe("Landing page", () => {
     expect(cards).toHaveLength(4);
     expect(within(section).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Detection", "Review", "Investigation", "Accountability"]);
     expect(cards.map((card) => card.textContent)).toEqual(CARDS.map(([title, text], i) => `0${i + 1}${title}${text}`));
+    // A small decorative drawing in each, and each card takes keyboard focus for its hover state.
+    for (const [i, name] of ["detection", "review", "investigation", "accountability"].entries()) {
+      const drawing = within(cards[i]).getByTestId(`drawing-${name}`);
+      expect(drawing.tagName.toLowerCase()).toBe("svg");
+      expect(drawing).toHaveAttribute("aria-hidden", "true");
+      const card = within(cards[i]).getByRole("article", { name: CARDS[i][0] });
+      expect(card).toHaveAttribute("tabindex", "0");
+    }
   });
 
   it("has a footer with the name, a short line, link groups, the security points and a plain bottom bar", async () => {
@@ -75,9 +83,11 @@ describe("Landing page", () => {
     const platform = within(footer).getByRole("navigation", { name: "Platform" });
     expect(within(platform).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")]))
       .toEqual(SHARED_PAGES.map((page) => [page.label, signInHref(page.path)]));
-    const access = within(footer).getByRole("navigation", { name: "Access" });
-    expect(within(access).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")]))
-      .toEqual([["Sign in", "/sign-in"], ["How the model works", "/sign-in?next=%2Fhow-it-works"]]);
+    expect(within(footer).queryByRole("navigation", { name: "Access" })).not.toBeInTheDocument();
+    expect(within(footer).getAllByRole("heading").map((h) => h.textContent)).toEqual(["Platform", "Security"]);
+    // The only links in the footer are the Platform pages: no Sign in link anywhere in it.
+    expect(within(footer).getAllByRole("link")).toHaveLength(SHARED_PAGES.length);
+    expect(within(footer).queryByRole("link", { name: "Sign in" })).not.toBeInTheDocument();
     const security = within(footer).getByRole("heading", { name: "Security" }).parentElement;
     expect(within(security).getAllByRole("listitem").map((li) => li.textContent)).toEqual(SECURITY_POINTS);
     expect(within(security).queryByRole("link")).not.toBeInTheDocument();
@@ -96,7 +106,7 @@ describe("Landing page", () => {
       expect(document.body.textContent).not.toMatch(gone);
     }
     expect(screen.getAllByRole("heading").map((h) => h.textContent)).toEqual([HEADLINE, "What the platform does",
-      "Detection", "Review", "Investigation", "Accountability", "Platform", "Access", "Security"]);
+      "Detection", "Review", "Investigation", "Accountability", "Platform", "Security"]);
   });
 
   it("reserves the globe's space at once, then shows the globe as decoration only", async () => {

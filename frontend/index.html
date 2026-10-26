@@ -14,9 +14,9 @@
     </style>
     <script>
       (function () {
-        var mode = "system";
-        try { mode = window.localStorage.getItem("salesmesh.colorMode") || "system"; } catch (e) { mode = "system"; }
-        var dark = mode === "dark" || (mode !== "light" && !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        // Light unless dark was chosen; anything else stored (such as an old "system") counts as light.
+        var dark = false;
+        try { dark = window.localStorage.getItem("salesmesh.colorMode") === "dark"; } catch (e) { dark = false; }
         document.documentElement.setAttribute("data-color-scheme", dark ? "dark" : "light");
       })();
     </script>

@@ -34,39 +34,47 @@ afterEach(() => {
 });
 
 describe("colour scheme (issue #28)", () => {
-  it.each([[true, "dark", "#0F141A"], [false, "light", "#F5F7FA"]])(
-    "follows the device by default (prefers dark: %s)", (prefersDark, mode, background) => {
-      device(prefersDark);
-      renderApp();
-      expect(screen.getByTestId("mode")).toHaveTextContent(`${mode} ${background}`);
-      expect(screen.getByRole("button", { name: `Theme: System, now ${mode}` })).toBeInTheDocument();
-      expect(document.documentElement.getAttribute("data-color-scheme")).toBe(mode);
-    },
-  );
+  it.each([true, false])("starts light on a first visit, whatever the device prefers (prefers dark: %s)", (prefersDark) => {
+    device(prefersDark);
+    renderApp();
+    expect(screen.getByTestId("mode")).toHaveTextContent("light #F5F7FA");
+    expect(screen.getByRole("button", { name: "Theme: Light" })).toBeInTheDocument();
+    expect(document.documentElement.getAttribute("data-color-scheme")).toBe("light");
+  });
 
-  it("lets the user choose dark, light or system, marks the choice and remembers it", async () => {
+  it("offers only Light and Dark, marks the choice and remembers it", async () => {
     device(false);
     renderApp();
-    await choose("Dark");
-    expect(screen.getByTestId("mode")).toHaveTextContent("dark");
+    await userEvent.click(screen.getByRole("button", { name: /^Theme: / }));
+    expect(screen.getAllByRole("menuitemradio").map((item) => item.textContent)).toEqual(["Light", "Dark"]);
+    expect(screen.queryByRole("menuitemradio", { name: "System" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("menuitemradio", { name: "Dark" }));
+    expect(screen.getByTestId("mode")).toHaveTextContent("dark #0F141A");
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe("dark");
     expect(document.documentElement.getAttribute("data-color-scheme")).toBe("dark");
     await userEvent.click(screen.getByRole("button", { name: "Theme: Dark" }));
     expect(screen.getByRole("menuitemradio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("menuitemradio", { name: "System" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("menuitemradio", { name: "Light" })).toHaveAttribute("aria-checked", "false");
     await userEvent.click(screen.getByRole("menuitemradio", { name: "Light" }));
     expect(screen.getByTestId("mode")).toHaveTextContent("light");
-    await choose("System");
-    expect(screen.getByTestId("mode")).toHaveTextContent("light");
-    expect(window.localStorage.getItem(STORAGE_KEY)).toBe("system");
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBe("light");
   });
 
-  it("starts in the remembered choice, even against the device", () => {
+  it("starts in the remembered choice", () => {
+    device(false);
+    window.localStorage.setItem(STORAGE_KEY, "dark");
+    renderApp();
+    expect(screen.getByTestId("mode")).toHaveTextContent("dark");
+    expect(screen.getByRole("button", { name: "Theme: Dark" })).toBeInTheDocument();
+  });
+
+  it.each(["system", "sepia"])("treats a stored %s as light, even on a dark device", (stored) => {
     device(true);
-    window.localStorage.setItem(STORAGE_KEY, "light");
+    window.localStorage.setItem(STORAGE_KEY, stored);
     renderApp();
     expect(screen.getByTestId("mode")).toHaveTextContent("light");
     expect(screen.getByRole("button", { name: "Theme: Light" })).toBeInTheDocument();
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBe("light");
   });
 
   it("still works when storage is blocked", async () => {
@@ -74,8 +82,8 @@ describe("colour scheme (issue #28)", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("blocked"); });
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("blocked"); });
     renderApp();
-    expect(screen.getByTestId("mode")).toHaveTextContent("dark");
-    await choose("Light");
     expect(screen.getByTestId("mode")).toHaveTextContent("light");
+    await choose("Dark");
+    expect(screen.getByTestId("mode")).toHaveTextContent("dark");
   });
 });

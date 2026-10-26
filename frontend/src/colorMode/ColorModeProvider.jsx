@@ -1,14 +1,20 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 import { useColorScheme } from "@mui/material/styles";
 import { createAppTheme } from "../theme";
-import { SCHEME_STORAGE_KEY, STORAGE_KEY } from "./colorModeContext";
+import { DEFAULT_MODE, MODES, SCHEME_STORAGE_KEY, STORAGE_KEY } from "./colorModeContext";
 
 const theme = createAppTheme();
 
-/** Keeps the html element's scheme (used by index.html's first-paint styles) in step with the app. */
+/**
+ * Keeps the html element's scheme (used by index.html's first-paint styles) in step with the app, and turns a
+ * stored mode that is not light or dark (an old "system") into light before the first paint.
+ */
 function SyncDocumentScheme() {
-  const { colorScheme } = useColorScheme();
+  const { mode, setMode, colorScheme } = useColorScheme();
+  useLayoutEffect(() => {
+    if (mode && !MODES.includes(mode)) setMode(DEFAULT_MODE);
+  }, [mode, setMode]);
   useEffect(() => {
     if (!colorScheme) return;
     document.documentElement.setAttribute("data-color-scheme", colorScheme);
@@ -17,12 +23,12 @@ function SyncDocumentScheme() {
   return null;
 }
 
-/** Light and dark colour schemes; the default follows the device setting (issue #28). */
+/** Light and dark colour schemes, light by default (issue #28). */
 export default function ColorModeProvider({ children }) {
   return (
     <ThemeProvider
       theme={theme}
-      defaultMode="system"
+      defaultMode={DEFAULT_MODE}
       modeStorageKey={STORAGE_KEY}
       colorSchemeStorageKey={SCHEME_STORAGE_KEY}
       noSsr
