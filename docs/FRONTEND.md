@@ -133,7 +133,7 @@ Checked at 360, 768 and 1280 px by `npm run screenshots` (see "Screenshots" belo
 **Layout:**
 - **Navigation:** a permanent 240px drawer from `md` (900px) up. Below `md`, a top bar with a menu button opens a temporary drawer, which closes after each choice.
 - **Content padding:** 40px from `md` up, 16px below.
-- **Rows** of filters, summary cards and chart cards wrap. Summary cards are at least 160px wide, so five fit on one row at 1280px. The Overview uses one instrument bar instead (see Overview below), five cells on one row from 900px and two columns below.
+- **Rows** of filters, summary cards and chart cards wrap. Summary cards are at least 160px wide, so five fit on one row at 1280px.
 - **Nothing scrolls sideways** at any width. Tables below `md` become cards (`DataTable`); fixed tables (evidence, chart data) scroll inside their own `TableContainer`.
 - **Filter fields** are full width on phones and a fixed width from `sm` up.
 - **The audit details drawer** is 440px wide from `sm` up and full width on phones.
@@ -250,7 +250,7 @@ A proposal is never called saved, recorded or final; tests check this.
 
 | Route | Page | Roles | Endpoints |
 |---|---|---|---|
-| `/` | Overview: instrument bar of five figures, flag source ring, risk band bars, needs attention with score bars | all | `/api/threat-intelligence/summary`, `/api/detection-runs/latest`, `/api/agent-scores?limit=50`, `/api/model-info` |
+| `/` | Overview: summary cards, flag source donut, risk band bars, needs attention | all | `/api/threat-intelligence/summary`, `/api/detection-runs/latest`, `/api/agent-scores?limit=50` |
 | `/flagged` | Flagged agents (model, rule or both) | fraud_analyst, compliance_officer | `/api/all-agents`, `/api/review-decisions` |
 | `/all-agents` | All agents, with a "Not flagged" state | fraud_analyst, compliance_officer | `/api/all-agents`, `/api/review-decisions` |
 | `/agents/:agentId` | Agent detail, evidence (customers open the customer dialog), daily activity and activations by hour of day, decision timeline; propose and withdraw (fraud_analyst), record a correction (compliance_officer) | fraud_analyst, compliance_officer | `/api/agents/<id>`, `/api/agents/<id>/activity`, `/api/analytics`, `/api/review-decisions`, `/api/customers/<ref>`, `POST /api/review-decisions`, `POST .../withdraw`, `POST .../corrections` |
@@ -272,12 +272,6 @@ A proposal is never called saved, recorded or final; tests check this.
 - Agent ids are system codes, not personal data, so they are shown in full.
 - Phone and national ID numbers are masked by the server (last 3 digits). Agent detail shortens the name to initials.
 - Internal ids (flag, decision and run ids) are never shown.
-- **Overview** (issue #28, `pages/Dashboard.jsx`): the console look for the analyst, flat panels with a 1px border and an 8px radius, no icons or shadows.
-  - Under the title, when the latest run is more than 48 hours old, a plain secondary line: "The latest detection run is N days old. The figures below describe that run."
-  - Instrument bar ("Summary"): one bordered panel with five cells split by hairlines: Agents scored, Flagged (high risk), Review band, Rule-only flags and Last detection run. Each cell has a 13px label over a figure in the display font with tabular numerals (32px; 40px for Flagged). Only Flagged and Review have a 3px status edge (danger, amber); the figures stay in the text colour. Under Flagged: "Flagged by the model. Rule only flags are counted separately." Last detection run shows a small solid status dot, the status and the date. Two columns below 900px, the last cell across both.
-  - Flag sources: a slim ring (12px, 2 degree gaps) with the total in the centre, one blue family for Model, Model and rule and Rule only, and neutral grey for Not flagged; the legend keeps counts and percentages, and sits under the ring on phones. Risk bands: horizontal bars with the count at the end of each bar, no value axis, hairline grid; High risk danger, Review amber, Low risk neutral grey (never green). Both keep "Show as table". Panel headings are 16px semibold in sentence case with a 13px subtitle (`SectionCard` with `panel`); the Risk bands subtitle is its three definitions on three lines.
-  - Needs attention: tight rows with hairline rules, the agent ID in monospace, tabular numerals and Flagged by as a chip. Under each score a thin bar of the score against the model cutoff, with a tick at the cutoff; the cutoff comes from `GET /api/model-info` (as on How the model works), and the bar's text value for screen readers is "At or above the model cutoff of 1.445" or "Below ...". Below 600px the table becomes a compact list.
-  - Under the table: "See all flagged agents" (for roles that may open Flagged agents), then "These figures include agents the model learned from. Accuracy figures come only from the T test agents.", with T the test set size from `/api/model-info`; without it only the first sentence shows. The page makes no other accuracy claim.
 - **Landing page** (issue #28, `pages/Landing.jsx`, copy in `pages/landingContent.js`):
   - Signed out at the site root, the landing page opens; any other address still shows the sign-in form and opens that address after signing in. If the sign-in form has a message (for example a deactivated account or an unreachable server), the root shows the form with it instead.
   - Content: a header with "SalesMesh", the navigation, Sign in and the theme menu; the hero with the headline "Fraud detection for sales agent networks.", one line under it, a Sign in button and the globe; four cards under "What the platform does" (Detection, Review, Investigation, Accountability); a footer. A signed-in user at the root sees the usual home page, Overview.
