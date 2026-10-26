@@ -3,9 +3,9 @@ import { render, screen, within } from "@testing-library/react";
 import { ThemeProvider } from "@mui/material/styles";
 import createGlobe from "cobe";
 import KenyaGlobe from "./KenyaGlobe";
-import { KENYA, MAX_PIXEL_RATIO, STILL_REPAINT_MS, SWAY_DEGREES, ZOOM, facing } from "./globeMath";
+import { KENYA, MAX_PIXEL_RATIO, STILL_REPAINT_MS, SWAY_DEGREES, ZOOM, facing, hexToRgb } from "./globeMath";
 import { kenyaGrid } from "./kenyaShape";
-import { createAppTheme } from "../../theme";
+import { PALETTES, createAppTheme } from "../../theme";
 
 const globe = { update: vi.fn(), destroy: vi.fn() };
 vi.mock("cobe", () => ({ default: vi.fn(() => globe) }));
@@ -78,6 +78,15 @@ describe("Kenya globe (issue #28)", () => {
     expect(options.devicePixelRatio).toBe(MAX_PIXEL_RATIO);
   });
 
+  it("stays a dark sphere on the light page", () => {
+    webgl(true);
+    reducedMotion(false);
+    render(<ThemeProvider theme={createAppTheme()} defaultMode="light"><KenyaGlobe /></ThemeProvider>);
+    const options = createGlobe.mock.calls[0][1];
+    expect(options.dark).toBe(1);
+    expect(options.markerColor).toEqual(hexToRgb(PALETTES.dark.primary.main));
+  });
+
   it("sways only a few degrees either side of Kenya", () => {
     webgl(true);
     reducedMotion(false);
@@ -117,7 +126,8 @@ describe("Kenya globe (issue #28)", () => {
     show();
     const drawing = screen.getByTestId("globe-fallback");
     expect(within(drawing).getByTestId("kenya-outline")).toBeInTheDocument();
-    // The Kenya dot grid and the 47 county dots, and no disc.
+    // The dark sphere, the Kenya dot grid and the 47 county dots.
+    expect(within(drawing).getByTestId("globe-sphere")).toBeInTheDocument();
     expect(drawing.querySelectorAll("circle")).toHaveLength(kenyaGrid().length + 47);
     expect(createGlobe).not.toHaveBeenCalled();
     expect(screen.getByTestId("kenya-globe")).toHaveAttribute("aria-hidden", "true");

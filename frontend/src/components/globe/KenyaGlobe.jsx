@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import createGlobe from "cobe";
 import { Box } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
+import { SPHERE } from "./sphereColours";
 import GlobeFallback from "./GlobeFallback";
 import { COUNTY_MARKERS, GRID_DOT } from "./kenyaCounties";
 import { graticuleArcs, kenyaGrid } from "./kenyaShape";
@@ -14,27 +15,27 @@ const ARCS = graticuleArcs();
 const reducedMotion = () => Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
 
 /**
- * cobe settings for the active scheme. Only Kenya is drawn: cobe's world land dots are switched off, and
- * Kenya is a grid of small neutral markers with the county dots in the accent on top.
+ * cobe settings. Only Kenya is drawn: cobe's world land dots are switched off, and Kenya is a grid of small
+ * neutral markers with the county dots in the accent on top.
  */
-function look(palette) {
-  const dark = palette.mode === "dark";
-  const neutral = dark ? [0.42, 0.47, 0.55] : [0.6, 0.64, 0.7];
+function look() {
+  const neutral = [0.42, 0.47, 0.55];
   return {
-    dark: dark ? 1 : 0,
-    diffuse: dark ? 1.2 : 1.5,
+    dark: 1,
+    diffuse: 1.2,
     // cobe reads 0 as "not set" (mapBrightness || 1), so a vanishing value turns the world map off.
     mapBrightness: 0.0001,
     mapBaseBrightness: 0,
     mapSamples: 1000,
-    baseColor: dark ? [0.34, 0.37, 0.42] : [0.93, 0.95, 0.98],
-    glowColor: dark ? [0.14, 0.22, 0.38] : [0.86, 0.91, 0.98],
-    markerColor: hexToRgb(palette.primary.main),
+    baseColor: [0.34, 0.37, 0.42],
+    glowColor: [0.14, 0.22, 0.38],
+    markerColor: hexToRgb(SPHERE.primary.main),
     markerElevation: 0,
     scale: ZOOM,
     // Very faint latitude and longitude lines, lying on the sphere.
-    arcColor: dark ? [0.11, 0.13, 0.17] : [0.9, 0.92, 0.95],
-    arcWidth: 0.15,
+    arcColor: [0.11, 0.13, 0.17],
+    // Thin at this zoom: cobe draws arc width in globe units, so it grows with the scale.
+    arcWidth: 0.04,
     arcHeight: 0,
     neutral,
   };
@@ -51,7 +52,7 @@ export default function KenyaGlobe() {
   const wrapper = useRef(null);
   const canvas = useRef(null);
   const [fallback, setFallback] = useState(() => !hasWebGL());
-  const colours = look(theme.palette);
+  const colours = look();
   const key = JSON.stringify(colours);
 
   useEffect(() => {
@@ -137,16 +138,15 @@ export default function KenyaGlobe() {
           {/* Zoomed in, the sphere is larger than the canvas; the circle keeps it reading as a globe. */}
           <Box component="canvas" ref={canvas} sx={{
             width: "100%", height: "100%", display: "block", contain: "layout paint size", borderRadius: "50%",
-            boxShadow: `0 0 0 1px ${alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.35 : 0.25)}`,
+            // A clear edge, so the dark sphere stands apart on both page backgrounds.
+            boxShadow: `0 0 0 1px ${alpha(SPHERE.primary.main, theme.palette.mode === "dark" ? 0.4 : 0.55)}`,
           }} />
-          {theme.palette.mode === "dark" && (
-            // A soft glow over Kenya in the dark scheme (cobe has no glow for markers).
-            <Box sx={{
-              position: "absolute", left: "50%", top: "50%", width: "46%", height: "46%", transform: "translate(-50%, -50%)",
-              borderRadius: "50%", pointerEvents: "none", mixBlendMode: "screen",
-              background: `radial-gradient(circle, ${alpha(theme.palette.primary.main, 0.16)} 0%, ${alpha(theme.palette.primary.main, 0)} 70%)`,
-            }} />
-          )}
+          {/* A soft glow over Kenya (cobe has no glow for markers). */}
+          <Box sx={{
+            position: "absolute", left: "50%", top: "50%", width: "78%", height: "78%", transform: "translate(-50%, -50%)",
+            borderRadius: "50%", pointerEvents: "none", mixBlendMode: "screen",
+            background: `radial-gradient(circle, ${alpha(SPHERE.primary.main, 0.14)} 0%, ${alpha(SPHERE.primary.main, 0)} 70%)`,
+          }} />
         </>
       )}
     </Box>

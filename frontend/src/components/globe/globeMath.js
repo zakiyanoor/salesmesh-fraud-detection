@@ -4,11 +4,11 @@
 export const KENYA = { lat: 0.2, lng: 37.9 };
 // A slow sway of a few degrees either side of Kenya, so Kenya stays in view (not a spin).
 // Zoomed in, a few degrees is a large move, so the sway is small enough to keep Kenya near the centre.
-export const SWAY_DEGREES = 2;
+export const SWAY_DEGREES = 0.6;
 export const SWAY_SECONDS = 18;
 export const MAX_PIXEL_RATIO = 2;
 // How far the globe is zoomed in (cobe's scale), so Kenya is large while the sphere still reads as a globe.
-export const ZOOM = 5.5;
+export const ZOOM = 12;
 // cobe loads its map image asynchronously and does not redraw when it arrives, so a still globe is repainted,
 // always at the same angle, for this long after it starts or resizes.
 export const STILL_REPAINT_MS = 1200;

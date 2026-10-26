@@ -51,8 +51,8 @@ export const KENYA_COUNTIES = [
 ];
 
 // Marker sizes on the sphere: the county dots are slightly larger than Kenya's dot grid.
-export const COUNTY_DOT = 0.0045;
-export const GRID_DOT = 0.0022;
+export const COUNTY_DOT = 0.0021;
+export const GRID_DOT = 0.00095;
 
 /** cobe markers: one dot per county headquarters (in the accent, the markerColor). */
 export const COUNTY_MARKERS = KENYA_COUNTIES.map(([, , lat, lng]) => ({ location: [lat, lng], size: COUNTY_DOT }));

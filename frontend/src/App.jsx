@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { Navigate, Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { Box, CircularProgress } from "@mui/material";
 import { useAuth } from "./auth/authContext";
 import { PAGES } from "./auth/roles";
@@ -7,7 +7,8 @@ import RequireRole from "./auth/RequireRole";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Landing from "./pages/Landing";
-import { SIGN_IN_PATH } from "./pages/landingContent";
+import AfterSignIn from "./auth/AfterSignIn";
+import { SIGN_IN_PATH } from "./auth/redirect";
 import { AccessDenied, NotFound } from "./pages/StatusPages";
 
 // Every page is its own chunk, loaded on first visit; Login and the layout shell stay in the main bundle.
@@ -49,7 +50,7 @@ export default function App() {
           const Page = PAGE_COMPONENTS[key];
           return <Route key={key} path={path} element={<RequireRole roles={roles}><Page /></RequireRole>} />;
         })}
-        <Route path={SIGN_IN_PATH} element={<Navigate to="/" replace />} />
+        <Route path={SIGN_IN_PATH} element={<AfterSignIn />} />
         <Route path="/403" element={<AccessDenied />} />
         <Route path="*" element={<NotFound />} />
       </Route>

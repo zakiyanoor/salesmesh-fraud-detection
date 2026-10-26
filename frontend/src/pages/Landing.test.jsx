@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ACCOUNTS, currentLocation, mockApi, renderApp, sessionRoutes } from "../test/server";
-import { HEADLINE, SECURITY_POINTS, SUBLINE } from "./landingContent";
+import { SHARED_PAGES, signInHref } from "../auth/redirect";
+import { CARDS, COPYRIGHT, HEADLINE, SECURITY_POINTS, SUBLINE, TAGLINE } from "./landingContent";
 
 async function open(width = 1280) {
   window.innerWidth = width;
@@ -23,43 +24,79 @@ describe("Landing page", () => {
     expect(within(main).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/sign-in");
   });
 
-  it("has SalesMesh on the left of the header and Sign in, then the theme menu, on the right", async () => {
+  it("has SalesMesh, the shared pages, then Sign in and the theme menu in the header", async () => {
     await open();
     const header = screen.getByRole("banner");
     expect(within(header).getByText("SalesMesh")).toBeInTheDocument();
     const controls = [...header.querySelectorAll("a, button")].map((el) => el.textContent || el.getAttribute("aria-label"));
-    expect(controls[0]).toBe("Sign in");
-    expect(controls[1]).toMatch(/^Theme: /);
+    expect(controls).toEqual(["Overview", "Threat intelligence", "Analytics", "How the model works", "Open navigation", "Sign in", expect.stringMatching(/^Theme: /)]);
     await userEvent.tab();
-    expect(within(header).getByRole("link", { name: "Sign in" })).toHaveFocus();
+    expect(within(header).getByRole("link", { name: "Overview" })).toHaveFocus();
   });
 
-  it("names the four security points in one plain row, each in at most 8 words", async () => {
+  it("links every shared page to sign in, remembering the page, while signed out", async () => {
     await open();
-    const row = screen.getByRole("region", { name: "Security design" });
-    const items = within(row).getAllByRole("listitem").map((li) => li.textContent);
-    expect(items).toEqual(SECURITY_POINTS);
-    expect(items).toEqual(["Role based access", "Two person review of every decision", "An append only audit log", "Secure sessions"]);
-    for (const item of items) expect(item.split(" ").length).toBeLessThanOrEqual(8);
-    expect(row.textContent).not.toMatch(/mask/i);
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    const links = within(nav).getAllByRole("link");
+    expect(links.map((a) => a.textContent)).toEqual(SHARED_PAGES.map((page) => page.label));
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(SHARED_PAGES.map((page) => signInHref(page.path)));
+    expect(within(nav).getByRole("link", { name: "Analytics" })).toHaveAttribute("href", "/sign-in?next=%2Fanalytics");
   });
 
-  it("has a footer with the name and a Sign in link, and nothing else", async () => {
+  it("collapses the pages into a menu button with an accessible list", async () => {
+    await open(360);
+    const button = within(screen.getByRole("banner")).getByRole("button", { name: "Open navigation" });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    const list = screen.getByRole("menu", { name: "Main" });
+    expect(document.getElementById(button.getAttribute("aria-controls"))).toContainElement(list);
+    const items = within(list).getAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual(SHARED_PAGES.map((page) => page.label));
+    expect(items[1]).toHaveAttribute("href", "/sign-in?next=%2Fthreat-intelligence");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(button).toHaveAttribute("aria-expanded", "false"));
+  });
+
+  it("explains the platform in four cards in a ruled grid", async () => {
+    await open();
+    const section = screen.getByRole("region", { name: "What the platform does" });
+    const cards = within(section).getAllByRole("listitem");
+    expect(cards).toHaveLength(4);
+    expect(within(section).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Detection", "Review", "Investigation", "Accountability"]);
+    expect(cards.map((card) => card.textContent)).toEqual(CARDS.map(([title, text], i) => `0${i + 1}${title}${text}`));
+  });
+
+  it("has a footer with the name, a short line, link groups, the security points and a plain bottom bar", async () => {
     await open();
     const footer = screen.getByRole("contentinfo");
-    expect(footer.textContent).toBe("SalesMesh Fraud DetectionSign in");
-    expect(within(footer).getAllByRole("link")).toHaveLength(1);
-    expect(within(footer).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/sign-in");
+    expect(within(footer).getByText("SalesMesh")).toBeInTheDocument();
+    expect(within(footer).getByText(TAGLINE)).toBeInTheDocument();
+    const platform = within(footer).getByRole("navigation", { name: "Platform" });
+    expect(within(platform).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")]))
+      .toEqual(SHARED_PAGES.map((page) => [page.label, signInHref(page.path)]));
+    const access = within(footer).getByRole("navigation", { name: "Access" });
+    expect(within(access).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")]))
+      .toEqual([["Sign in", "/sign-in"], ["How the model works", "/sign-in?next=%2Fhow-it-works"]]);
+    const security = within(footer).getByRole("heading", { name: "Security" }).parentElement;
+    expect(within(security).getAllByRole("listitem").map((li) => li.textContent)).toEqual(SECURITY_POINTS);
+    expect(within(security).queryByRole("link")).not.toBeInTheDocument();
+    // The bottom bar: copyright on the left, the city on the right, and no Sign in link.
+    const bar = within(footer).getByText(COPYRIGHT).parentElement;
+    expect([...bar.children].map((el) => el.textContent)).toEqual(["2026 SalesMesh", "Nairobi, Kenya"]);
+    expect(within(bar).queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Security design" })).not.toBeInTheDocument();
   });
 
   it("no longer has the diagram, the signals, the sequence, the role table or the footer columns", async () => {
     await open();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(document.querySelector("dl, ol")).toBeNull();
-    for (const gone of [/How a flag is made/, /What it looks at/, /From flag to decision/, /Who can do what/, /ICS Project/]) {
+    for (const gone of [/How a flag is made/, /What it looks at/, /From flag to decision/, /Who can do what/, /ICS Project/, /supervis/i, /\bAI\b/, /Claude|Anthropic/]) {
       expect(document.body.textContent).not.toMatch(gone);
     }
-    expect(screen.getAllByRole("heading")).toHaveLength(2);
+    expect(screen.getAllByRole("heading").map((h) => h.textContent)).toEqual([HEADLINE, "What the platform does",
+      "Detection", "Review", "Investigation", "Accountability", "Platform", "Access", "Security"]);
   });
 
   it("reserves the globe's space at once, then shows the globe as decoration only", async () => {
@@ -103,6 +140,36 @@ describe("Landing page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
     expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
     expect(currentLocation()).toBe("/");
+  });
+
+  it("signs in from a page link and lands on that page", async () => {
+    mockApi({ ...sessionRoutes(null), "POST /api/login": { message: "Login successful", ...ACCOUNTS.compliance_officer } });
+    renderApp("/");
+    const nav = await screen.findByRole("navigation", { name: "Main" });
+    await userEvent.click(within(nav).getByRole("link", { name: "How the model works" }));
+    expect(currentLocation()).toBe("/sign-in?next=%2Fhow-it-works");
+    await userEvent.type(await screen.findByLabelText("Username"), "compliance_01");
+    await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => expect(currentLocation()).toBe("/how-it-works"));
+    expect(await screen.findByRole("heading", { name: "How the model works" })).toBeInTheDocument();
+  });
+
+  it.each([["an external", "https%3A%2F%2Fevil.example"], ["a protocol-relative", "%2F%2Fevil.example"], ["an unknown", "%2Fnowhere"]])(
+    "ignores %s target and opens the usual home page", async (_, next) => {
+      mockApi({ ...sessionRoutes(null), "POST /api/login": { message: "Login successful", ...ACCOUNTS.fraud_analyst } });
+      renderApp(`/sign-in?next=${next}`);
+      await userEvent.type(await screen.findByLabelText("Username"), "analyst_01");
+      await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
+      await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+      expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
+      expect(currentLocation()).toBe("/");
+    });
+
+  it("opens the remembered page at once when already signed in", async () => {
+    mockApi(sessionRoutes("admin"));
+    renderApp("/sign-in?next=%2Fanalytics");
+    await waitFor(() => expect(currentLocation()).toBe("/analytics"));
   });
 
   it("sends a signed-in user at the root to the usual home page", async () => {
