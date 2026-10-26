@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { mockApi, renderApp, reply, sessionRoutes } from "../test/server";
+import { render } from "@testing-library/react";
+import { FIXTURES, mockApi, renderApp, reply, sessionRoutes } from "../test/server";
+import { HourTooltip } from "../components/AgentActivity";
+import { hourRange } from "../chartTables";
 import { PROPOSED_MESSAGE, WITHDRAWN_MESSAGE } from "../review";
 
 const DETAIL = {
@@ -94,7 +97,10 @@ describe("Agent detail", () => {
     expect(document.title).toBe("Agent A35485 · SalesMesh Fraud Detection");
     expect(screen.getByText("High risk")).toBeInTheDocument();
     expect(screen.getByText("Model and rule")).toBeInTheDocument();
-    expect(screen.getByText(/At or above the model cutoff of 1\.445/)).toBeInTheDocument();
+    expect(await screen.findByText(/At or above the model cutoff of 1\.445/)).toBeInTheDocument();
+    expect(screen.getByText("Cutoff 1.445")).toBeInTheDocument();
+    expect(screen.getByText("Typical agent, about 1")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Score" })).toHaveTextContent("A typical agent scores about 1. The marker is the cutoff. Scores are not probabilities.");
     expect(screen.getByText(
       "Higher than 98.9% of agents scored in the latest run. This is a rank, not a probability.",
     )).toBeInTheDocument();
@@ -381,7 +387,70 @@ describe("Agent detail", () => {
     const table = within(card).getByRole("table", { name: "Activations by hour of day data" });
     const rows = within(table).getAllByRole("row");
     expect(rows).toHaveLength(25);
-    expect(rows[10].textContent).toBe("94");
+    expect(rows[0].textContent).toBe("HoursActivations");
+    expect(rows[10].textContent).toBe("09:00 to 09:594");
+  });
+
+  it("reads the cutoff from the API, not a constant", async () => {
+    mockApi(routes("fraud_analyst", { "GET /api/model-info": { ...FIXTURES["GET /api/model-info"], cutoff: 9.5 } }));
+    renderApp("/agents/A35485");
+    expect(await screen.findByText("Below the model cutoff of 9.500.")).toBeInTheDocument();
+    expect(screen.getByText("Cutoff 9.500")).toBeInTheDocument();
+  });
+
+  it("has a plain back link and a subtitle with commas", async () => {
+    mockApi(routes("fraud_analyst"));
+    renderApp("/agents/A35485");
+    expect(await screen.findByRole("button", { name: "Back to flagged agents" })).toBeInTheDocument();
+    await screen.findByText("5.564");
+    const main = screen.getByRole("main").textContent;
+    expect(main).toMatch(/, registered \d{1,2} [A-Z][a-z]{2} \d{4}/);
+    expect(main).not.toMatch(/ · Registered/);
+    expect(document.body.textContent).not.toContain("←");
+  });
+
+  it("titles each card in sentence case", async () => {
+    mockApi(routes("fraud_analyst"));
+    renderApp("/agents/A35485");
+    await screen.findByText("5.564");
+    for (const title of ["Suspicion score", "Features the model uses", "Propose a decision", "Decision history", "Identity (masked)", "Evidence"]) {
+      expect(screen.getByRole("heading", { level: 2, name: title })).toBeInTheDocument();
+    }
+    expect(await screen.findByRole("heading", { level: 2, name: "Daily activity" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Activations by hour of day" })).toBeInTheDocument();
+    expect(screen.getByText(/An activation is one customer signed up by the agent\. Completed means the activation reached its completed status\./)).toBeInTheDocument();
+  });
+
+  it("shows the reason text in a panel and the duplicate rule as a chip", async () => {
+    mockApi(routes("fraud_analyst"));
+    renderApp("/agents/A35485");
+    const evidence = await screen.findByRole("region", { name: "Evidence" });
+    expect(within(evidence).getByText("Model reasons")).toBeInTheDocument();
+    expect(within(evidence).getByText("Flagged").closest(".MuiChip-root")).not.toBeNull();
+  });
+
+  it("leaves out the duplicate evidence column when no day has evidence", async () => {
+    const quiet = { ...ACTIVITY, days: ACTIVITY.days.map((d) => ({ ...d, duplicate_evidence: false })) };
+    mockApi(routes("fraud_analyst", { "GET /api/agents/A35485/activity": quiet }));
+    renderApp("/agents/A35485");
+    const card = await screen.findByRole("region", { name: "Daily activity" });
+    const table = await within(card).findByRole("table", { name: "Activations per day" });
+    expect(within(table).getAllByRole("columnheader").map((c) => c.textContent)).toEqual(["Day", "Activations", "Completed"]);
+    expect(within(card).getByText("No duplicate evidence in this period.")).toBeInTheDocument();
+  });
+
+  it("labels the hour chart on the 24 hour clock", () => {
+    expect(hourRange(8)).toBe("08:00 to 08:59");
+    expect(hourRange(23)).toBe("23:00 to 23:59");
+    const { container } = render(<HourTooltip active payload={[{ payload: { hour: 8, activations: 3 } }]} />);
+    expect(container.textContent).toBe("08:00 to 08:59: 3 activations");
+  });
+
+  it("never says 30 days", async () => {
+    mockApi(routes("fraud_analyst"));
+    renderApp("/agents/A35485");
+    await screen.findByRole("table", { name: "Activations per day" });
+    expect(document.body.textContent).not.toMatch(/30 days/);
   });
 
   it("keeps the rest of the page when the activity cannot be loaded", async () => {

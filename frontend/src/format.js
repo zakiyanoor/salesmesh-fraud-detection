@@ -1,7 +1,6 @@
 // Display helpers shared by every page. Identity masking happens on the server; nothing here unmasks.
 
-/** The frozen model's cutoff (lof_v3_4f): a score at or above it is flagged by the model. */
-export const CUTOFF = 1.4447993633890617;
+// The model cutoff is not kept here: pages read it from GET /api/model-info, which reads the frozen results.
 
 export const FLAG_SOURCE_LABELS = {
   ML: "Model",

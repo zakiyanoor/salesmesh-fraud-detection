@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Alert, Box, Button, Divider, FormControl, FormControlLabel, FormHelperText, FormLabel, Paper, Radio, RadioGroup,
+  Alert, Box, Button, FormControl, FormControlLabel, FormHelperText, FormLabel, Paper, Radio, RadioGroup,
   TextField, Typography,
 } from "@mui/material";
 import { NOTES_HINT, NOTES_MAX, notesError } from "../review";
@@ -38,9 +38,8 @@ export default function ReviewPanel({ flagId, flagSource, onProposed }) {
   };
 
   return (
-    <Paper component="section" aria-label="Propose a decision" sx={{ p: 3 }}>
-      <Typography variant="overline" color="text.secondary" component="h2">Propose a decision</Typography>
-      <Divider sx={{ mb: 2, mt: 1 }} />
+    <Paper component="section" aria-label="Propose a decision" sx={{ p: 2.5, borderRadius: "8px", boxShadow: "none" }}>
+      <Typography component="h2" sx={{ fontSize: 16, fontWeight: 600, lineHeight: 1.4, mb: 1.5 }}>Propose a decision</Typography>
       {flagSource && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Flagged by: {FLAG_SOURCE_LABELS[flagSource] || flagSource} in the latest detection run.

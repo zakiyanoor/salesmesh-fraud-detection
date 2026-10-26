@@ -33,9 +33,15 @@ export const regionBreakdownTable = (analytics) => ({
   rows: analytics.region_breakdown,
 });
 
+/** "08:00 to 08:59" for hour 8 of the 24 hour clock. */
+export const hourRange = (hour) => {
+  const h = String(hour).padStart(2, "0");
+  return `${h}:00 to ${h}:59`;
+};
+
 export const hourTable = (activity) => ({
-  columns: [{ key: "hour", label: "Hour of day" }, { key: "activations", label: "Activations" }],
-  rows: activity.hours.map((h) => ({ hour: h.hour, activations: h.activations })),
+  columns: [{ key: "hour", label: "Hours" }, { key: "activations", label: "Activations" }],
+  rows: activity.hours.map((h) => ({ hour: hourRange(h.hour), activations: h.activations })),
 });
 
 export const ringTimelineTable = (graph) => ({

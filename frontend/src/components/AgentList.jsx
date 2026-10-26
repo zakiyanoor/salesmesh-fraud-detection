@@ -113,6 +113,9 @@ export default function AgentList({ label, agents, decisions, sources, emptyText
           <MenuItem value="all">All review states</MenuItem>
           {Object.entries(REVIEW_STATUS_LABELS).map(([value, text]) => <MenuItem key={value} value={value}>{text}</MenuItem>)}
         </TextField>
+        {filtersActive && (
+          <Button onClick={() => setFilter({ q: "", risk: "all", source: "all", review: "all" })}>Clear filters</Button>
+        )}
         {refined && activeFilters.map((f) => (
           <Chip
             key={f.key}
@@ -123,9 +126,6 @@ export default function AgentList({ label, agents, decisions, sources, emptyText
             deleteIcon={<CloseIcon aria-label={`Remove filter ${f.text}`} />}
           />
         ))}
-        {filtersActive && (
-          <Button onClick={() => setFilter({ q: "", risk: "all", source: "all", review: "all" })}>Clear filters</Button>
-        )}
       </Box>
 
       <Divider sx={{ mb: 2 }} />
