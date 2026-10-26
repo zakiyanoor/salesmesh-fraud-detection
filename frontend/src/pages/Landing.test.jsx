@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ACCOUNTS, currentLocation, mockApi, renderApp, sessionRoutes } from "../test/server";
-import { DUPLICATE_RULE, PERMISSIONS, ROLES, SECURITY, SIGNALS, STEPS } from "./landingContent";
-import { FLAG_STEPS, STEPS as FLOW_STEPS } from "../components/flowDiagramContent";
-
-const HEADLINE = "Fraud detection for sales agent networks, with every decision reviewed by two people and recorded.";
+import { HEADLINE, SECURITY_POINTS, SUBLINE } from "./landingContent";
 
 async function open(width = 1280) {
   window.innerWidth = width;
@@ -15,118 +12,80 @@ async function open(width = 1280) {
   return api;
 }
 
-const region = (name) => screen.getByRole("region", { name });
-
 describe("Landing page", () => {
-  it("has the headline, the paragraph and Sign in as the first tab stop", async () => {
+  it("has the headline, one line under it and a Sign in button", async () => {
     await open();
     await waitFor(() => expect(document.title).toBe("SalesMesh Fraud Detection"));
-    expect(screen.getByText(/^SalesMesh compares each agent's activations with typical agent behaviour and applies a duplicate activation rule\. Flagged agents are passed to a fraud analyst with the supporting evidence, and a compliance officer agrees or overrules the proposed outcome\.$/)).toBeInTheDocument();
+    expect(HEADLINE).toBe("Fraud detection for sales agent networks.");
+    expect(screen.getByText(SUBLINE)).toBeInTheDocument();
+    expect(SUBLINE).toBe("Every flag is reviewed by two people, and every decision is recorded.");
+    const main = screen.getByRole("main");
+    expect(within(main).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/sign-in");
+  });
+
+  it("has SalesMesh on the left of the header and Sign in, then the theme menu, on the right", async () => {
+    await open();
     const header = screen.getByRole("banner");
     expect(within(header).getByText("SalesMesh")).toBeInTheDocument();
-    expect(within(header).getByRole("button", { name: /^Theme: / })).toBeInTheDocument();
+    const controls = [...header.querySelectorAll("a, button")].map((el) => el.textContent || el.getAttribute("aria-label"));
+    expect(controls[0]).toBe("Sign in");
+    expect(controls[1]).toMatch(/^Theme: /);
     await userEvent.tab();
     expect(within(header).getByRole("link", { name: "Sign in" })).toHaveFocus();
-    expect(within(header).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/sign-in");
   });
 
-  it("draws how a flag is made with a title, a description, the three flag sources and a text list", async () => {
+  it("names the four security points in one plain row, each in at most 8 words", async () => {
     await open();
-    const diagram = screen.getByRole("img", { name: /How a flag is made/ });
-    for (const f of FLAG_STEPS) expect(within(diagram).getAllByText(f.label).length).toBeGreaterThan(0);
-    expect(within(diagram).getByText("Fraud analyst")).toBeInTheDocument();
-    expect(within(diagram).getByText("Compliance officer")).toBeInTheDocument();
-    const list = within(region("How a flag is made")).getByRole("list");
-    expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual(FLOW_STEPS);
+    const row = screen.getByRole("region", { name: "Security design" });
+    const items = within(row).getAllByRole("listitem").map((li) => li.textContent);
+    expect(items).toEqual(SECURITY_POINTS);
+    expect(items).toEqual(["Role based access", "Two person review of every decision", "An append only audit log", "Secure sessions"]);
+    for (const item of items) expect(item.split(" ").length).toBeLessThanOrEqual(8);
+    expect(row.textContent).not.toMatch(/mask/i);
   });
 
-  it("stacks the diagram on narrow screens", async () => {
-    await open(360);
-    const diagram = screen.getByRole("img", { name: /How a flag is made/ });
-    expect(diagram.getAttribute("viewBox")).toBe("0 0 340 732");
-    expect(within(diagram).getByText("Four signals")).toBeInTheDocument();
-  });
-
-  it("explains the four signals and the rule as definition lists", async () => {
-    await open();
-    const section = region("What it looks at");
-    for (const [term, meaning] of [...SIGNALS, DUPLICATE_RULE]) {
-      expect(within(section).getByText(term).tagName).toBe("DT");
-      expect(within(section).getByText(meaning).tagName).toBe("DD");
-    }
-  });
-
-  it("lists the real sequence from flag to decision", async () => {
-    await open();
-    const section = region("From flag to decision");
-    expect(within(section).getByText("A flag prompts a review. It is not a finding.")).toBeInTheDocument();
-    const steps = within(section).getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
-    expect(steps).toEqual(STEPS.map(([title]) => title));
-    expect(within(section).getByText(/Detection runs on a schedule, not live\./)).toBeInTheDocument();
-  });
-
-  it("shows who can do what as a table, and as a list on a phone", async () => {
-    await open();
-    const table = within(region("Who can do what")).getByRole("table");
-    expect(within(table).getAllByRole("columnheader").map((c) => c.textContent)).toEqual(["Action", ...ROLES]);
-    const rows = within(table).getAllByRole("row").slice(1);
-    expect(rows.map((r) => r.textContent)).toEqual(PERMISSIONS.map(([action, allowed]) => action + allowed.map((y) => (y ? "Yes" : "No")).join("")));
-  });
-
-  it("gives the phone the same permissions as a list", async () => {
-    await open(360);
-    const section = region("Who can do what");
-    expect(within(section).queryByRole("table")).not.toBeInTheDocument();
-    expect(within(section).getByText("Propose an outcome for a flagged agent").nextSibling).toHaveTextContent("Fraud analyst only.");
-    expect(within(section).getByText("Read the audit log").nextSibling).toHaveTextContent("Compliance officer and administrator only.");
-    expect(within(section).getByText("Open the threat intelligence views").nextSibling).toHaveTextContent("All three roles.");
-  });
-
-  it("names exactly the four security points that are true in the code", async () => {
-    await open();
-    const section = region("Security design");
-    const terms = [...section.querySelectorAll("dt")].map((dt) => dt.textContent);
-    expect(terms).toEqual(SECURITY.map(([, term]) => term));
-    expect(section.textContent).not.toMatch(/mask/i);
-  });
-
-  it("has a footer whose links all land on sections of the page", async () => {
+  it("has a footer with the name and a Sign in link, and nothing else", async () => {
     await open();
     const footer = screen.getByRole("contentinfo");
-    expect(within(footer).getByText("Fraud detection for sales agent networks in Kenya.")).toBeInTheDocument();
-    expect(within(footer).getByText("SalesMesh Fraud Detection. ICS Project II, 2026.")).toBeInTheDocument();
-    expect(within(footer).getByText("Accounts are managed by an administrator.")).toBeInTheDocument();
-    const nav = within(footer).getByRole("navigation", { name: "Page sections" });
-    const links = within(nav).getAllByRole("link");
-    expect(links.map((l) => l.textContent)).toEqual([
-      "The four signals", "The duplicate activation rule", "How a flag is made",
-      "From flag to decision", "Who can do what", "Corrections and the audit trail",
-      "Role based access", "Two person review", "Append only audit log", "Secure sessions", "Sign in",
-    ]);
-    for (const link of links.slice(0, -1)) {
-      const target = link.getAttribute("href");
-      expect(target.startsWith("#")).toBe(true);
-      expect(document.getElementById(target.slice(1))).not.toBeNull();
+    expect(footer.textContent).toBe("SalesMesh Fraud DetectionSign in");
+    expect(within(footer).getAllByRole("link")).toHaveLength(1);
+    expect(within(footer).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/sign-in");
+  });
+
+  it("no longer has the diagram, the signals, the sequence, the role table or the footer columns", async () => {
+    await open();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(document.querySelector("dl, ol")).toBeNull();
+    for (const gone of [/How a flag is made/, /What it looks at/, /From flag to decision/, /Who can do what/, /ICS Project/]) {
+      expect(document.body.textContent).not.toMatch(gone);
     }
-    expect(links.at(-1)).toHaveAttribute("href", "/sign-in");
-    expect(document.querySelectorAll("a[href^='http'], a[href^='mailto']")).toHaveLength(0);
+    expect(screen.getAllByRole("heading")).toHaveLength(2);
+  });
+
+  it("reserves the globe's space at once, then shows the globe as decoration only", async () => {
+    await open();
+    expect(screen.getByTestId("globe-space")).toBeInTheDocument();
+    const globe = await screen.findByTestId("kenya-globe");
+    expect(globe).toHaveAttribute("aria-hidden", "true");
+    // jsdom has no WebGL, so the still drawing stands in for the globe.
+    expect(within(globe).getByTestId("globe-fallback")).toBeInTheDocument();
   });
 
   it("follows the copy rules", async () => {
     await open();
     const text = document.body.textContent;
-    const banned = [/synthetic/i, /%/, /percent/i, /probab/i, /accura/i, /real[ -]time/i, /demo/i, /password/i,
-      /analyst_01|admin_01/, /—/, / · /, /→|->/, /©/, /@/];
+    const banned = [/synthetic/i, /%/, /percent/i, /probab/i, /accura/i, /real[ -]time/i, /\blive\b/i, /updated/i,
+      /demo/i, /password/i, /analyst_01|admin_01/, /—/, / · /, /→|->/, /©/, /@/];
     for (const pattern of banned) expect(text).not.toMatch(pattern);
-    expect(text).toMatch(/schedule/);
   });
 
   it("makes no request of its own", async () => {
     const { calls } = await open();
+    await screen.findByTestId("kenya-globe");
     expect(calls.map((c) => c.path)).toEqual(["/api/me"]);
   });
 
-  it("switches to the dark scheme from its own toggle", async () => {
+  it("switches to the dark scheme from its own theme menu", async () => {
     await open();
     await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: /^Theme: / }));
     await userEvent.click(screen.getByRole("menuitemradio", { name: "Dark" }));
