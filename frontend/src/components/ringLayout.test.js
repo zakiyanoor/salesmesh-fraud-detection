@@ -1,51 +1,62 @@
 import { describe, expect, it } from "vitest";
-import { layout, placeLabels } from "./ringLayout";
+import { DOT, LINE, dotRadius, forceLayout, lineWidth } from "./ringLayout";
 
-const ids = (n) => Array.from({ length: n }, (_, i) => `A${10000 + i}`);
+// A group of n agents; every pair shares customers, more for neighbours in ID order.
+function group(n) {
+  const nodes = Array.from({ length: n }, (_, i) => ({ agent_id: `A${10000 + i * 7}`, activations: 40 + i * 25, county: "Nairobi" }));
+  const edges = [];
+  nodes.forEach((a, i) => nodes.slice(i + 1).forEach((b, j) => edges.push({ source: a.agent_id, target: b.agent_id, shared_customers: j === 0 ? 9 : 3 + ((i + j) % 4) })));
+  return { nodes, edges };
+}
+
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+// The agent ID (monospace, about 7.2px a character) and, unless compact, the county line under each dot.
+const labelBox = (p, compact) => ({ left: p.x - 24, right: p.x + 24, top: p.y + p.r + 2, bottom: p.y + p.r + (compact ? 18 : 32) });
+const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 
-describe("ring graph layout (issue #28)", () => {
-  it("is deterministic and puts the first agent at the top", () => {
-    expect(layout(ids(6))).toEqual(layout(ids(6)));
-    const { size, positions } = layout(ids(6));
-    expect(positions.A10000.x).toBeCloseTo(size / 2);
-    expect(Math.min(...Object.values(positions).map((p) => p.y))).toBe(positions.A10000.y);
+describe("ring graph force layout (issue #28)", () => {
+  it("gives the same coordinates for the same group, whatever the input order", () => {
+    const { nodes, edges } = group(6);
+    const first = forceLayout(nodes, edges, 640);
+    expect(forceLayout(nodes, edges, 640)).toEqual(first);
+    expect(forceLayout([...nodes].reverse(), [...edges].reverse(), 640)).toEqual(first);
   });
 
-  it.each([2, 6, 12])("keeps %i agents inside the drawing and far enough apart for their labels", (n) => {
-    const { size, positions } = layout(ids(n));
-    const points = Object.values(positions);
+  // 2 is the smallest ring candidate in the data and 6 the largest; 12 checks a larger group still works.
+  it.each([
+    [2, 640], [6, 640], [12, 640], [2, 260], [6, 260], [12, 260],
+  ])("keeps %i agents inside a %ipx container, with no dots or labels overlapping", (n, width) => {
+    const { nodes, edges } = group(n);
+    const layout = forceLayout(nodes, edges, width);
+    const points = Object.values(layout.nodes);
+    expect(points).toHaveLength(n);
     for (const p of points) {
-      expect(p.x).toBeGreaterThanOrEqual(40);
-      expect(p.x).toBeLessThanOrEqual(size - 40);
-      expect(p.y).toBeGreaterThanOrEqual(40);
-      expect(p.y).toBeLessThanOrEqual(size - 40);
+      expect(p.x - p.r).toBeGreaterThanOrEqual(0);
+      expect(p.x + p.r).toBeLessThanOrEqual(width);
+      expect(p.y - p.r).toBeGreaterThanOrEqual(0);
+      expect(p.y + p.r).toBeLessThanOrEqual(layout.height);
+      expect(p.r).toBeGreaterThanOrEqual(DOT.min * 0.6);
     }
     for (let i = 0; i < points.length; i += 1) {
-      for (let j = i + 1; j < points.length; j += 1) expect(distance(points[i], points[j])).toBeGreaterThan(60);
+      for (let j = i + 1; j < points.length; j += 1) {
+        expect(distance(points[i], points[j])).toBeGreaterThan(points[i].r + points[j].r);
+        expect(overlaps(labelBox(points[i], layout.compact), labelBox(points[j], layout.compact))).toBe(false);
+      }
     }
   });
-});
 
-describe("edge labels (issue #28)", () => {
-  it("are placed the same way every time, apart from each other and from the agents", () => {
-    const agents = ids(6);
-    const { radius, positions } = layout(agents);
-    const edges = [];
-    agents.forEach((a, i) => agents.slice(i + 1).forEach((b) => edges.push({ source: a, target: b })));
-    const labels = placeLabels(edges, positions, radius);
-    expect(placeLabels(edges, positions, radius)).toEqual(labels);
-    const spots = Object.values(labels);
-    expect(spots).toHaveLength(15);
-    let crowded = 0;
-    for (let i = 0; i < spots.length; i += 1) {
-      for (let j = i + 1; j < spots.length; j += 1) if (distance(spots[i], spots[j]) < 20) crowded += 1;
-    }
-    expect(crowded).toBe(0);
-    for (const spot of spots) for (const p of Object.values(positions)) expect(distance(spot, p)).toBeGreaterThanOrEqual(30);
-    // ...and never on the agent ID and county written under a node.
-    for (const spot of spots) {
-      for (const p of Object.values(positions)) expect(Math.abs(spot.x - p.x) < 44 && spot.y - p.y > 16 && spot.y - p.y < 58).toBe(false);
-    }
+  it("pulls pairs that share more customers closer together", () => {
+    const nodes = ["A1", "A2", "A3"].map((agent_id) => ({ agent_id, activations: 50 }));
+    const edges = [{ source: "A1", target: "A2", shared_customers: 20 }, { source: "A2", target: "A3", shared_customers: 3 }];
+    const { nodes: at } = forceLayout(nodes, edges, 800);
+    expect(distance(at.A1, at.A2)).toBeLessThan(distance(at.A2, at.A3));
+  });
+
+  it("sizes dots by activations and lines by shared customers, within their ranges", () => {
+    expect(dotRadius(10, 10, 90)).toBe(DOT.min);
+    expect(dotRadius(90, 10, 90)).toBe(DOT.max);
+    expect(lineWidth(3, 3, 12)).toBe(LINE.min);
+    expect(lineWidth(12, 3, 12)).toBe(LINE.max);
+    expect(lineWidth(5, 5, 5)).toBeGreaterThan(LINE.min);
   });
 });

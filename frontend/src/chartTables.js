@@ -19,18 +19,13 @@ export const timelineTable = (timeline) => ({
 });
 
 export const regionRateTable = (regions) => ({
-  columns: [{ key: "region", label: "County" }, { key: "rate", label: "Flagged rate" }, { key: "flagged", label: "Flagged" }, { key: "agents", label: "Agents" }],
+  columns: [{ key: "region", label: "County" }, { key: "flagged", label: "Flagged agents" }, { key: "agents", label: "All agents" }, { key: "rate", label: "Flagged rate" }],
   rows: regions.top_by_flagged_rate.map((r) => ({ region: r.region, rate: formatPercent(r.flagged_rate), flagged: r.flagged, agents: r.agents })),
 });
 
 export const scoreDistributionTable = (analytics) => ({
   columns: [{ key: "bucket", label: "Score range" }, { key: "count", label: "Agents" }],
   rows: analytics.score_distribution,
-});
-
-export const regionBreakdownTable = (analytics) => ({
-  columns: [{ key: "region", label: "County" }, { key: "flagged", label: "Flagged" }, { key: "total", label: "Total" }],
-  rows: analytics.region_breakdown,
 });
 
 /** "08:00 to 08:59" for hour 8 of the 24 hour clock. */

@@ -44,18 +44,23 @@ export function ActivationTimelineChart({ days }) {
   );
 }
 
-/** Regions with the highest flagged rate, as horizontal bars in percent. */
-export function RegionRateChart({ regions }) {
-  const { theme, axis, grid, tooltip } = useStyle();
-  const data = regions.map((r) => ({ ...r, percent: Math.round(r.flagged_rate * 1000) / 10 }));
+/**
+ * Flagged agents against all agents per county, as paired horizontal bars, for the counties with the highest
+ * flagged rate (the API's top_by_flagged_rate: the top 10 among counties with at least 5 agents).
+ */
+export function CountyChart({ counties }) {
+  const { theme, axis, tooltip, legend } = useStyle();
+  const data = counties.map((c) => ({ county: c.region, flagged: c.flagged, agents: c.agents }));
   return (
-    <ResponsiveContainer width="100%" height={Math.max(CHART_HEIGHT, data.length * 28)}>
-      <BarChart data={data} layout="vertical" margin={{ left: 8 }}>
-        {grid}
-        <XAxis type="number" {...axis} unit="%" />
-        <YAxis type="category" dataKey="region" {...axis} width={110} />
+    <ResponsiveContainer width="100%" height={Math.max(CHART_HEIGHT, data.length * 40 + 40)}>
+      <BarChart data={data} layout="vertical" margin={{ left: 8, right: 16 }} barGap={2}>
+        <CartesianGrid horizontal={false} stroke={theme.palette.divider} />
+        <XAxis type="number" {...axis} allowDecimals={false} />
+        <YAxis type="category" dataKey="county" {...axis} width={110} />
         {tooltip}
-        <Bar dataKey="percent" name="Flagged %" fill={theme.palette.error.main} radius={[0, 3, 3, 0]} />
+        {legend}
+        <Bar dataKey="flagged" name="Flagged agents" fill={theme.palette.error.main} radius={[0, 2, 2, 0]} barSize={10} isAnimationActive={false} />
+        <Bar dataKey="agents" name="All agents" fill={theme.palette.chart.neutral} radius={[0, 2, 2, 0]} barSize={10} isAnimationActive={false} />
       </BarChart>
     </ResponsiveContainer>
   );

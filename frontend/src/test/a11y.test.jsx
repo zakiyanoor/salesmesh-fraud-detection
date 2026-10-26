@@ -157,11 +157,11 @@ describe("accessibility (axe)", () => {
 
   it("charts have a text alternative and a table view", async () => {
     mockApi({ ...sessionRoutes("fraud_analyst"), ...DATA });
-    renderApp("/analytics");
-    const card = await screen.findByRole("region", { name: "Daily activations" });
-    expect(await within(card).findByRole("img", { name: /Daily activations chart/ })).toBeInTheDocument();
+    renderApp("/threat-intelligence");
+    const card = await screen.findByRole("region", { name: "Activation timeline" });
+    expect(await within(card).findByRole("img", { name: /Activation timeline chart/ })).toBeInTheDocument();
     await userEvent.click(within(card).getByRole("button", { name: "Show as table" }));
-    const data = within(card).getByRole("table", { name: "Daily activations data" });
+    const data = within(card).getByRole("table", { name: "Activation timeline data" });
     expect(within(data).getByText("965")).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "Show as chart" })).toHaveAttribute("aria-pressed", "true");
     await expectNoViolations();
@@ -176,6 +176,16 @@ describe("accessibility (axe)", () => {
     expect(skip).toHaveFocus();
     expect(skip).toHaveAttribute("href", "#main-content");
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+  });
+
+  it("the ring table showing all connected agents has no violations", async () => {
+    mockApi({ ...sessionRoutes("fraud_analyst"), ...DATA });
+    renderApp("/threat-intelligence");
+    const rings = await screen.findByRole("region", { name: "Ring candidates" });
+    await within(rings).findByRole("table", { name: "Ring candidate groups" });
+    await userEvent.click(within(rings).getByRole("button", { name: "All connected agents" }));
+    await within(rings).findByRole("table", { name: "Connected agent groups" });
+    await expectNoViolations();
   });
 
   it("the ring graph with a selected agent has no violations", async () => {
