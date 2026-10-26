@@ -5,7 +5,7 @@
 Branch `feature/landing-and-themes`. Frontend only: no backend change, no migration.
 
 - **Light and dark colour schemes** (MUI `colorSchemes`). The default follows the device setting, and a theme menu (System, Light, Dark) on the landing page, the sign-in page and the signed-in header remembers the choice. A small first-party script in `frontend/index.html` paints the first frame in the right scheme.
-- **Landing page redesign**: a hero, a diagram of how a flag is made, the four signals and the rule as definition lists (checked against `ml/feature_engineering.py` and `ml/baselines.py`), the sequence from flag to decision, the role matrix (checked against `backend/src/api.py`), the security design, and a footer whose links jump to each section. Details and the code behind each security point are in `docs/FRONTEND.md`.
+- **A small landing page with a globe centred on Kenya** (replacing a longer first version on this branch): a headline, one line, Sign in, a plain row of the four security points and a minimal footer. The globe uses the npm package `cobe` (MIT, no dependencies, bundled), sways a few degrees either side of Kenya with a dot for each of the 47 county headquarters, pauses when hidden, is still with reduced motion, and falls back to an SVG drawing without WebGL. The flow diagram is removed, because "How the model works" already describes each step. Details and the code behind each security point are in `docs/FRONTEND.md`.
 - **Ring graph**: edge labels are placed so they do not land on each other or on the agents' names, and names have a halo where an edge passes behind them.
 
 ## Sprint 10: screens (issue #28)

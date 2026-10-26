@@ -263,7 +263,7 @@ A proposal is never called saved, recorded or final; tests check this.
 | `/reports` | Report downloads | admin | `/api/reports/flagged-agents.csv`, `/api/reports/audit-log.csv`, `/api/reports/detection-summary.pdf` |
 | `/accounts` | Accounts: list, change role, deactivate, reactivate | admin | `/api/admin/accounts`, `PATCH .../role`, `POST .../deactivate`, `POST .../reactivate` |
 | every signed-in page | Footer: model version and last detection run | all | `/api/detection-runs/latest` |
-| `/` (signed out) | Landing page: hero, how a flag is made (diagram), what it looks at, from flag to decision, who can do what, security design, footer | anyone | none (the session check that runs before any page is the only request) |
+| `/` (signed out) | Landing page: headline, Sign in, a globe centred on Kenya, the four security points | anyone | none (the session check that runs before any page is the only request) |
 | `/sign-in` | The sign-in form; once signed in it opens the usual home page (`/`) | anyone | `POST /api/login` |
 | `/403`, any other address | Access denied, Page not found | all | none |
 
@@ -271,22 +271,21 @@ A proposal is never called saved, recorded or final; tests check this.
 - Agent ids are system codes, not personal data, so they are shown in full.
 - Phone and national ID numbers are masked by the server (last 3 digits). Agent detail shortens the name to initials.
 - Internal ids (flag, decision and run ids) are never shown.
-- **Landing page** (issue #28, `pages/Landing.jsx`):
+- **Landing page** (issue #28, `pages/Landing.jsx`, copy in `pages/landingContent.js`):
   - Signed out at the site root, the landing page opens; any other address still shows the sign-in form and opens that address after signing in. If the sign-in form has a message (for example a deactivated account or an unreachable server), the root shows the form with it instead.
-  - "Sign in" at the top leads to `/sign-in`. A signed-in user at the root sees the usual home page, Overview.
+  - Content, and nothing more: "SalesMesh" with Sign in and the theme menu in the header; the headline "Fraud detection for sales agent networks.", one line under it and a Sign in button; one plain row naming the four security points; a footer with the name and a Sign in link. A signed-in user at the root sees the usual home page, Overview.
+  - Look: the existing fonts, headline 40, 52 or 64px with tight lines, the line under it 18 or 20px, the security row and footer 15px. One accent, the blue, on the Sign in buttons and link; one 6px radius; hairlines instead of cards or shadows. A very faint 56px grid on the page; in the dark scheme a soft navy tint toward the globe, and a soft accent glow behind the globe only. Two columns from 900px (text left, globe right); below that the globe sits under the hero and is smaller.
+  - The globe (`components/globe/KenyaGlobe.jsx`, the npm package `cobe`, bundled by Vite in its own chunk, no outside request): centred on Kenya, swaying 6 degrees either side over 18 seconds, with one small accent dot for each of the 47 counties at its headquarters town (`components/globe/kenyaCounties.js`, the county names of `ml/data_generation.py`). No text on the globe.
+    - It mounts after the first paint, in a space reserved from the start, so the headline and Sign in appear at once and nothing moves.
+    - It pauses while the tab is hidden or the globe is off screen. With reduced motion it is one still image facing Kenya: cobe loads its map asynchronously and does not redraw when it arrives, so that same image is repainted for about a second while the map loads, then nothing more is drawn.
+    - Without WebGL, a still SVG drawing stands in (`components/globe/GlobeFallback.jsx`): a disc of dots with the counties.
+    - The pixel ratio is capped at 2, the canvas follows its container, and everything is released on unmount.
+    - It is decorative (`aria-hidden`); the text carries the meaning.
   - It makes no API calls of its own, loads no third-party script or font, and has no tracking.
-  - Design (issue #28):
-    - type: the existing fonts, with a fixed scale (headline 30 or 40px, section headings 22 or 28px, sub-headings 18px, body 17px with a 1.6 line height), text kept under about 68 characters a line;
-    - colour and shape: the blue accent only on Sign in buttons and links, one 6px corner radius, dividers instead of shadows, no gradients or all caps labels;
-    - structure: a diagram, definition lists, a numbered sequence and a table rather than rows of identical boxes, with deliberately uneven spacing between sections;
-    - the copy lives in `pages/landingContent.js` and `components/flowDiagramContent.js`.
-  - "How a flag is made" (`components/FlowDiagram.jsx`) is one inline SVG in the theme's colours, with a title, a description and the same steps as a list for screen readers. Two fixed layouts: side by side from 900px, stacked below. The flag sources use the app's colours for them, Model and Both the high risk colour and Rule only the review colour, each labelled in text.
-  - The signal sentences are checked against `ml/feature_engineering.py`, and the rule's against `duplicate_activation_counts` in `ml/baselines.py`. Busiest 24 hours is any 24 hours in a row, not a calendar day; the rule works on customer and client pairs, and a retry after a failure does not count.
-  - "Who can do what" is the role matrix in `docs/API.md`, checked against the role checks in `backend/src/api.py`; on phones it is a list of each action and the roles that can take it.
-  - Every section, the diagram and each security point has an id; the footer's links jump to them, with a scroll margin for the sticky header. The footer columns sit four across from 1200px, two from 600px and one below.
-  - Checked at 360, 768 and 1280 px in Chrome in both schemes: no horizontal scroll, Sign in is the first Tab stop, footer links land below the header, and nothing moves on load.
-  - Masked identifiers are not on the page: the change that would mask customer IDs is on hold and not in `main`.
-  - Its security design section has four points, each backed by code:
+  - Checked at 360, 768 and 1280 px in Chrome in both schemes: no horizontal scroll, and Sign in is the first Tab stop. The globe drew with WebGL in headless Chrome without a software GL flag.
+  - The flow diagram that was on the previous landing page is removed: each of its steps is already described in words on "How the model works".
+  - Masked identifiers are not listed: the change that would mask customer IDs is on hold and not in `main`.
+  - The four security points, each backed by code:
     - role based access: `backend/src/auth.py` (`role_required`, `refresh_session`);
     - two person review of every decision: `backend/src/review.py` (the proposer can never agree, overrule or correct) and the write-once triggers in `backend/src/db.py`;
     - an append only audit log: `backend/src/audit.py` and the trigger in `backend/src/db.py`;
