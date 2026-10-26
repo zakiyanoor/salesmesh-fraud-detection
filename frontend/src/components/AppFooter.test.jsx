@@ -14,7 +14,7 @@ describe("footer", () => {
     mockApi(sessionRoutes(role));
     renderApp(path);
     const f = await footer();
-    expect(await within(f).findByText(/^Model lof_v3_4f · Last detection run /)).toBeInTheDocument();
+    expect(await within(f).findByText(/^Model lof_v3_4f Last detection run /)).toBeInTheDocument();
     expect(f.textContent).toContain("Last detection run 13 Oct 2026, 18:07");
   });
 
@@ -47,7 +47,7 @@ describe("footer", () => {
     const { calls } = mockApi({ ...sessionRoutes("fraud_analyst"), "GET /api/detection-runs/latest": () => ({ run: runs[served++] }) });
     renderApp("/history");
     const f = await footer();
-    expect(await within(f).findByText(/^Model lof_v3_4f · Last detection run /)).toBeInTheDocument();
+    expect(await within(f).findByText(/^Model lof_v3_4f Last detection run /)).toBeInTheDocument();
     expect(f.textContent).toContain("Last detection run 13 Oct 2026, 18:07");
 
     await userEvent.click(within(screen.getByRole("navigation", { name: "Main menu" })).getByRole("link", { name: "Analytics" }));
@@ -61,5 +61,16 @@ describe("footer", () => {
     renderApp("/sign-in");
     await screen.findByRole("button", { name: "Sign in" });
     expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+  });
+});
+
+describe("footer separator", () => {
+  it("separates the model and the run with a thin rule, not a middle dot", async () => {
+    mockApi(sessionRoutes("fraud_analyst"));
+    renderApp("/history");
+    const f = await footer();
+    await within(f).findByText(/^Model lof_v3_4f Last detection run /);
+    expect(f.textContent).not.toContain("·");
+    expect(f.querySelector('span[aria-hidden="true"]')).not.toBeNull();
   });
 });

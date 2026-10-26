@@ -59,6 +59,7 @@ export default function Analytics() {
   const analytics = useApi(api.getAnalytics);
   const timeline = useApi(api.getThreatTimeline);
   const regions = useApi(api.getThreatByRegion);
+  const modelInfo = useApi(api.getModelInfo);
   const { theme, grid, axis, tooltip, legend } = useChartStyle();
 
   return (
@@ -83,7 +84,7 @@ export default function Analytics() {
         <SectionCard
           title="Suspicion score distribution"
           table={scoreDistributionTable}
-          subtitle="Agents per score range; the cutoff is 1.445"
+          subtitle={modelInfo.data?.cutoff != null ? `Agents per score range; the cutoff is ${modelInfo.data.cutoff.toFixed(3)}` : "Agents per score range"}
           result={analytics}
           isEmpty={(data) => !data?.score_distribution?.some((b) => b.count > 0)}
           emptyText="No agents are scored yet."

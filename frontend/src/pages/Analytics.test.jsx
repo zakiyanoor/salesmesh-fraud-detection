@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { mockApi, renderApp, reply, sessionRoutes } from "../test/server";
+import { FIXTURES, mockApi, renderApp, reply, sessionRoutes } from "../test/server";
 
 const TIMELINE = {
   first_day: "2026-08-01", last_day: "2026-08-02",
@@ -65,5 +65,14 @@ describe("Analytics", () => {
     expect(await within(await card("Daily activations")).findByText("No activation records are loaded yet.")).toBeInTheDocument();
     expect(within(await card("Suspicion score distribution")).getByText("No agents are scored yet.")).toBeInTheDocument();
     expect(within(await card("Highest flagged rates by county")).getByText("No county has enough agents yet.")).toBeInTheDocument();
+  });
+});
+
+describe("Analytics cutoff", () => {
+  it("reads the cutoff in the score distribution subtitle from the API", async () => {
+    mockApi({ ...sessionRoutes("fraud_analyst"), "GET /api/model-info": { ...FIXTURES["GET /api/model-info"], cutoff: 2.25 } });
+    renderApp("/analytics");
+    const card = await screen.findByRole("region", { name: "Suspicion score distribution" });
+    await waitFor(() => expect(card).toHaveTextContent("Agents per score range; the cutoff is 2.250"));
   });
 });

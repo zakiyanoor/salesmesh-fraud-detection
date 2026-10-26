@@ -95,7 +95,7 @@ describe("Overview", () => {
     renderApp("/");
     const summary = await screen.findByRole("region", { name: "Summary" });
     expect(await within(summary).findByText("Succeeded")).toBeInTheDocument();
-    expect(await within(screen.getByRole("contentinfo")).findByText(/^Model lof_v3_4f · Last detection run /)).toBeInTheDocument();
+    expect(await within(screen.getByRole("contentinfo")).findByText(/^Model lof_v3_4f Last detection run /)).toBeInTheDocument();
     expect(await within(section("Needs attention")).findByRole("link", { name: "A35485" })).toBeInTheDocument();
     expect(calls.filter((c) => c.path === "/api/detection-runs/latest")).toHaveLength(1);
   });

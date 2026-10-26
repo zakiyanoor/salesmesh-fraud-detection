@@ -19,6 +19,9 @@ export const STATUS_LABELS = {
 
 export const REVIEW_STATUS_LABELS = { none: "Not reviewed", ...STATUS_LABELS };
 
+/** What a Proposed decision waits for: the Proposed chip's tooltip and the decision history use the same words. */
+export const WAITING_TEXT = "Waiting for a compliance officer to agree or overrule";
+
 /** The four model inputs, in the order the model uses them. `key` is the field name in API payloads. */
 export const FEATURES = [
   {

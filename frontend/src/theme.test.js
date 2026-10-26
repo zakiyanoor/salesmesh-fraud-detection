@@ -100,3 +100,9 @@ it("light mode keeps the original look", () => {
   expect(typography.h4.fontFamily.startsWith('"Space Grotesk"')).toBe(true);
   expect(typography.fontFamilyMono.startsWith('"IBM Plex Mono"')).toBe(true);
 });
+
+it("hides the chart text measurement span, so no stray 0 joins the page text", () => {
+  const theme = createAppTheme();
+  const rules = theme.components.MuiCssBaseline.styleOverrides(theme);
+  expect(rules["#recharts_measurement_span"]).toEqual({ visibility: "hidden" });
+});

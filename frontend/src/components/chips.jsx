@@ -1,4 +1,4 @@
-import { Chip } from "@mui/material";
+import { Chip, Tooltip } from "@mui/material";
 import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
 import HourglassEmptyOutlined from "@mui/icons-material/HourglassEmptyOutlined";
 import TaskAltOutlined from "@mui/icons-material/TaskAltOutlined";
@@ -11,7 +11,7 @@ import SwapHorizOutlined from "@mui/icons-material/SwapHorizOutlined";
 import ScheduleOutlined from "@mui/icons-material/ScheduleOutlined";
 import EditNoteOutlined from "@mui/icons-material/EditNoteOutlined";
 import FlagOutlined from "@mui/icons-material/OutlinedFlag";
-import { FLAG_SOURCE_LABELS, OUTCOME_LABELS, REVIEW_STATUS_LABELS, STATUS_LABELS } from "../format";
+import { FLAG_SOURCE_LABELS, OUTCOME_LABELS, REVIEW_STATUS_LABELS, STATUS_LABELS, WAITING_TEXT } from "../format";
 import { auditResult } from "../audit";
 
 const chip = { size: "small", variant: "outlined" };
@@ -28,7 +28,14 @@ export function DecisionStatusChip({ status }) {
     return <Chip {...chip} icon={<RemoveCircleOutlineOutlined fontSize="small" />} label={REVIEW_STATUS_LABELS.none} />;
   }
   const [icon, color] = icons[status];
-  return <Chip {...chip} color={color} icon={icon} label={STATUS_LABELS[status]} />;
+  const shown = <Chip {...chip} color={color} icon={icon} label={STATUS_LABELS[status]} />;
+  if (status !== "pending_confirmation") return shown;
+  // Proposed: say what it is waiting for, in the decision history's words.
+  return (
+    <Tooltip title={WAITING_TEXT} describeChild>
+      <Chip {...chip} color={color} icon={icon} label={STATUS_LABELS[status]} tabIndex={0} />
+    </Tooltip>
+  );
 }
 
 /** An open proposal waiting longer than the server's limit (3 days). Nothing decides it automatically. */

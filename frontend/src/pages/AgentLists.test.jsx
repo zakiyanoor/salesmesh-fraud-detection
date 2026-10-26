@@ -39,6 +39,10 @@ describe("Flagged agents", () => {
     expect(within(rows).getAllByText("High risk")).toHaveLength(2);
     expect(within(rows).getByText("Rule only")).toBeInTheDocument();
     expect(within(rows).getByText("Proposed")).toBeInTheDocument();
+    // The Proposed chip says what it waits for, in the decision history's words.
+    await userEvent.hover(within(rows).getByText("Proposed"));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Waiting for a compliance officer to agree or overrule");
+    await userEvent.unhover(within(rows).getByText("Proposed"));
     expect(within(rows).getByText("Agreed")).toBeInTheDocument();
     expect(within(rows).getByRole("link", { name: "A10001" })).toHaveAttribute("href", "/agents/A10001");
     expect(document.title).toBe("Flagged agents · SalesMesh Fraud Detection");

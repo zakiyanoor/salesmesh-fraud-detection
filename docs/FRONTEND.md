@@ -124,7 +124,9 @@ Light and dark are both full colour schemes (MUI `colorSchemes`, issue #28), bui
 
 ## Footer
 
-Every signed-in page ends with one line in `caption`, `text.secondary`, above a 1px `divider` rule: "Model lof_v3_4f · Last detection run <time>". The run status is added when the run did not succeed. Without a run it says so.
+Every signed-in page ends with one line in `caption`, `text.secondary`, above a 1px `divider` rule: "Model lof_v3_4f", a thin vertical rule (no middle dot), then "Last detection run <time>". The run status is added when the run did not succeed. Without a run it says so.
+
+Recharts measures label text in a span it appends to the body off screen (`#recharts_measurement_span`) and leaves the last label in it, often "0", which then showed at the end of the page text and in a copy. `theme.js` hides it with `visibility: hidden`; it can still be measured.
 
 ## Responsive rules
 
@@ -268,6 +270,7 @@ A proposal is never called saved, recorded or final; tests check this.
 | `/403`, any other address | Access denied, Page not found | all | none |
 
 **Notes on what is shown:**
+- **Proposed:** the Proposed review chip has the tooltip "Waiting for a compliance officer to agree or overrule", and the decision history uses the same words for an open proposal (`WAITING_TEXT` in `format.js`).
 - **Dates and times:** one shared format on every page and in the footer, `formatDate` and `formatDateTime` in `format.js`: day, short month name, year and 24 hour time in Nairobi time, for example "13 Oct 2026, 17:26" (`Intl.DateTimeFormat`, en-GB, `Africa/Nairobi`). No page shows a month first date or the browser's own zone. The API sends times without a zone: system events (detection runs, review decisions, corrections, audit entries) are stored in UTC and are converted; activation data (activation records, customer first and last seen, agent registration) is stored as recorded in Nairobi time and is shown unchanged (`{ recorded: true }`).
 - Agent ids are system codes, not personal data, so they are shown in full.
 - Phone and national ID numbers are masked by the server (last 3 digits). Agent detail shortens the name to initials.
