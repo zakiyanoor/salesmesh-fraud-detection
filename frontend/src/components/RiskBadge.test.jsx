@@ -5,7 +5,7 @@ import { createAppTheme } from "../theme";
 import RiskBadge from "./RiskBadge";
 
 const renderBadge = (band) =>
-  render(<ThemeProvider theme={createAppTheme("light")}><RiskBadge band={band} /></ThemeProvider>);
+  render(<ThemeProvider theme={createAppTheme()}><RiskBadge band={band} /></ThemeProvider>);
 
 describe("RiskBadge", () => {
   it.each([["high", "High risk"], ["review", "Review"], ["low", "Low risk"], [null, "Not scored"]])(

@@ -4,6 +4,7 @@ import { AppBar, Box, IconButton, Toolbar, Typography, useMediaQuery } from "@mu
 import { useTheme } from "@mui/material/styles";
 import MenuIcon from "@mui/icons-material/MenuOutlined";
 import Sidebar from "./Sidebar";
+import ThemeMenu from "./ThemeMenu";
 import ErrorBoundary from "./ErrorBoundary";
 import AppFooter from "./AppFooter";
 import LatestRunProvider from "../latestRun/LatestRunProvider";
@@ -58,7 +59,8 @@ export default function Layout() {
               <IconButton edge="start" aria-label="Open menu" onClick={() => setMenuOpen(true)} sx={{ mr: 1 }}>
                 <MenuIcon />
               </IconButton>
-              <Typography variant="h6" component="div">SalesMesh</Typography>
+              <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>SalesMesh</Typography>
+              <ThemeMenu />
             </Toolbar>
           </AppBar>
         )}

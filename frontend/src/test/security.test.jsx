@@ -23,8 +23,8 @@ describe("client security (source scan)", () => {
     expect(using(/dangerouslySetInnerHTML|\.innerHTML|\beval\(|new Function\(/)).toEqual([]);
   });
 
-  it("only the colour mode module touches browser storage, and no code reads cookies", () => {
-    expect(using(/localStorage|sessionStorage|indexedDB/)).toEqual(["colorMode/colorModeContext.js"]);
+  it("no app code touches browser storage (MUI keeps the theme choice), and no code reads cookies", () => {
+    expect(using(/localStorage|sessionStorage|indexedDB/)).toEqual([]);
     expect(using(/document\.cookie/)).toEqual([]);
   });
 

@@ -172,7 +172,8 @@ describe("storage", () => {
       await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
       await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
       await screen.findByRole("heading", { name: "Overview" });
-      await userEvent.click(within(menu()).getByRole("button", { name: "Switch to dark mode" }));
+      await userEvent.click(screen.getByRole("button", { name: /^Theme: / }));
+      await userEvent.click(screen.getByRole("menuitemradio", { name: "Dark" }));
 
       const stored = [...written];
       for (const storage of [window.localStorage, window.sessionStorage]) {
@@ -181,7 +182,9 @@ describe("storage", () => {
       const text = JSON.stringify(stored).toLowerCase();
       expect(text).not.toContain("riverbanktrader42");
       expect(text).not.toMatch(/token|password|session|cookie/);
-      expect(new Set(stored.map(([key]) => key))).toEqual(new Set(["salesmesh.colorMode"]));
+      // Only the theme choice (issue #28): the mode and the scheme names MUI keeps beside it.
+      expect(stored.map(([key]) => key).every((key) => key.startsWith("salesmesh.color"))).toBe(true);
+      expect(stored.some(([key, value]) => key === "salesmesh.colorMode" && value === "dark")).toBe(true);
       expect(window.sessionStorage.length).toBe(0);
     } finally {
       Storage.prototype.setItem = original;
