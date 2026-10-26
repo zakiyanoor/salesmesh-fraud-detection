@@ -1,6 +1,6 @@
 // Surfaces for the signed-out pages, the landing page and sign in (issue #28). Light is designed on its own
 // terms: a cool off-white page, crisp visible rules, a tinted hero band, white cards on a faintly tinted
-// section and the deeper accent blue. Dark keeps the lighter accent on dark surfaces.
+// section and the deeper accent blue. Flat: no shadows on cards, no gradients. Dark keeps the lighter accent on dark surfaces.
 import { alpha, darken, useTheme } from "@mui/material/styles";
 
 export const RADIUS = "6px";
@@ -28,7 +28,6 @@ export function useSurface() {
     footer: dark ? palette.background.default : palette.background.paper,
     // A fine dot texture at very low contrast.
     texture: `radial-gradient(${alpha(palette.text.primary, dark ? 0.09 : 0.1)} 1px, transparent 1.2px)`,
-    cardTexture: `radial-gradient(${alpha(accent, dark ? 0.1 : 0.08)} 0.8px, transparent 1px)`,
   };
 }
 

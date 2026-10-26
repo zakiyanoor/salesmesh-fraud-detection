@@ -3,6 +3,11 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ACCOUNTS, currentLocation, mockApi, renderApp, sessionRoutes } from "../test/server";
 import { SHARED_PAGES, signInHref } from "../auth/redirect";
+import { readFileSync, readdirSync } from "node:fs";
+import { resolve } from "node:path";
+import { cwd } from "node:process";
+import { AUDIT_ACTIONS } from "../audit";
+import { AUDIT_ROWS, FLAGGED_TITLE, RANKED_AGENTS } from "./platformExcerpts";
 import { CARDS, COPYRIGHT, HEADLINE, SECURITY_POINTS, SUBLINE, TAGLINE } from "./landingContent";
 
 async function open(width = 1280) {
@@ -58,21 +63,45 @@ describe("Landing page", () => {
     await waitFor(() => expect(button).toHaveAttribute("aria-expanded", "false"));
   });
 
-  it("explains the platform in four cards in a ruled grid", async () => {
+  it("explains the platform in four flat cards, each with a short excerpt of the real interface", async () => {
     await open();
     const section = screen.getByRole("region", { name: "What the platform does" });
     const cards = within(section).getAllByRole("listitem");
     expect(cards).toHaveLength(4);
     expect(within(section).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Detection", "Review", "Investigation", "Accountability"]);
-    expect(cards.map((card) => card.textContent)).toEqual(CARDS.map(([title, text], i) => `0${i + 1}${title}${text}`));
-    // A small decorative drawing in each, and each card takes keyboard focus for its hover state.
-    for (const [i, name] of ["detection", "review", "investigation", "accountability"].entries()) {
-      const drawing = within(cards[i]).getByTestId(`drawing-${name}`);
-      expect(drawing.tagName.toLowerCase()).toBe("svg");
-      expect(drawing).toHaveAttribute("aria-hidden", "true");
-      const card = within(cards[i]).getByRole("article", { name: CARDS[i][0] });
-      expect(card).toHaveAttribute("tabindex", "0");
+    for (const [i, [title, text]] of CARDS.entries()) {
+      expect(within(cards[i]).getByRole("heading", { name: title })).toBeInTheDocument();
+      expect(within(cards[i]).getByText(text)).toBeInTheDocument();
+      // One illustration per card, described in one sentence, so no fake table reaches a screen reader.
+      const excerpt = within(cards[i]).getByRole("img");
+      expect(excerpt.getAttribute("aria-label")).toMatch(/^Example of /);
     }
+    expect(within(section).queryByRole("table")).not.toBeInTheDocument();
+    expect(within(section).queryByRole("article")).not.toBeInTheDocument();
+    // Not interactive, so no tab stops, and no drawings: the only SVGs are the app's own chip icons.
+    expect(section.querySelectorAll("[tabindex]")).toHaveLength(0);
+    expect(section.querySelector("[data-testid^=drawing-]")).toBeNull();
+    for (const svg of section.querySelectorAll("svg")) expect(svg.closest(".MuiChip-root")).not.toBeNull();
+    // The app's own vocabulary.
+    expect(within(cards[0]).getByText("Model and rule")).toBeInTheDocument();
+    expect(within(cards[0]).getAllByText("Rule only").length).toBeGreaterThan(0);
+    expect(within(cards[0]).getByText(FLAGGED_TITLE)).toBeInTheDocument();
+    expect(within(cards[0]).getAllByText("Not reviewed").length).toBeGreaterThan(0);
+    expect(within(cards[1]).getByText("Proposed by fraud analyst")).toBeInTheDocument();
+    expect(within(cards[1]).getByText("Agreed by compliance officer")).toBeInTheDocument();
+    expect(within(cards[1]).getByText("Confirmed fraud")).toBeInTheDocument();
+    for (const { action } of AUDIT_ROWS) expect(within(cards[3]).getByText(action)).toBeInTheDocument();
+    expect(section.textContent).not.toMatch(/%|accura|precision|recall/i);
+  });
+
+  it("uses only audit actions that the server records and the audit log page knows", () => {
+    const backend = readdirSync(resolve(cwd(), "..", "backend", "src")).filter((name) => name.endsWith(".py"))
+      .map((name) => readFileSync(resolve(cwd(), "..", "backend", "src", name), "utf-8")).join("\n");
+    for (const { action } of AUDIT_ROWS) {
+      expect(backend, action).toMatch(new RegExp(`["']${action}["']`));
+      expect(Object.keys(AUDIT_ACTIONS), action).toContain(action);
+    }
+    expect(RANKED_AGENTS.every((a) => /^A\d{5}$/.test(a.agent_id))).toBe(true);
   });
 
   it("has a footer with the name, a short line, link groups, the security points and a plain bottom bar", async () => {
