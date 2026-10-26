@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { ThemeProvider } from "@mui/material/styles";
 import createGlobe from "cobe";
 import KenyaGlobe from "./KenyaGlobe";
-import { KENYA, MAX_PIXEL_RATIO, STILL_REPAINT_MS, SWAY_DEGREES, facing } from "./globeMath";
+import { KENYA, MAX_PIXEL_RATIO, STILL_REPAINT_MS, SWAY_DEGREES, ZOOM, facing } from "./globeMath";
+import { kenyaGrid } from "./kenyaShape";
 import { createAppTheme } from "../../theme";
 
 const globe = { update: vi.fn(), destroy: vi.fn() };
@@ -51,7 +52,7 @@ afterEach(() => {
 });
 
 describe("Kenya globe (issue #28)", () => {
-  it("draws a decorative globe facing Kenya with the 47 county markers and a capped pixel ratio", () => {
+  it("draws only Kenya: no world map, Kenya's dot grid and the 47 county markers on top, zoomed in", () => {
     webgl(true);
     reducedMotion(false);
     window.devicePixelRatio = 3;
@@ -61,7 +62,18 @@ describe("Kenya globe (issue #28)", () => {
     expect(wrapper.querySelector("canvas")).not.toBeNull();
     expect(createGlobe).toHaveBeenCalledTimes(1);
     const options = createGlobe.mock.calls[0][1];
-    expect(options.markers).toHaveLength(47);
+    const grid = kenyaGrid().length;
+    expect(options.markers).toHaveLength(grid + 47);
+    // The grid in a neutral colour of its own, then the 47 county dots in the accent (no colour of their own).
+    expect(options.markers.slice(0, grid).every((m) => Array.isArray(m.color))).toBe(true);
+    expect(options.markers.slice(grid).every((m) => m.color === undefined)).toBe(true);
+    expect(options.markers[grid].size).toBeGreaterThan(options.markers[0].size);
+    expect(options.mapBrightness).toBeLessThan(0.001);
+    expect(options.mapBrightness).toBeGreaterThan(0);
+    expect(options.scale).toBe(ZOOM);
+    expect(options.markerElevation).toBe(0);
+    expect(options.arcHeight).toBe(0);
+    expect(options.arcs.length).toBeGreaterThan(0);
     expect(options.phi).toBeCloseTo(kenya);
     expect(options.devicePixelRatio).toBe(MAX_PIXEL_RATIO);
   });
@@ -103,7 +115,10 @@ describe("Kenya globe (issue #28)", () => {
   it("shows a still SVG drawing when WebGL is not available", () => {
     webgl(false);
     show();
-    expect(screen.getByTestId("globe-fallback")).toBeInTheDocument();
+    const drawing = screen.getByTestId("globe-fallback");
+    expect(within(drawing).getByTestId("kenya-outline")).toBeInTheDocument();
+    // The Kenya dot grid and the 47 county dots, and no disc.
+    expect(drawing.querySelectorAll("circle")).toHaveLength(kenyaGrid().length + 47);
     expect(createGlobe).not.toHaveBeenCalled();
     expect(screen.getByTestId("kenya-globe")).toHaveAttribute("aria-hidden", "true");
   });

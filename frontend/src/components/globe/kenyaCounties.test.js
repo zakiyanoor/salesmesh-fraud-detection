@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { cwd } from "node:process";
-import { COUNTY_MARKERS, KENYA_COUNTIES } from "./kenyaCounties";
+import { COUNTY_DOT, COUNTY_MARKERS, KENYA_COUNTIES } from "./kenyaCounties";
 
 // The county names the data generator uses (ml/data_generation.py, COUNTY_POPULATION_THOUSANDS).
 function generatorCounties() {
@@ -31,6 +31,6 @@ describe("Kenya county headquarters (issue #28)", () => {
 
   it("gives cobe one small marker per county", () => {
     expect(COUNTY_MARKERS).toHaveLength(47);
-    expect(COUNTY_MARKERS[0]).toEqual({ location: [KENYA_COUNTIES[0][2], KENYA_COUNTIES[0][3]], size: 0.01 });
+    expect(COUNTY_MARKERS[0]).toEqual({ location: [KENYA_COUNTIES[0][2], KENYA_COUNTIES[0][3]], size: COUNTY_DOT });
   });
 });

@@ -1,24 +1,42 @@
 import { useEffect, useRef, useState } from "react";
 import createGlobe from "cobe";
 import { Box } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import GlobeFallback from "./GlobeFallback";
-import { COUNTY_MARKERS } from "./kenyaCounties";
-import { KENYA, MAX_PIXEL_RATIO, STILL_REPAINT_MS, facing, hasWebGL, hexToRgb, swayPhi } from "./globeMath";
+import { COUNTY_MARKERS, GRID_DOT } from "./kenyaCounties";
+import { graticuleArcs, kenyaGrid } from "./kenyaShape";
+import { KENYA, MAX_PIXEL_RATIO, STILL_REPAINT_MS, ZOOM, facing, hasWebGL, hexToRgb, swayPhi } from "./globeMath";
+
+// Kenya's dot grid and the latitude and longitude lines, worked out once when the chunk loads.
+const GRID = kenyaGrid();
+const ARCS = graticuleArcs();
 
 const reducedMotion = () => Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
 
-/** cobe colours for the active scheme; the markers are the app's accent. */
+/**
+ * cobe settings for the active scheme. Only Kenya is drawn: cobe's world land dots are switched off, and
+ * Kenya is a grid of small neutral markers with the county dots in the accent on top.
+ */
 function look(palette) {
   const dark = palette.mode === "dark";
+  const neutral = dark ? [0.42, 0.47, 0.55] : [0.6, 0.64, 0.7];
   return {
     dark: dark ? 1 : 0,
     diffuse: dark ? 1.2 : 1.5,
-    mapBrightness: dark ? 3 : 1.5,
-    mapSamples: dark ? 18000 : 22000,
+    // cobe reads 0 as "not set" (mapBrightness || 1), so a vanishing value turns the world map off.
+    mapBrightness: 0.0001,
+    mapBaseBrightness: 0,
+    mapSamples: 1000,
     baseColor: dark ? [0.34, 0.37, 0.42] : [0.93, 0.95, 0.98],
     glowColor: dark ? [0.14, 0.22, 0.38] : [0.86, 0.91, 0.98],
     markerColor: hexToRgb(palette.primary.main),
+    markerElevation: 0,
+    scale: ZOOM,
+    // Very faint latitude and longitude lines, lying on the sphere.
+    arcColor: dark ? [0.11, 0.13, 0.17] : [0.9, 0.92, 0.95],
+    arcWidth: 0.15,
+    arcHeight: 0,
+    neutral,
   };
 }
 
@@ -41,11 +59,14 @@ export default function KenyaGlobe() {
     const dpr = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
     const size = () => Math.max(1, Math.round(wrapper.current.clientWidth * dpr));
     const { phi, theta } = facing(KENYA);
+    const { neutral, ...settings } = JSON.parse(key);
+    // Kenya's grid first, then the county dots on top.
+    const markers = [...GRID.map(([lat, lng]) => ({ location: [lat, lng], size: GRID_DOT, color: neutral })), ...COUNTY_MARKERS];
     let globe;
     try {
       globe = createGlobe(canvas.current, {
         devicePixelRatio: dpr, width: size(), height: size(), phi, theta,
-        markers: COUNTY_MARKERS, opacity: 1, ...JSON.parse(key),
+        markers, arcs: ARCS, opacity: 1, ...settings,
       });
     } catch {
       // WebGL was reported but cannot be used (for example a lost context): show the drawing instead.
@@ -112,7 +133,21 @@ export default function KenyaGlobe() {
       {fallback ? (
         <GlobeFallback />
       ) : (
-        <Box component="canvas" ref={canvas} sx={{ width: "100%", height: "100%", display: "block", contain: "layout paint size" }} />
+        <>
+          {/* Zoomed in, the sphere is larger than the canvas; the circle keeps it reading as a globe. */}
+          <Box component="canvas" ref={canvas} sx={{
+            width: "100%", height: "100%", display: "block", contain: "layout paint size", borderRadius: "50%",
+            boxShadow: `0 0 0 1px ${alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.35 : 0.25)}`,
+          }} />
+          {theme.palette.mode === "dark" && (
+            // A soft glow over Kenya in the dark scheme (cobe has no glow for markers).
+            <Box sx={{
+              position: "absolute", left: "50%", top: "50%", width: "46%", height: "46%", transform: "translate(-50%, -50%)",
+              borderRadius: "50%", pointerEvents: "none", mixBlendMode: "screen",
+              background: `radial-gradient(circle, ${alpha(theme.palette.primary.main, 0.16)} 0%, ${alpha(theme.palette.primary.main, 0)} 70%)`,
+            }} />
+          )}
+        </>
       )}
     </Box>
   );
