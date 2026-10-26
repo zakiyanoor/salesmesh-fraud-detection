@@ -79,6 +79,7 @@ function Results({ info }) {
       </TableContainer>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, maxWidth: 760 }}>
         {`Measured on ${info.measured_on}. ${info.test_fraud_agents} of the ${info.test_agents} test agents were fraud. `}
+        {`These accuracy figures come only from the ${info.test_agents} test agents; the scores shown for other agents include agents the model learned from. `}
         In brackets: the counts behind precision and recall, and the range the PR AUC and ROC AUC would likely fall in on
         another sample of the same size (95% interval). The system flags an agent when the model or the rule flags it, so
         its ranking measures are not comparable with the others. The rule never wrongly flagged an honest test agent; that

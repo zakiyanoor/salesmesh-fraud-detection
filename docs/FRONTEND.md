@@ -250,7 +250,7 @@ A proposal is never called saved, recorded or final; tests check this.
 
 | Route | Page | Roles | Endpoints |
 |---|---|---|---|
-| `/` | Overview: summary cards, flag source donut, risk band bars, needs attention | all | `/api/threat-intelligence/summary`, `/api/detection-runs/latest`, `/api/agent-scores?limit=50` |
+| `/` | Overview: five figure cards, flag source donut, risk band bars, needs attention | all | `/api/threat-intelligence/summary`, `/api/detection-runs/latest`, `/api/agent-scores?limit=50` |
 | `/flagged` | Flagged agents (model, rule or both) | fraud_analyst, compliance_officer | `/api/all-agents`, `/api/review-decisions` |
 | `/all-agents` | All agents, with a "Not flagged" state | fraud_analyst, compliance_officer | `/api/all-agents`, `/api/review-decisions` |
 | `/agents/:agentId` | Agent detail, evidence (customers open the customer dialog), daily activity and activations by hour of day, decision timeline; propose and withdraw (fraud_analyst), record a correction (compliance_officer) | fraud_analyst, compliance_officer | `/api/agents/<id>`, `/api/agents/<id>/activity`, `/api/analytics`, `/api/review-decisions`, `/api/customers/<ref>`, `POST /api/review-decisions`, `POST .../withdraw`, `POST .../corrections` |
@@ -272,6 +272,13 @@ A proposal is never called saved, recorded or final; tests check this.
 - Agent ids are system codes, not personal data, so they are shown in full.
 - Phone and national ID numbers are masked by the server (last 3 digits). Agent detail shortens the name to initials.
 - Internal ids (flag, decision and run ids) are never shown.
+- **Overview** (issue #28, `pages/Dashboard.jsx`): the layout of `main` with a finished look; nothing moved.
+  - Order: the title and "The latest detection run at a glance"; one row of five figure cards (Agents scored, Flagged (high risk), Review band, Rule-only flags, Last detection run); Flag sources (left) and Risk bands (right) side by side; Needs attention across the full width. Cards stack on narrow screens. Rows are 24px apart.
+  - When the latest run is more than 48 hours old, a plain secondary line under the title: "The figures below are from a detection run N days ago." The age uses the run time, which the API sends in UTC.
+  - Figure cards (`KpiCard` with `refined`): the same icon in a 36px rounded square tinted with its colour, the figure at 32px in the display font with tabular numerals, the label at 13px in secondary text, a 12px note (the run date), 20px padding, an 8px radius, a 1px border and no shadow; Last detection run shows the status at 16px with the date.
+  - Chart cards (`SectionCard` with `panel`): a 16px semibold sentence case title, a 13px secondary subtitle and "Show as table" as a quiet text button. Flag sources: a slightly thicker donut with 2 degree gaps, the total in the centre (labelled "Total agents scored"), and the legend directly beside it with aligned counts and percentages; on phones the legend sits under the ring. Risk bands: the same three bars and colours, slimmer, with the count above each bar and a hairline grid; its subtitle is the same three definitions, one per line.
+  - Needs attention: the same four columns (Agent ID, Score (rank), Risk, Flagged by) with balanced widths, hairline rows and a row hover; agent IDs in monospace, scores with tabular numerals and the same "Top X%" rank, and Flagged by as a chip as on the other pages. No score bar. Below 600px it becomes a compact list. Under it, "See all flagged agents" links to Flagged agents for the roles that may open it.
+  - The page states no accuracy figure; How the model works says next to its test results that accuracy figures come only from the test agents and that scores shown for other agents include agents the model learned from.
 - **Landing page** (issue #28, `pages/Landing.jsx`, copy in `pages/landingContent.js`):
   - Signed out at the site root, the landing page opens; any other address still shows the sign-in form and opens that address after signing in. If the sign-in form has a message (for example a deactivated account or an unreachable server), the root shows the form with it instead.
   - Content: a header with "SalesMesh", the navigation, Sign in and the theme menu; the hero with the headline "Fraud detection for sales agent networks.", one line under it, a Sign in button and the globe; four cards under "What the platform does" (Detection, Review, Investigation, Accountability); a footer. A signed-in user at the root sees the usual home page, Overview.

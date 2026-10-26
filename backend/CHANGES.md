@@ -5,6 +5,8 @@
 Branch `feature/analyst-ui`. Frontend only: no backend change, no migration.
 
 - **One date format everywhere** (`frontend/src/format.js`): day, short month, year and 24 hour time in Nairobi time, for example "13 Oct 2026, 17:26", on every page and in the footer. System times from the API (runs, decisions, audit) are UTC and are converted; activation data is shown as recorded.
+- **Overview finish** (`frontend/src/pages/Dashboard.jsx`): the same layout, content and numbers as before with a refined look: tinted icon squares on the figure cards, sentence case card titles, a thicker donut with its legend beside it, slimmer risk band bars with values, and a balanced needs attention table with flag source chips. No score bar. New: a line when the latest run is more than 48 hours old, and "See all flagged agents". An earlier redesign on this branch (instrument bar, horizontal bars, score bar) was reverted.
+- **How the model works:** next to the test results, one sentence that accuracy figures come only from the test agents (the number from `GET /api/model-info`) and that scores shown for other agents include agents the model learned from.
 
 ## Sprint 11: landing page and themes (issue #28)
 

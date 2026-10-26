@@ -49,6 +49,8 @@ describe("How the model works", () => {
       "Model or rule (the system)290.66 (19 of 29)1.00 (19 of 19)not comparablenot comparable",
     ]);
     expect(within(results).getByText(/Measured on the 150 held-out test agents, scored once with the frozen model; not a promise for other data\./)).toBeInTheDocument();
+    // Next to the results: where accuracy figures come from, with the test size from /api/model-info.
+    expect(within(results).getByText(/These accuracy figures come only from the 150 test agents; the scores shown for other agents include agents the model learned from\./)).toBeInTheDocument();
     const glossary = await section("Glossary");
     for (const term of ["Precision", "Recall", "PR AUC", "ROC AUC"]) expect(within(glossary).getByText(term)).toBeInTheDocument();
   });
