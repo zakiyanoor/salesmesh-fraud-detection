@@ -293,7 +293,7 @@ export default function AgentDetail() {
       {back}
       <PageHeader
         title={`Agent ${detail.agent_id}`}
-        subtitle={`${detail.region ?? "Unknown region"} · Registered ${formatDate(detail.registration_timestamp)}${detail.account_status ? ` · Account ${detail.account_status}` : ""}`}
+        subtitle={`${detail.region ?? "Unknown region"} · Registered ${formatDate(detail.registration_timestamp, { recorded: true })}${detail.account_status ? ` · Account ${detail.account_status}` : ""}`}
       >
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1.5 }}>
           <RiskBadge band={detail.score?.risk_band ?? detail.risk_band} />

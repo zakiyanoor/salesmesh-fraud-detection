@@ -15,7 +15,7 @@ describe("footer", () => {
     renderApp(path);
     const f = await footer();
     expect(await within(f).findByText(/^Model lof_v3_4f · Last detection run /)).toBeInTheDocument();
-    expect(f.textContent).toContain(new Date("2026-10-13T15:07:16").toLocaleString());
+    expect(f.textContent).toContain("Last detection run 13 Oct 2026, 18:07");
   });
 
   it("names a run that did not succeed", async () => {
@@ -48,7 +48,7 @@ describe("footer", () => {
     renderApp("/history");
     const f = await footer();
     expect(await within(f).findByText(/^Model lof_v3_4f · Last detection run /)).toBeInTheDocument();
-    expect(f.textContent).toContain(new Date("2026-10-13T15:07:16").toLocaleString());
+    expect(f.textContent).toContain("Last detection run 13 Oct 2026, 18:07");
 
     await userEvent.click(within(screen.getByRole("navigation", { name: "Main menu" })).getByRole("link", { name: "Analytics" }));
     expect(f.textContent).not.toContain("Checking");

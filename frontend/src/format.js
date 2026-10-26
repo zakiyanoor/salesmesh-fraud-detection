@@ -74,12 +74,38 @@ export function formatNumber(value, digits = 0) {
   return value == null || Number.isNaN(value) ? "—" : Number(value).toFixed(digits);
 }
 
-export function formatDate(value) {
-  return value ? new Date(value).toLocaleDateString() : "—";
+// One date format for every page and the footer: day, short month, year and 24 hour time in Nairobi time,
+// for example "13 Oct 2026, 17:26", so no page shows a month first date or the browser's own zone.
+export const TIME_ZONE = "Africa/Nairobi";
+const DATE_PARTS = { day: "numeric", month: "short", year: "numeric", timeZone: TIME_ZONE };
+const DATE_FORMAT = new Intl.DateTimeFormat("en-GB", DATE_PARTS);
+const DATE_TIME_FORMAT = new Intl.DateTimeFormat("en-GB", { ...DATE_PARTS, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+
+// The API sends times without a zone. System events (detection runs, decisions, audit entries) are stored in
+// UTC; activation data (records, registrations) is stored as recorded, in Nairobi time. `recorded: true` marks
+// the second kind, so neither is shifted by the browser's own zone.
+const NAIVE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?$/;
+
+function toDate(value, recorded) {
+  if (value == null || value === "") return null;
+  let date;
+  if (value instanceof Date) date = value;
+  else if (typeof value === "string" && NAIVE.test(value)) {
+    date = new Date(`${value.includes("T") ? value : `${value}T00:00:00`}${recorded ? "+03:00" : "Z"}`);
+  } else date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export function formatDateTime(value) {
-  return value ? new Date(value).toLocaleString() : "—";
+/** "13 Oct 2026" in Nairobi time, or "—". */
+export function formatDate(value, { recorded = false } = {}) {
+  const date = toDate(value, recorded);
+  return date ? DATE_FORMAT.format(date) : "—";
+}
+
+/** "13 Oct 2026, 17:26" in Nairobi time (24 hour clock), or "—". */
+export function formatDateTime(value, { recorded = false } = {}) {
+  const date = toDate(value, recorded);
+  return date ? DATE_TIME_FORMAT.format(date) : "—";
 }
 
 /** "Agnes Omondi" -> "A. O."; the API masks phone and national ID, the client shortens the name too. */

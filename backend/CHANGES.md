@@ -1,5 +1,11 @@
 # Backend changes
 
+## Sprint 12: analyst pages (issue #28)
+
+Branch `feature/analyst-ui`. Frontend only: no backend change, no migration.
+
+- **One date format everywhere** (`frontend/src/format.js`): day, short month, year and 24 hour time in Nairobi time, for example "13 Oct 2026, 17:26", on every page and in the footer. System times from the API (runs, decisions, audit) are UTC and are converted; activation data is shown as recorded.
+
 ## Sprint 11: landing page and themes (issue #28)
 
 Branch `feature/landing-page`. Frontend only: no backend change, no migration.

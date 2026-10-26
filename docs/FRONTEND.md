@@ -268,6 +268,7 @@ A proposal is never called saved, recorded or final; tests check this.
 | `/403`, any other address | Access denied, Page not found | all | none |
 
 **Notes on what is shown:**
+- **Dates and times:** one shared format on every page and in the footer, `formatDate` and `formatDateTime` in `format.js`: day, short month name, year and 24 hour time in Nairobi time, for example "13 Oct 2026, 17:26" (`Intl.DateTimeFormat`, en-GB, `Africa/Nairobi`). No page shows a month first date or the browser's own zone. The API sends times without a zone: system events (detection runs, review decisions, corrections, audit entries) are stored in UTC and are converted; activation data (activation records, customer first and last seen, agent registration) is stored as recorded in Nairobi time and is shown unchanged (`{ recorded: true }`).
 - Agent ids are system codes, not personal data, so they are shown in full.
 - Phone and national ID numbers are masked by the server (last 3 digits). Agent detail shortens the name to initials.
 - Internal ids (flag, decision and run ids) are never shown.
