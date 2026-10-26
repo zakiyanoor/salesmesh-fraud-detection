@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { configureAxe } from "vitest-axe";
@@ -116,6 +116,34 @@ describe("accessibility (axe)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Open menu" }));
     await screen.findByRole("navigation", { name: "Main menu" });
     expect(await axe(document.body)).toHaveNoViolations();
+  });
+
+  it("the overview in the dark scheme, with both chart tables open, has no violations", async () => {
+    window.localStorage.setItem("salesmesh.colorMode", "dark");
+    mockApi({ ...sessionRoutes("fraud_analyst"), ...DATA });
+    renderApp("/");
+    const attention = await screen.findByRole("region", { name: "Needs attention" });
+    await within(attention).findAllByRole("link");
+    for (const name of ["Flag sources", "Risk bands"]) {
+      await userEvent.click(within(screen.getByRole("region", { name })).getByRole("button", { name: "Show as table" }));
+    }
+    await expectNoViolations();
+  });
+
+  it("the overview's compact list on a phone has no violations", async () => {
+    // useMediaQuery reads matchMedia: report a phone width so Needs attention renders as a list.
+    vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
+      matches: /max-width:\s*599/.test(query), media: query, onchange: null,
+      addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false,
+    }));
+    mockApi({ ...sessionRoutes("fraud_analyst"), ...DATA });
+    renderApp("/");
+    const attention = await screen.findByRole("region", { name: "Needs attention" });
+    const list = await within(attention).findByRole("list", { name: "Agents that need attention" });
+    expect(within(list).getAllByRole("listitem").length).toBeGreaterThan(0);
+    expect(within(attention).queryByRole("table")).not.toBeInTheDocument();
+    await expectNoViolations();
+    vi.restoreAllMocks();
   });
 
   it("the audit drawer and a chart's table view have no violations", async () => {

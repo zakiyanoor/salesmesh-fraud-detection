@@ -11,8 +11,10 @@ const visuallyHidden = {
  * children is a function of the loaded data. isEmpty(data) decides the empty state.
  * table(data) -> { columns: [{ key, label }], rows } marks children as a chart: the chart gets a text
  * label, and a "Show as table" toggle replaces it with the same numbers as a table.
+ * panel: the flat console look (8px radius, a sentence case 16px heading and a 13px subtitle) instead of the
+ * small overline title; subtitle may then be any node.
  */
-export default function SectionCard({ title, subtitle, result, isEmpty, emptyText = "Nothing to show yet.", table, sx, children }) {
+export default function SectionCard({ title, subtitle, result, isEmpty, emptyText = "Nothing to show yet.", table, sx, panel = false, children }) {
   const [asTable, setAsTable] = useState(false);
   const ready = !result.loading && !result.error && !isEmpty?.(result.data);
 
@@ -68,13 +70,19 @@ export default function SectionCard({ title, subtitle, result, isEmpty, emptyTex
   }
 
   return (
-    <Paper component="section" aria-label={title} sx={{ p: 3, minWidth: 0, ...sx }}>
+    <Paper component="section" aria-label={title} sx={{ p: 3, minWidth: 0, ...(panel ? { borderRadius: "8px", boxShadow: "none" } : {}), ...sx }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1 }}>
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="overline" color="text.secondary" component="h2">{title}</Typography>
-          {subtitle && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{subtitle}</Typography>
+          {panel ? (
+            <Typography component="h2" sx={{ fontSize: 16, fontWeight: 600, lineHeight: 1.4, color: "text.primary" }}>{title}</Typography>
+          ) : (
+            <Typography variant="overline" color="text.secondary" component="h2">{title}</Typography>
           )}
+          {subtitle && (panel ? (
+            <Box sx={{ fontSize: 13, lineHeight: 1.5, color: "text.secondary", mt: 0.25 }}>{subtitle}</Box>
+          ) : (
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{subtitle}</Typography>
+          ))}
         </Box>
         {table && ready && (
           <Button size="small" onClick={() => setAsTable((v) => !v)} aria-pressed={asTable} sx={{ flexShrink: 0 }}>
