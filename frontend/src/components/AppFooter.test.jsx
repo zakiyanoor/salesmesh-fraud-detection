@@ -58,7 +58,7 @@ describe("footer", () => {
 
   it("is not shown on the sign-in page", async () => {
     mockApi(sessionRoutes(null));
-    renderApp("/");
+    renderApp("/sign-in");
     await screen.findByRole("button", { name: "Sign in" });
     expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
   });

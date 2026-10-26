@@ -13,6 +13,9 @@ Endpoints:
   GET  /api/flagged-agents        -> list of flagged agents (protected, FR-02)
   GET  /api/all-agents            -> every agent with current status (protected)
   GET  /api/agents/<agent_id>     -> feature evidence for one agent (protected, FR-03)
+  GET  /api/agents/<agent_id>/activity -> activations per day and per hour for one agent (protected, #28)
+  GET  /api/threat-intelligence/ring-candidates/<candidate_id> -> one ring candidate as a graph (protected, #28)
+  GET  /api/model-info             -> cutoff and test results from the frozen results files (protected, #28)
   GET  /api/customers/<ref>       -> one customer from the duplicate evidence, audited (analyst, compliance; #28)
   POST /api/review-decisions      -> propose a review decision (fraud_analyst only, FR-04)
   POST /api/review-decisions/<decision_id>/confirm
@@ -53,7 +56,7 @@ from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER, ROLE_ADMIN, DEACTIVATED,
     VALID_ROLES,
 )
-from src import accounts, customers, reports, review, threat_intel
+from src import accounts, activity, customers, model_info, reports, review, ring_graph, threat_intel
 from src import audit
 from src.config import load_config
 from src.pipeline import compute_client_category_breakdown
@@ -523,6 +526,19 @@ def review_body():
     return data, notes, ((jsonify({"error": notes_error}), 400) if notes_error else None)
 
 
+@app.route("/api/agents/<agent_id>/activity", methods=["GET"])
+@login_required
+def get_agent_activity(agent_id):
+    """Issue #28: the agent's activations per day of the data window and per hour of day (src/activity.py)."""
+    db_session = get_session()
+    try:
+        if db_session.get(Agent, agent_id) is None:
+            return jsonify({"error": "Agent not found"}), 404
+        return jsonify(activity.agent_activity(db_session, latest_run(db_session), agent_id))
+    finally:
+        db_session.close()
+
+
 @app.route("/api/customers/<customer_ref>", methods=["GET"])
 @role_required(ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER)
 def get_customer(customer_ref):
@@ -982,6 +998,32 @@ def _threat_view(name):
 # Read only, any authenticated role (issue #18).
 for _name in threat_intel.VIEWS:
     app.add_url_rule(f"/api/threat-intelligence/{_name}", view_func=_threat_view(_name), methods=["GET"])
+
+
+@app.route("/api/threat-intelligence/ring-candidates/<candidate_id>", methods=["GET"])
+@login_required
+def get_ring_graph(candidate_id):
+    """
+    Issue #28: one ring candidate as a graph (src/ring_graph.py): members, shared-customer counts per pair,
+    county per member and the group's activations per day. Open to every role, like the other threat
+    intelligence views; computed on request, nothing is written.
+    """
+    db_session = get_session()
+    try:
+        run = threat_intel.latest_run(db_session)
+        ring = ring_graph.candidate(db_session, run, candidate_id) if run else None
+        if ring is None:
+            return jsonify({"error": "Ring candidate not found in the latest run"}), 404
+        return jsonify(ring_graph.ring_graph(db_session, run, ring))
+    finally:
+        db_session.close()
+
+
+@app.route("/api/model-info", methods=["GET"])
+@login_required
+def get_model_info():
+    """Issue #28: the cutoff and the test results, read from the frozen results files (src/model_info.py)."""
+    return jsonify(model_info.model_info())
 
 
 def _download(name, extension, mimetype, build):

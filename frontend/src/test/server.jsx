@@ -43,6 +43,28 @@ export const FIXTURES = {
     },
   },
   "POST /api/logout": { message: "Logged out successfully" },
+  "GET /api/model-info": {
+    model_version: "lof_v3_4f", features: ["submission_frequency", "time_of_day_entropy", "customer_similarity", "collusion_score"],
+    cutoff: 1.4447993633890617, cutoff_rule: "min expected cost 5:1", cutoff_chosen_on: "validation", test_agents: 150, test_fraud_agents: 19,
+    results: {
+      model: { method: "lof_v3_4f (cutoff 1.445)", precision: 0.6, recall: 0.7894736842105263, pr_auc: 0.84536680072518, roc_auc: 0.9533949377259944, precision_ci: [0.39, 0.79], recall_ci: [0.58, 0.96], pr_auc_ci: [0.6842170081902225, 0.9603234989648033], roc_auc_ci: [0.8972917468150516, 0.9915910062160062], flagged: 25, tp: 15, fp: 10, fn: 4, tn: 121 },
+      rule: { method: "duplicate_activation_rule (pairs > 0)", precision: 1, recall: 0.8421052631578947, pr_auc: 0.8621052631578945, roc_auc: 0.9210526315789473, precision_ci: [1, 1], recall_ci: [0.65, 1], pr_auc_ci: [0.6962962962962964, 1], roc_auc_ci: [0.8234768907563025, 1], flagged: 16, tp: 16, fp: 0, fn: 3, tn: 131 },
+      model_or_rule: { method: "SECONDARY: union of model flag and duplicate rule flag", precision: 0.6551724137931034, recall: 1, pr_auc: 0.6551724137931034, roc_auc: 0.9618320610687022, precision_ci: [0.46, 0.83], recall_ci: [1, 1], pr_auc_ci: [0.46, 0.83], roc_auc_ci: [0.94, 0.98], flagged: 29, tp: 19, fp: 10, fn: 0, tn: 121 },
+    },
+    measured_on: "the 150 held-out test agents, scored once with the frozen model; not a promise for other data",
+    detection_interval_minutes: 1440,
+    sources: ["ml/runs/20261013-093050_selection_s42/operating_point.json"],
+  },
+  "GET /api/agents/A10001/activity": {
+    agent_id: "A10001", run_id: "RUN1", first_day: "2026-08-01", last_day: "2026-08-03",
+    days: [
+      { date: "2026-08-01", activations: 5, completed: 4, duplicate_evidence: true },
+      { date: "2026-08-02", activations: 0, completed: 0, duplicate_evidence: false },
+      { date: "2026-08-03", activations: 2, completed: 2, duplicate_evidence: false },
+    ],
+    hours: Array.from({ length: 24 }, (_, hour) => ({ hour, activations: hour === 9 ? 4 : hour === 14 ? 3 : 0 })),
+    totals: { activations: 7, completed: 6 }, note: "Days and hours are as recorded in the data.",
+  },
   "GET /api/customers/c_00112233445566778899aabb": {
     customer: { customer_ref: "c_00112233445566778899aabb", customer_id: "CUST10000001" }, run_id: "RUN1",
     agent_count: 2, client_count: 1, client_ids: ["CL01"], first_seen: "2026-08-02T10:00:00", last_seen: "2026-08-05T11:00:00",

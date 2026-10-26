@@ -111,10 +111,12 @@ Issue #28. A flag is a request for human review, and a decision never changes a 
 | GET | `/api/flagged-agents` | all | Agents the model flagged |
 | GET | `/api/all-agents` | all | Every agent with status, features and `risk_band` |
 | GET | `/api/agents/<agent_id>` | all | One agent: features, flag, score, rule evidence, identity (masked) |
+| GET | `/api/agents/<agent_id>/activity` | all | One agent's activations per day and per hour of day |
 | GET | `/api/customers/<customer_ref>` | fraud_analyst, compliance_officer | One customer from the latest run's duplicate evidence; every open is audited |
 | GET | `/api/agent-scores` | all | Latest run's scores, filterable by `flag_source` |
 | GET | `/api/analytics` | all | Platform statistics |
 | GET | `/api/clients` | all | Client reference list |
+| GET | `/api/model-info` | all | The cutoff and the test results, read from the frozen results files |
 | GET | `/api/detection-runs/latest` | all | Status of the last detection run |
 | GET | `/api/threat-intelligence/summary` | all | Counts, rates, commission and top features of flagged agents |
 | GET | `/api/threat-intelligence/by-region` | all | Flagged agents per region; top 10 by flagged rate |
@@ -123,6 +125,7 @@ Issue #28. A flag is a request for human review, and a decision never changes a 
 | GET | `/api/threat-intelligence/timeline` | all | Daily activations, flagged agents against others |
 | GET | `/api/threat-intelligence/customer-sharing` | all | Customers shared by agents, and clusters of connected agents |
 | GET | `/api/threat-intelligence/ring-candidates` | all | Groups of model-flagged agents that share at least 3 customers |
+| GET | `/api/threat-intelligence/ring-candidates/<candidate_id>` | all | One ring candidate as a graph: members, shared-customer counts per pair, counties, activations per day |
 | POST | `/api/review-decisions` | fraud_analyst | Propose a review decision on a flagged agent |
 | POST | `/api/review-decisions/<decision_id>/withdraw` | fraud_analyst | Withdraw your own open proposal |
 | POST | `/api/review-decisions/<decision_id>/agree` | compliance_officer | Agree with someone else's proposal |
@@ -247,6 +250,25 @@ Path parameter: `agent_id` (for example `A35485`). `404` if the agent does not e
 
 `reason` in `duplicate_evidence` is `shared customer` (with `other_agent_id`) or `repeat after completed`. Each entry also has `customer_ref` (issue #28), the reference that opens the customer view.
 
+### GET /api/agents/<agent_id>/activity
+
+Same roles as agent detail (any signed-in account); reads are not audited. `404` if the agent does not exist. Issue #28.
+
+- `days`: one row per day of the data window, which runs from the first to the last day in `activation_records` for all agents, so every agent covers the same days. Each row has `activations`, `completed` and `duplicate_evidence`: whether the day holds a record in this agent's duplicate evidence for the latest successful run.
+- `hours`: activations per hour of day, 0 to 23.
+- Days and hours are as recorded in the data (naive local timestamps, never converted). The flag belongs to the agent for the whole run, so no day is called flagged.
+- No customer IDs and no identity data. Counted in SQL on the `agent_id` index (about 35 ms for the agent with the most records).
+
+```json
+{
+  "agent_id": "A32962", "run_id": "RUN20261013172621c4f8ca", "first_day": "2026-08-01", "last_day": "2026-08-30",
+  "days": [{"date": "2026-08-01", "activations": 18, "completed": 17, "duplicate_evidence": true}],
+  "hours": [{"hour": 0, "activations": 3}],
+  "totals": {"activations": 481, "completed": 439},
+  "note": "Days and hours are as recorded in the data."
+}
+```
+
 ### GET /api/customers/<customer_ref>
 
 **fraud_analyst and compliance_officer** (issue #28). One customer from the latest successful run's duplicate evidence: the agents who used it, the clients and the dates.
@@ -311,6 +333,27 @@ Query parameters:
   "platform_averages": {"submission_frequency": 15.8, "time_of_day_dist": 0.778, "customer_similarity": 0.109},
   "review": {"proposals": 6, "open": 2, "overdue": 1, "withdrawn": 1, "agreed": 2, "overruled": 1, "corrections": 1,
              "overrule_rate": 0.3333, "overdue_hours": 72}
+}
+```
+
+### GET /api/model-info
+
+Any signed-in role; not audited (issue #28). The figures for the "How the model works" page, read from the frozen results files on every request and never retyped:
+
+- `ml/runs/20261013-093050_selection_s42/operating_point.json` (hashed in `ml/results/FREEZE.md`): `model_version`, `features`, `cutoff`, `cutoff_rule`, `cutoff_chosen_on`;
+- `ml/runs/20261013-103859_final_evaluation_s42/summary.json`: `test_agents`, `test_fraud_agents`;
+- `ml/runs/20261013-103859_final_evaluation_s42/test_metrics.csv`: under `results`, the model, the duplicate rule and the system (model or rule), each with `precision`, `recall`, `pr_auc`, `roc_auc`, their 95% intervals (`*_ci`) and the counts `flagged`, `tp`, `fp`, `fn`, `tn`.
+
+`measured_on` says the figures come from the 150 held-out test agents and are not a promise for other data. `detection_interval_minutes` is the scheduler's interval (`DETECTION_INTERVAL_MINUTES`, default 1440). `sources` lists the three files. `backend/tests/test_model_info.py` checks that the response equals the files.
+
+```json
+{
+  "model_version": "lof_v3_4f", "cutoff": 1.4447993633890617, "cutoff_rule": "min expected cost 5:1", "cutoff_chosen_on": "validation",
+  "test_agents": 150, "test_fraud_agents": 19,
+  "results": {"model": {"precision": 0.6, "recall": 0.7894736842105263, "pr_auc": 0.84536680072518, "roc_auc": 0.9533949377259944,
+                        "pr_auc_ci": [0.6842170081902225, 0.9603234989648033], "flagged": 25, "tp": 15, "fp": 10, "fn": 4, "tn": 121}},
+  "measured_on": "the 150 held-out test agents, scored once with the frozen model; not a promise for other data",
+  "detection_interval_minutes": 1440
 }
 ```
 
@@ -546,6 +589,27 @@ A candidate is a lead for review, not a confirmed ring.
   "min_shared_customers": 3, "flagged_agents": 145, "candidates_total": 14,
   "candidates": [{"candidate_id": "cand_12", "size": 2, "agent_ids": ["A23833", "A65723"], "shared_customers": 4,
                   "client_ids": ["CL01", "CL02", "CL09"]}]
+}
+```
+
+### GET /api/threat-intelligence/ring-candidates/<candidate_id>
+
+Any signed-in role, like the other threat intelligence views (issue #28). `candidate_id` is one listed by `ring-candidates` for the latest run (for example `cand_01`); anything else is `404`.
+
+- `nodes`: the candidate's members (from the stored ring-candidates view), each with `county`, `flag_source`, `risk_band`, `activations` and `linked_members`.
+- `edges`: every pair of members that share at least one customer, with `shared_customers` (a count only, never a customer ID) and `meets_rule` (3 or more, the ring-candidate rule).
+- `county` is the agent's `region` in the loaded data (one of Kenya's 47 counties). It is shown for information only; the model never uses it. `counties` and `county_count` give the distinct counties of the ring.
+- `days`: the members' activations per day of the data window, in total and `by_agent`. Days are as recorded in the data.
+- Computed on request from stored data (about 15 ms for the largest ring); nothing is written and nothing is audited.
+
+```json
+{
+  "run_id": "RUN20261013172621c4f8ca", "candidate_id": "cand_01", "size": 6, "min_shared_customers": 3,
+  "nodes": [{"agent_id": "A37760", "county": "Nakuru", "flag_source": "Both", "risk_band": "high", "activations": 310, "linked_members": 5}],
+  "edges": [{"source": "A37760", "target": "A90728", "shared_customers": 117, "meets_rule": true}],
+  "counties": ["Bungoma", "Kericho", "Kisii", "Nakuru", "Narok"], "county_count": 5,
+  "first_day": "2026-08-01", "last_day": "2026-08-30",
+  "days": [{"date": "2026-08-01", "activations": 61, "by_agent": {"A37760": 11}}]
 }
 ```
 

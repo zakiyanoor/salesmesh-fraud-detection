@@ -1,5 +1,46 @@
 # Backend changes
 
+## Sprint 10: screens (issue #28)
+
+Branch `feature/sprint-3-screens`.
+
+### Landing page (frontend only)
+
+- A landing page at the site root before sign in, with Sign in at the top leading to the existing form at `/sign-in`. No backend change; `docs/FRONTEND.md` lists the code behind each of its four security points.
+
+### Model information
+
+- **New endpoint `GET /api/model-info`** (`src/model_info.py`), open to every signed-in role and not audited. It reads its figures from the frozen results files on every request; nothing is retyped:
+  - the cutoff and model from the frozen `operating_point.json`;
+  - the test agents from `summary.json`;
+  - precision, recall, PR AUC and ROC AUC with their intervals for the model, the rule and the system, from `test_metrics.csv` of the final evaluation run.
+- It also gives the scheduler interval, and says where the figures were measured (the 150 held-out test agents, not a promise for other data).
+- **Tests:** `tests/test_model_info.py` compares every value with the files, checks the operating point's hash against `FREEZE.md`, the roles, and that reads are not audited.
+
+### Ring graph
+
+- **New endpoint `GET /api/threat-intelligence/ring-candidates/<candidate_id>`** (`src/ring_graph.py`): the members of one ring candidate, the number of customers each pair shares (never a customer ID), each member's county and the group's activations per day.
+- **Members** come from the stored ring-candidates view, so the graph shows exactly the listed groups.
+- **County** is the existing `agents.region` (one of Kenya's 47 counties, from the data generator), shown as information only; the model never uses it.
+- **Computed on request** from stored data, about 15 ms for the largest ring (6 agents). Nothing is written or audited. Open to every role, like the other threat intelligence views.
+- **Tests:** `tests/test_ring_graph.py` checks:
+  - roles;
+  - 404 for unknown or malformed candidates;
+  - members against the ring-candidates view, and pair counts against SQL;
+  - no customer ID, counties against `agents`;
+  - the timeline adds up;
+  - nothing is written, and the response is fast.
+
+### Daily activity for an agent
+
+- **New endpoint `GET /api/agents/<agent_id>/activity`** (`src/activity.py`): one row per day of the data window, with activations, completed activations and whether the day holds a record in the agent's duplicate evidence for the latest run; plus activations per hour of day.
+  - The data window is the first to the last day of all activation records, so every agent covers the same days.
+  - Same roles as agent detail; reads are not audited; a request without a session is refused and logged by the existing rule.
+- **Days and hours are as recorded in the data.** No day is called flagged, because the flag belongs to the agent for the whole run.
+- **No customer IDs and no identity data.**
+- **Speed:** counted in SQL on the existing `agent_id` index, about 35 ms for the agent with the most records (481).
+- **Tests (activity):** `tests/test_activity.py` checks the window, the counts per day and per hour, and the evidence days against SQL; that reads are not audited; that no customer ID appears; and that the response is fast for the agent with the most records.
+
 ## Sprint 9: clickable customers in the evidence (issue #28)
 
 Branch `feature/clickable-customers`. The "Why flagged" panel and masking customer IDs are on hold and not built.

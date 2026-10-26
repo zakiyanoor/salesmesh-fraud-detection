@@ -1,11 +1,12 @@
 import { lazy } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { Box, CircularProgress } from "@mui/material";
 import { useAuth } from "./auth/authContext";
 import { PAGES } from "./auth/roles";
 import RequireRole from "./auth/RequireRole";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
+import Landing, { SIGN_IN_PATH } from "./pages/Landing";
 import { AccessDenied, NotFound } from "./pages/StatusPages";
 
 // Every page is its own chunk, loaded on first visit; Login and the layout shell stay in the main bundle.
@@ -21,10 +22,12 @@ const PAGE_COMPONENTS = {
   audit: lazy(() => import("./pages/AuditLog")),
   reports: lazy(() => import("./pages/Reports")),
   accounts: lazy(() => import("./pages/Accounts")),
+  howItWorks: lazy(() => import("./pages/HowItWorks")),
 };
 
 export default function App() {
-  const { status } = useAuth();
+  const { status, notice } = useAuth();
+  const { pathname } = useLocation();
 
   if (status === "loading") {
     return (
@@ -33,8 +36,10 @@ export default function App() {
       </Box>
     );
   }
-  // Signed out on any address: after signing in, the same address opens (if the role allows it).
-  if (status !== "authenticated") return <Login />;
+  // Signed out at the site root: the landing page (issue #28), unless the sign-in page has a message to show
+  // (for example a deactivated account). Signed out on any other address: after signing in, the same
+  // address opens (if the role allows it); /sign-in opens the usual home page.
+  if (status !== "authenticated") return pathname === "/" && !notice ? <Landing /> : <Login />;
 
   return (
     <Routes>
@@ -43,6 +48,7 @@ export default function App() {
           const Page = PAGE_COMPONENTS[key];
           return <Route key={key} path={path} element={<RequireRole roles={roles}><Page /></RequireRole>} />;
         })}
+        <Route path={SIGN_IN_PATH} element={<Navigate to="/" replace />} />
         <Route path="/403" element={<AccessDenied />} />
         <Route path="*" element={<NotFound />} />
       </Route>

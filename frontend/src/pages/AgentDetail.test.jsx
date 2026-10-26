@@ -50,6 +50,16 @@ const CUSTOMER = {
     { timestamp: "2026-08-03T10:12:00", agent_id: "A35485", client_id: "CL09", status: "completed" },
   ],
 };
+const ACTIVITY = {
+  agent_id: "A35485", run_id: "RUN1", first_day: "2026-08-01", last_day: "2026-08-03",
+  days: [
+    { date: "2026-08-01", activations: 5, completed: 4, duplicate_evidence: true },
+    { date: "2026-08-02", activations: 0, completed: 0, duplicate_evidence: false },
+    { date: "2026-08-03", activations: 2, completed: 2, duplicate_evidence: false },
+  ],
+  hours: Array.from({ length: 24 }, (_, hour) => ({ hour, activations: hour === 9 ? 4 : hour === 14 ? 3 : 0 })),
+  totals: { activations: 7, completed: 6 }, note: "Days and hours are as recorded in the data.",
+};
 const CUSTOMER_ROUTE = "GET /api/customers/c_3f9a1b2c4d5e6f708192a3b4";
 const withReview = (review) => ({ ...DETAIL, review: { ...DETAIL.review, reviewable: false, ...review } });
 const MY_OPEN = withReview({ reason: "This flag already has an open proposal", open_decision_id: "RD2", open_proposed_by: "ADM_ANALYST_01", open_is_mine: true });
@@ -65,6 +75,7 @@ function routes(role, extra = {}) {
   return {
     ...sessionRoutes(role),
     "GET /api/agents/A35485": DETAIL,
+    "GET /api/agents/A35485/activity": ACTIVITY,
     "GET /api/agents/A20002": RULE_ONLY,
     "GET /api/agents/A10053": NOT_FLAGGED,
     "GET /api/review-decisions": { count: 1, decisions: [PAST] },
@@ -345,6 +356,40 @@ describe("Agent detail", () => {
     const dialog = await screen.findByRole("dialog");
     expect(await within(dialog).findByText(/could not be recorded in the audit log/)).toBeInTheDocument();
     expect(within(dialog).queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("shows one row per day with completed counts and marks only days with duplicate evidence", async () => {
+    mockApi(routes("fraud_analyst"));
+    renderApp("/agents/A35485");
+    const card = await screen.findByRole("region", { name: "Daily activity" });
+    const table = await within(card).findByRole("table", { name: "Activations per day" });
+    const rows = within(table).getAllByRole("row").slice(1);
+    expect(rows.map((r) => r.textContent)).toEqual([
+      "2026-08-0154Duplicate evidence on this day", "2026-08-0200", "2026-08-0322",
+    ]);
+    expect(within(card).getByText(/Days and hours are as recorded in the data\./)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/flagged on this day/i);
+  });
+
+  it("shows activations by hour of day as a chart with a table view", async () => {
+    mockApi(routes("fraud_analyst"));
+    renderApp("/agents/A35485");
+    const card = await screen.findByRole("region", { name: "Activations by hour of day" });
+    expect(await within(card).findByRole("img", { name: /Activations by hour of day chart/ })).toBeInTheDocument();
+    expect(within(card).getByText("7 activations, 6 completed.")).toBeInTheDocument();
+    await userEvent.click(within(card).getByRole("button", { name: "Show as table" }));
+    const table = within(card).getByRole("table", { name: "Activations by hour of day data" });
+    const rows = within(table).getAllByRole("row");
+    expect(rows).toHaveLength(25);
+    expect(rows[10].textContent).toBe("94");
+  });
+
+  it("keeps the rest of the page when the activity cannot be loaded", async () => {
+    mockApi(routes("fraud_analyst", { "GET /api/agents/A35485/activity": reply(500, { error: "Activity unavailable" }) }));
+    renderApp("/agents/A35485");
+    const card = await screen.findByRole("region", { name: "Daily activity" });
+    expect(await within(card).findByText("Activity unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Evidence" })).toBeInTheDocument();
   });
 
   it("shows an error state for an unknown agent", async () => {
