@@ -29,7 +29,7 @@ describe("Landing page", () => {
     const header = screen.getByRole("banner");
     expect(within(header).getByText("SalesMesh")).toBeInTheDocument();
     const controls = [...header.querySelectorAll("a, button")].map((el) => el.textContent || el.getAttribute("aria-label"));
-    expect(controls).toEqual(["Overview", "Threat intelligence", "Analytics", "How the model works", "Open navigation", "Sign in", expect.stringMatching(/^Theme: /)]);
+    expect(controls).toEqual(["Overview", "Threat intelligence", "Analytics", "Detection guide", "Open navigation", "Sign in", expect.stringMatching(/^Theme: /)]);
     await userEvent.tab();
     expect(within(header).getByRole("link", { name: "Overview" })).toHaveFocus();
   });
@@ -65,7 +65,7 @@ describe("Landing page", () => {
     expect(cards).toHaveLength(4);
     expect(within(section).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Detection", "Review", "Investigation", "Accountability"]);
     expect(CARDS.map((c) => c.chip)).toEqual(["Scoring", "Decisions", "Analysis", "Records"]);
-    expect(CARDS.map((c) => c.link)).toEqual(["How the model works", "Open analytics", "Open threat intelligence", "Open the overview"]);
+    expect(CARDS.map((c) => c.link)).toEqual(["Read the detection guide", "Open analytics", "Open threat intelligence", "Open the overview"]);
     for (const [i, card] of CARDS.entries()) {
       expect(cards[i].textContent).toBe(`${card.chip}${card.title}${card.text}${card.link}`);
       const links = within(cards[i]).getAllByRole("link");
@@ -178,13 +178,13 @@ describe("Landing page", () => {
     mockApi({ ...sessionRoutes(null), "POST /api/login": { message: "Login successful", ...ACCOUNTS.compliance_officer } });
     renderApp("/");
     const nav = await screen.findByRole("navigation", { name: "Main" });
-    await userEvent.click(within(nav).getByRole("link", { name: "How the model works" }));
-    expect(currentLocation()).toBe("/sign-in?next=%2Fhow-it-works");
+    await userEvent.click(within(nav).getByRole("link", { name: "Detection guide" }));
+    expect(currentLocation()).toBe("/sign-in?next=%2Fdetection-guide");
     await userEvent.type(await screen.findByLabelText("Username"), "compliance_01");
     await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
-    await waitFor(() => expect(currentLocation()).toBe("/how-it-works"));
-    expect(await screen.findByRole("heading", { name: "How the model works" })).toBeInTheDocument();
+    await waitFor(() => expect(currentLocation()).toBe("/detection-guide"));
+    expect(await screen.findByRole("heading", { name: "Detection guide" })).toBeInTheDocument();
   });
 
   it.each([["an external", "https%3A%2F%2Fevil.example"], ["a protocol-relative", "%2F%2Fevil.example"], ["an unknown", "%2Fnowhere"]])(

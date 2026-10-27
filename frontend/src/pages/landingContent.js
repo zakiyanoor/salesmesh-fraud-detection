@@ -14,7 +14,7 @@ export const TAGLINE = "Fraud detection for sales agent networks.";
 // links to Analytics (it holds Review outcomes) and Accountability to Overview.
 export const CARDS = [
   {
-    title: "Detection", chip: "Scoring", link: "How the model works", path: "/how-it-works",
+    title: "Detection", chip: "Scoring", link: "Read the detection guide", path: "/detection-guide",
     text: "A frozen statistical model and a duplicate activation rule score every sales agent on a schedule and rank agents for review.",
   },
   {

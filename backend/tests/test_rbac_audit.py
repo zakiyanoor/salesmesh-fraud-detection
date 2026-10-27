@@ -23,6 +23,8 @@ def _any_flag():
 
 
 def _audit_entries(client, admin_id):
+    """The actor's entries, read as an administrator (only administrators may read the audit log)."""
+    login(client, ADMIN)
     return client.get(f"/api/audit-log?actor={admin_id}&limit=1000").get_json()["entries"]
 
 
@@ -175,17 +177,18 @@ def test_audit_log_rejects_unauthenticated(client) -> None:
     assert client.get("/api/audit-log").status_code == 401
 
 
-@pytest.mark.parametrize("account", [ADMIN, COMPLIANCE], ids=["admin", "compliance"])
-def test_audit_log_readable_by_admin_and_compliance(client, account) -> None:
-    login(client, account)
+def test_audit_log_readable_by_admin(client) -> None:
+    login(client, ADMIN)
     response = client.get("/api/audit-log")
     assert response.status_code == 200
     assert isinstance(response.get_json()["count"], int)
 
 
-def test_audit_log_not_readable_by_fraud_analyst(client) -> None:
-    login(client, ANALYST)
+@pytest.mark.parametrize("account", [COMPLIANCE, ANALYST], ids=["compliance", "analyst"])
+def test_audit_log_and_its_export_are_for_administrators_only(client, account) -> None:
+    login(client, account)
     assert client.get("/api/audit-log").status_code == 403
+    assert client.get("/api/reports/audit-log.csv").status_code == 403
 
 
 def test_audit_log_records_login_and_logout(client) -> None:

@@ -55,9 +55,13 @@ def test_account_endpoints_are_admin_only(client, account, method, url) -> None:
 def test_admin_lists_accounts_without_password_hashes(client) -> None:
     login(client, ADMIN)
     body = client.get("/api/admin/accounts").get_json()
+    # last_login: the latest successful sign in from the audit log, ISO UTC ending in Z, or None.
+    me = next(a for a in body["accounts"] if a["admin_id"] == ADMIN["admin_id"])
+    assert me["last_login"] and me["last_login"].endswith("Z")
+
     roles = {a["admin_id"]: a["role"] for a in body["accounts"]}
     assert roles[ADMIN["admin_id"]] == "admin" and roles[ANALYST["admin_id"]] == "fraud_analyst"
-    assert all(set(a) == {"admin_id", "username", "role", "is_active"} for a in body["accounts"])
+    assert all(set(a) == {"admin_id", "username", "role", "is_active", "last_login"} for a in body["accounts"])
     assert "password" not in str(body).lower()
 
 

@@ -32,6 +32,15 @@ export const AUDIT_ACTIONS = {
   ai_flag: "Flag changed",
 };
 
+// Categories whose entries can name an agent: everything under Review and Detection. Sign-in, Reports and
+// Accounts entries never do, so the Agent column and field are left out for them.
+const AGENT_CATEGORIES = ["review", "ai_decision"];
+
+/** Whether entries of this category (or of all categories, "") can name an agent. */
+export function categoryHasAgents(category) {
+  return !category || AGENT_CATEGORIES.includes(category);
+}
+
 /** Whether the event was a refusal or failure. Derived for display only; the API has no outcome field. */
 export function auditResult(entry) {
   if (entry.action === "access_denied" || entry.action === "review_refused") return "refused";

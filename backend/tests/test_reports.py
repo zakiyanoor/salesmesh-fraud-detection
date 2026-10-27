@@ -89,13 +89,27 @@ def test_flagged_agents_csv_content_and_masking(client) -> None:
 def test_audit_log_csv_filters_and_cap(client, monkeypatch) -> None:
     login(client, ADMIN)
     rows = rows_of(client.get("/api/reports/audit-log.csv?category=authentication"))
-    assert rows and {r["category"] for r in rows} == {"authentication"}
-    assert list(rows[0]) == reports.AUDIT_COLUMNS
+    assert rows and {r["Category"] for r in rows} == {"authentication"}
+    assert list(rows[0]) == reports.AUDIT_COLUMNS == [
+        "Time (UTC)", "Actor", "Actor type", "Category", "Action", "Agent", "Request IP (masked)", "Result", "Details"]
+    assert all(re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z", r["Time (UTC)"]) for r in rows)
+    results = {r["Action"]: r["Result"] for r in rows}
+    assert results.get("login", "Success") == "Success" and results.get("login_failure", "Failed") == "Failed"
     assert client.get("/api/reports/audit-log.csv?category=nope").status_code == 400
     entry = last_download(client, "audit-log.csv")
     assert entry["details"]["filters"] == {"category": "authentication"} and entry["details"]["cap"] == 50000
     monkeypatch.setattr(reports, "AUDIT_CSV_CAP", 5)
-    assert len(rows_of(client.get("/api/reports/audit-log.csv"))) == 5
+    capped = client.get("/api/reports/audit-log.csv")
+    assert len(rows_of(capped)) == 5 and capped.headers.get("X-Row-Limit-Reached") == "true"
+    monkeypatch.setattr(reports, "AUDIT_CSV_CAP", 50000)
+    assert client.get("/api/reports/audit-log.csv?category=report").headers.get("X-Row-Limit-Reached") is None
+
+
+def test_audit_result_column_only_where_the_entry_says() -> None:
+    assert audit.result_of("login", None) == "Success" and audit.result_of("access_denied", {}) == "Failed"
+    assert audit.result_of("ai_detection_run", {"status": "failed"}) == "Failed"
+    assert audit.result_of("ai_detection_run", {"status": "succeeded"}) == "Success"
+    assert audit.result_of("ai_flag", {"change": "newly flagged"}) == ""
 
 
 def test_detection_summary_pdf_content(client) -> None:
@@ -132,7 +146,7 @@ def test_csv_injection_is_neutralised_end_to_end(client) -> None:
     login(client, ADMIN)
     response = client.get("/api/reports/audit-log.csv", query_string={"actor": hostile})
     rows = rows_of(response)
-    assert rows and all(r["actor"] == "'" + hostile for r in rows)
+    assert rows and all(r["Actor"] == "'" + hostile for r in rows)
     assert all(not v.startswith(reports.FORMULA_PREFIXES) for r in rows for v in r.values() if v)
 
 

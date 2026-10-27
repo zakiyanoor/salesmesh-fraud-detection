@@ -53,9 +53,9 @@ describe("session restore", () => {
 
 describe("role-based menus and guards", () => {
   it.each([
-    ["fraud_analyst", ["Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history", "How the model works"]],
-    ["compliance_officer", ["Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history", "Confirm queue", "How the model works"]],
-    ["admin", ["Overview", "Threat intelligence", "Analytics", "Audit log", "Reports", "Accounts", "How the model works"]],
+    ["fraud_analyst", ["Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history", "Detection guide"]],
+    ["compliance_officer", ["Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history", "Confirm queue", "Detection guide"]],
+    ["admin", ["Overview", "Threat intelligence", "Analytics", "Audit log", "Reports", "Accounts", "Detection guide"]],
   ])("%s sees only its menu", async (role, expected) => {
     mockApi(sessionRoutes(role));
     renderApp("/");

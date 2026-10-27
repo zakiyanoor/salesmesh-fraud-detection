@@ -13,7 +13,7 @@ import ManageAccountsIcon from "@mui/icons-material/ManageAccountsOutlined";
 import HelpIcon from "@mui/icons-material/HelpOutlineOutlined";
 import ThemeMenu from "./ThemeMenu";
 import { useAuth } from "../auth/authContext";
-import { ROLE_LABELS, menuFor } from "../auth/roles";
+import { menuFor, roleLabel } from "../auth/roles";
 
 export const DRAWER_WIDTH = 240;
 
@@ -96,7 +96,7 @@ export default function Sidebar({ variant = "permanent", open = true, onClose, o
             Signed in as {user?.username}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-            {ROLE_LABELS[user?.role] || user?.role}
+            {roleLabel(user?.role)}
           </Typography>
           <Button size="small" onClick={logout} sx={{ px: 0 }}>
             Sign out

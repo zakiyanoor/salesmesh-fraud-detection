@@ -4,7 +4,7 @@ import { DEFAULT_PATH, SHARED_PAGES, safeTarget, signInHref } from "./redirect";
 
 describe("Signed-out navigation (issue #28)", () => {
   it("lists only the menu pages every role may open", () => {
-    expect(SHARED_PAGES.map((page) => page.label)).toEqual(["Overview", "Threat intelligence", "Analytics", "How the model works"]);
+    expect(SHARED_PAGES.map((page) => page.label)).toEqual(["Overview", "Threat intelligence", "Analytics", "Detection guide"]);
     for (const role of [FRAUD_ANALYST, COMPLIANCE_OFFICER, ADMIN]) {
       const menu = menuFor(role).map((page) => page.key);
       for (const page of SHARED_PAGES) expect(menu, role).toContain(page.key);
@@ -20,7 +20,7 @@ describe("Signed-out navigation (issue #28)", () => {
 
   it("accepts a known relative route", () => {
     expect(safeTarget("/analytics")).toBe("/analytics");
-    expect(safeTarget("/how-it-works", ADMIN)).toBe("/how-it-works");
+    expect(safeTarget("/detection-guide", ADMIN)).toBe("/detection-guide");
     expect(safeTarget("/agents/A10001", FRAUD_ANALYST)).toBe("/agents/A10001");
   });
 

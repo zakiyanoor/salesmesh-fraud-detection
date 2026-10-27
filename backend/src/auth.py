@@ -98,6 +98,15 @@ def verify_login(username, password):
         db_session.close()
 
 
+def username_exists(username):
+    """Whether an account has this username (used to keep typed text that matches no account out of the audit log)."""
+    db_session = get_session()
+    try:
+        return db_session.query(Administrator.admin_id).filter(Administrator.username == str(username)).first() is not None
+    finally:
+        db_session.close()
+
+
 def refresh_session():
     """
     Re-reads the logged-in account on every request, so a deactivation or role

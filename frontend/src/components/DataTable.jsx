@@ -31,7 +31,7 @@ const REFINED_TABLE = {
 
 export default function DataTable({
   label, columns, rows, rowKey, sort, onSort, page, rowsPerPage, onPageChange, onRowsPerPageChange, emptyText,
-  totalCount, onRowClick, refined = false,
+  totalCount, onRowClick, refined = false, hidePagingWhenOnePage = false,
 }) {
   const theme = useTheme();
   const cards = useMediaQuery(theme.breakpoints.down("md"), { noSsr: true });
@@ -58,7 +58,8 @@ export default function DataTable({
   const visible = serverPaged ? sorted : sorted.slice(safePage * rowsPerPage, safePage * rowsPerPage + rowsPerPage);
   const titleColumn = columns.find((c) => c.title) || columns[0];
 
-  const pagination = count > 0 && (
+  // With hidePagingWhenOnePage, the paging row (and Rows per page) is left out while every row fits on one page.
+  const pagination = count > 0 && !(hidePagingWhenOnePage && count <= rowsPerPage) && (
     <TablePagination
       component="div"
       count={count}

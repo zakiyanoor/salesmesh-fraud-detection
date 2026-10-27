@@ -10,7 +10,10 @@ Rules:
 
 from werkzeug.security import generate_password_hash
 
+from sqlalchemy import func
+
 from src.auth import ROLE_ADMIN, VALID_ROLES, Administrator, validate_password
+from src.db import AdminActionLog
 
 
 class AccountError(Exception):
@@ -23,8 +26,18 @@ def account_payload(admin):
     return {"admin_id": admin.admin_id, "username": admin.username, "role": admin.role, "is_active": admin.is_active}
 
 
+def last_logins(db_session):
+    """admin_id -> the time of its most recent successful sign in (a "login" audit entry, UTC). No schema change."""
+    rows = (db_session.query(AdminActionLog.admin_id, func.max(AdminActionLog.timestamp))
+            .filter(AdminActionLog.action == "login").group_by(AdminActionLog.admin_id).all())
+    return {admin_id: at for admin_id, at in rows}
+
+
 def list_accounts(db_session):
-    return [account_payload(a) for a in db_session.query(Administrator).order_by(Administrator.username)]
+    """Every account with last_login: the latest successful sign in as ISO UTC ending in Z, or None."""
+    logins = last_logins(db_session)
+    return [{**account_payload(a), "last_login": f"{logins[a.admin_id].isoformat()}Z" if a.admin_id in logins else None}
+            for a in db_session.query(Administrator).order_by(Administrator.username)]
 
 
 def _target(db_session, actor_id, target_id):

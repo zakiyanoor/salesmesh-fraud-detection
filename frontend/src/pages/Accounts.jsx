@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {
-  Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, MenuItem,
-  TextField, Typography,
+  Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, FormControlLabel,
+  MenuItem, Switch, TextField, Typography,
 } from "@mui/material";
 import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
 import BlockOutlined from "@mui/icons-material/BlockOutlined";
@@ -12,15 +12,18 @@ import { LoadStatus } from "../components/states";
 import { nextSort } from "../components/tableState";
 import { useApi } from "../hooks/useApi";
 import { useAuth } from "../auth/authContext";
-import { ROLE_LABELS } from "../auth/roles";
+import { ROLE_LABELS, roleLabel } from "../auth/roles";
+import { formatDateTime } from "../format";
 import { mono } from "../theme";
 import { api } from "../api";
 
 const chip = { size: "small", variant: "outlined" };
+const AUDITED = "This change is recorded in the audit log.";
 
+// Roles an account can have here; any other value (the legacy "administrator") is shown with its label but marked.
 function RoleChip({ role }) {
-  if (ROLE_LABELS[role]) return <Chip {...chip} label={ROLE_LABELS[role]} />;
-  return <Chip {...chip} color="warning" icon={<WarningAmberOutlined fontSize="small" />} label={`${role} (not a valid role)`} />;
+  if (ROLE_LABELS[role]) return <Chip {...chip} label={roleLabel(role)} />;
+  return <Chip {...chip} color="warning" icon={<WarningAmberOutlined fontSize="small" />} label={`${roleLabel(role)} (older role, cannot sign in)`} />;
 }
 
 function ActiveChip({ active }) {
@@ -59,9 +62,9 @@ function ChangeDialog({ change, onClose, onDone }) {
       <DialogContent>
         {error && <Alert severity="error" role="alert" sx={{ mb: 2 }}>{error}</Alert>}
         <DialogContentText sx={{ mb: kind === "role" ? 2 : 0 }}>
-          {kind === "role" && `Choose the new role for ${account.username}. It applies on their next request.`}
-          {kind === "deactivate" && `${account.username} will be signed out on their next request and cannot sign in until reactivated.`}
-          {kind === "reactivate" && `${account.username} will be able to sign in again with their existing password.`}
+          {kind === "role" && `Choose the new role for ${account.username}. It applies on their next request. ${AUDITED}`}
+          {kind === "deactivate" && `${account.username} will be signed out on their next request and cannot sign in until reactivated. ${AUDITED}`}
+          {kind === "reactivate" && `${account.username} will be able to sign in again with their existing password. ${AUDITED}`}
         </DialogContentText>
         {kind === "role" && (
           <TextField select fullWidth size="small" label="Role" value={role} onChange={(e) => setRole(e.target.value)}>
@@ -89,17 +92,21 @@ export default function Accounts() {
   const [sort, setSort] = useState({ key: "username", dir: "asc" });
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [showDeactivated, setShowDeactivated] = useState(false);
 
-  const accounts = useMemo(
-    () => (result.data?.accounts || []).map((a) => updated[a.admin_id] || a),
+  // A change returns the account without last_login, so it is merged over the listed row.
+  const all = useMemo(
+    () => (result.data?.accounts || []).map((a) => (updated[a.admin_id] ? { ...a, ...updated[a.admin_id] } : a)),
     [result.data, updated],
   );
+  const hidden = all.filter((a) => !a.is_active).length;
+  const accounts = showDeactivated ? all : all.filter((a) => a.is_active);
 
   const done = (response, kind) => {
     const account = response.account;
     setUpdated((prev) => ({ ...prev, [account.admin_id]: account }));
     setChange(null);
-    const what = { role: `now ${ROLE_LABELS[account.role] || account.role}`, deactivate: "deactivated", reactivate: "reactivated" }[kind];
+    const what = { role: `now ${roleLabel(account.role)}`, deactivate: "deactivated", reactivate: "reactivated" }[kind];
     setNotice(response.changed === false ? `No change: ${account.username} was already ${what.replace("now ", "")}.` : `${account.username} is ${what}.`);
   };
 
@@ -117,8 +124,18 @@ export default function Accounts() {
       ),
     },
     { key: "id", label: "Account ID", sortValue: (a) => a.admin_id, render: (a) => <Box component="span" sx={mono}>{a.admin_id}</Box> },
-    { key: "role", label: "Role", sortValue: (a) => ROLE_LABELS[a.role] || a.role, render: (a) => <RoleChip role={a.role} /> },
+    { key: "role", label: "Role", sortValue: (a) => roleLabel(a.role), render: (a) => <RoleChip role={a.role} /> },
     { key: "status", label: "Status", sortValue: (a) => (a.is_active ? 0 : 1), render: (a) => <ActiveChip active={a.is_active} /> },
+    {
+      key: "lastLogin",
+      label: "Last signed in",
+      sortValue: (a) => a.last_login || "",
+      render: (a) => (
+        <Box component="span" sx={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", color: a.last_login ? "text.primary" : "text.secondary" }}>
+          {a.last_login ? formatDateTime(a.last_login) : "Never"}
+        </Box>
+      ),
+    },
     {
       key: "actions",
       label: "Actions",
@@ -147,7 +164,7 @@ export default function Accounts() {
   const header = (
     <PageHeader
       title="Accounts"
-      subtitle="Who can sign in, and with which role. Password hashes are never shown."
+      subtitle="Who can sign in, and with which role."
     />
   );
   if (!result.data) return <>{header}<LoadStatus result={result} /></>;
@@ -155,12 +172,17 @@ export default function Accounts() {
   return (
     <>
       {header}
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        New accounts and password resets are not available here: there is no API for them, so they are done on the server (password resets with <Box component="code" sx={mono}>python -m src.manage_accounts reset-password</Box>).
-      </Typography>
       {notice && <Alert severity="success" role="status" onClose={() => setNotice(null)} sx={{ mb: 3 }}>{notice}</Alert>}
+      {hidden > 0 && (
+        <FormControlLabel
+          control={<Switch checked={showDeactivated} onChange={(e) => { setShowDeactivated(e.target.checked); setPage(0); }} />}
+          label={`Show deactivated accounts (${hidden})`}
+          sx={{ mb: 1 }}
+        />
+      )}
       <Divider sx={{ mb: 2 }} />
       <DataTable
+        hidePagingWhenOnePage
         label="Accounts"
         columns={columns}
         rows={accounts}

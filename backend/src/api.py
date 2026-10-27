@@ -54,7 +54,7 @@ from src.db import (
 )
 from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER, ROLE_ADMIN, DEACTIVATED,
-    VALID_ROLES,
+    VALID_ROLES, username_exists,
 )
 from src import accounts, activity, customers, model_info, reports, review, ring_graph, threat_intel
 from src import audit
@@ -70,7 +70,8 @@ app.config.update(
     SESSION_COOKIE_SAMESITE=CONFIG["SESSION_COOKIE_SAMESITE"],
     PERMANENT_SESSION_LIFETIME=CONFIG["PERMANENT_SESSION_LIFETIME"],
 )
-CORS(app, supports_credentials=True, origins=CONFIG["CORS_ORIGINS"])
+CORS(app, supports_credentials=True, origins=CONFIG["CORS_ORIGINS"],
+     expose_headers=["Content-Disposition", "X-Row-Limit-Reached"])
 
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
 if not FLASK_SECRET_KEY:
@@ -277,8 +278,11 @@ def login():
         # The actor is unknown until a login succeeds, so failures are "anonymous".
         reason = ("invalid credentials" if not admin else "account deactivated" if not admin["is_active"]
                   else "unknown role")
-        audit.record_now(audit.ANONYMOUS, "login_failure", "authentication",
-                         details={"username": str(data["username"])[:100], "reason": reason},
+        # A username that matches no account is not stored: it may be anything a person typed.
+        known = admin is not None or username_exists(data["username"])
+        details = ({"username": str(data["username"])[:100], "reason": reason} if known
+                   else {"username": "unknown username", "reason": reason})
+        audit.record_now(audit.ANONYMOUS, "login_failure", "authentication", details=details,
                          request_ip=request.remote_addr)
         g.audit_recorded = True
         message = ("Invalid username or password" if not admin else DEACTIVATED if not admin["is_active"]
@@ -818,7 +822,7 @@ def list_review_decisions():
 
 
 @app.route("/api/audit-log", methods=["GET"])
-@role_required(ROLE_ADMIN, ROLE_COMPLIANCE_OFFICER)
+@role_required(ROLE_ADMIN)
 def get_audit_log():
     """Newest first. Filters: category, actor, agent_id, date_from, date_to; paging: limit (max 1000), offset."""
     try:
@@ -1044,6 +1048,9 @@ def _download(name, extension, mimetype, build):
         response = app.response_class(content, mimetype=mimetype)
         response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
         response.headers["Cache-Control"] = "no-store"
+        if extra.get("truncated"):
+            # The export stopped at the row cap; the page says so after the download.
+            response.headers["X-Row-Limit-Reached"] = "true"
         return response
     finally:
         db_session.close()
@@ -1071,8 +1078,8 @@ def report_flagged_agents():
 @role_required(ROLE_ADMIN)
 def report_audit_log():
     def build(db_session):
-        content, rows = reports.audit_log_csv(db_session, request.args)
-        return content, rows, {"cap": reports.AUDIT_CSV_CAP}
+        content, rows, truncated = reports.audit_log_csv(db_session, request.args)
+        return content, rows, {"cap": reports.AUDIT_CSV_CAP, "truncated": truncated}
 
     return _download("audit-log", "csv", "text/csv", build)
 

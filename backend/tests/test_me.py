@@ -77,7 +77,9 @@ def test_me_is_not_audited_like_other_reads(client) -> None:
     started = datetime.utcnow().isoformat()
     assert client.get("/api/me").status_code == 200
     assert client.get("/api/flagged-agents").status_code == 200
-    assert audit_entries(client, actor=COMPLIANCE["admin_id"], date_from=started) == []
+    login(client, ADMIN)
+    entries = audit_entries(client, actor=COMPLIANCE["admin_id"], date_from=started)
+    assert [e for e in entries if e["action"] != "logout"] == []
 
 
 def test_me_without_a_session_is_not_audited_but_other_routes_still_are(client) -> None:
@@ -87,7 +89,7 @@ def test_me_without_a_session_is_not_audited_but_other_routes_still_are(client) 
     client.post("/api/logout")
     assert client.get("/api/me").status_code == 401
     assert client.get("/api/flagged-agents").status_code == 401
-    login(client, COMPLIANCE)
+    login(client, ADMIN)
     denied = audit_entries(client, category="authorization", actor=audit.ANONYMOUS, date_from=started)
     assert [e for e in denied if e["details"]["route"] == "/api/me"] == []
     other = next(e for e in denied if e["details"]["route"] == "/api/flagged-agents")

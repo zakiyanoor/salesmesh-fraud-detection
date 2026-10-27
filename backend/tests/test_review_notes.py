@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import inspect as sa_inspect
 
 from src.db import ReviewDecision, engine, get_session, migrate_schema
-from tests.helpers import ANALYST, COMPLIANCE, login, reviewable_flag
+from tests.helpers import ADMIN, ANALYST, COMPLIANCE, login, reviewable_flag
 from tests.test_masking import identities, sweep_every_get_route  # noqa: F401  (identities is a fixture)
 
 NOTES = "Two agents activated the same customer within an hour."
@@ -38,7 +38,7 @@ def history_entry(client, decision_id):
 
 
 def audit_entry(client, actor, action, decision_id):
-    login(client, COMPLIANCE)
+    login(client, ADMIN)
     entries = client.get(f"/api/audit-log?actor={actor}&limit=1000").get_json()["entries"]
     return next(e for e in entries if e["action"] == action and e["details"]["decision_id"] == decision_id)
 
@@ -167,7 +167,7 @@ def test_unknown_decision_outcome_returns_400_and_writes_nothing(client, flag, o
     assert response.status_code == 400
     assert "decision_outcome must be one of ['confirmed_fraud', 'legitimate']" in response.get_json()["error"]
     assert analyst_decision_count() == before
-    login(client, COMPLIANCE)
+    login(client, ADMIN)
     written = client.get(f"/api/audit-log?actor={ANALYST['admin_id']}&date_from={started}").get_json()["entries"]
     assert [e for e in written if e["action"] == "propose_decision"] == []
 

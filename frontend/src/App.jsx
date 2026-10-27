@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { Box, CircularProgress } from "@mui/material";
 import { useAuth } from "./auth/authContext";
 import { PAGES } from "./auth/roles";
@@ -24,7 +24,7 @@ const PAGE_COMPONENTS = {
   audit: lazy(() => import("./pages/AuditLog")),
   reports: lazy(() => import("./pages/Reports")),
   accounts: lazy(() => import("./pages/Accounts")),
-  howItWorks: lazy(() => import("./pages/HowItWorks")),
+  howItWorks: lazy(() => import("./pages/DetectionGuide")),
 };
 
 export default function App() {
@@ -50,6 +50,8 @@ export default function App() {
           const Page = PAGE_COMPONENTS[key];
           return <Route key={key} path={path} element={<RequireRole roles={roles}><Page /></RequireRole>} />;
         })}
+        {/* The guide's earlier address. */}
+        <Route path="/how-it-works" element={<Navigate to="/detection-guide" replace />} />
         <Route path={SIGN_IN_PATH} element={<AfterSignIn />} />
         <Route path="/403" element={<AccessDenied />} />
         <Route path="*" element={<NotFound />} />
