@@ -1,19 +1,29 @@
-import { Skeleton, Typography } from "@mui/material";
+import { Box, Paper, Skeleton, Typography } from "@mui/material";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
 import RingExplorer from "../components/RingExplorer";
-import { regionRateTable, timelineTable } from "../chartTables";
-import { ActivationTimelineChart, CountyChart } from "../components/charts";
+import { regionRateTable } from "../chartTables";
+import { CountyChart } from "../components/charts";
 import { useApi } from "../hooks/useApi";
 import { formatPercent } from "../format";
 import { api } from "../api";
 
 const card = { p: 2.5, mb: 3 };
 
-/** "145 of 1000 agents (14.5%) flagged by the model. Their records carry X% of commission paid." */
-function SummaryLine({ summary }) {
+function Stat({ label, value, note }) {
+  return (
+    <Paper component="article" aria-label={label} sx={{ p: 2.5, borderRadius: "8px", boxShadow: "none", minWidth: 0 }}>
+      <Typography sx={{ fontSize: 13, color: "text.secondary" }}>{label}</Typography>
+      <Typography sx={{ fontSize: 28, fontWeight: 500, lineHeight: 1.25, fontVariantNumeric: "tabular-nums", mt: 0.5 }}>{value}</Typography>
+      {note && <Typography sx={{ fontSize: 13, color: "text.secondary", fontVariantNumeric: "tabular-nums" }}>{note}</Typography>}
+    </Paper>
+  );
+}
+
+/** Three stat tiles from the summary and the ring candidates: flagged agents, their commission share, groups. */
+function Stats({ summary, rings }) {
   const s = summary.data;
-  if (summary.loading) return <Skeleton variant="text" width={420} sx={{ mb: 3 }} />;
+  if (summary.loading) return <Skeleton variant="rounded" height={104} sx={{ mb: 3 }} />;
   if (!s) {
     return (
       <Typography role="alert" sx={{ fontSize: 14, color: "text.secondary", mb: 3 }}>
@@ -24,20 +34,20 @@ function SummaryLine({ summary }) {
   if (!s.agents_scored) return <Typography sx={{ fontSize: 14, color: "text.secondary", mb: 3 }}>No successful detection run yet.</Typography>;
   const share = s.commission_kes?.flagged_share;
   return (
-    <Typography data-testid="threat-summary" sx={{ fontSize: 15, mb: 3, fontVariantNumeric: "tabular-nums" }}>
-      {`${s.flagged} of ${s.agents_scored} agents (${formatPercent(s.flagged_rate)}) flagged by the model.`}
-      {share != null ? ` Their records carry ${formatPercent(share)} of commission paid.` : ""}
-    </Typography>
+    <Box component="section" aria-label="Summary" sx={{ display: "grid", gap: 2, mb: 3, gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(3, minmax(0, 1fr))" } }}>
+      <Stat label="Flagged by the model" value={`${s.flagged} of ${s.agents_scored}`} note={formatPercent(s.flagged_rate)} />
+      <Stat label="Commission carried by flagged agents" value={share != null ? formatPercent(share) : "—"} note="of commission paid" />
+      <Stat label="Ring candidates" value={rings.data ? rings.data.candidates_total : "—"} note="groups sharing 3 or more customers" />
+    </Box>
   );
 }
 
 /**
  * Threat intelligence for every role, from the latest successful detection run (issue #28). It answers who is
- * working together (ring candidates and connected agents), when (the activation timeline) and where (counties).
+ * working together (ring candidates and connected agents) and where (counties).
  */
 export default function ThreatIntelligence() {
   const summary = useApi(api.getThreatSummary);
-  const timeline = useApi(api.getThreatTimeline);
   const regions = useApi(api.getThreatByRegion);
   const sharing = useApi(api.getCustomerSharing);
   const rings = useApi(api.getRingCandidates);
@@ -45,7 +55,7 @@ export default function ThreatIntelligence() {
   return (
     <>
       <PageHeader title="Threat intelligence" subtitle="Where flagged activity concentrates, from the latest successful detection run" />
-      <SummaryLine summary={summary} />
+      <Stats summary={summary} rings={rings} />
 
       <SectionCard
         panel
@@ -57,19 +67,6 @@ export default function ThreatIntelligence() {
         sx={card}
       >
         {(d) => <RingExplorer data={d} sharing={sharing} />}
-      </SectionCard>
-
-      <SectionCard
-        panel
-        title="Activation timeline"
-        table={timelineTable}
-        subtitle="Activations per day by agents the model flagged and by all other agents"
-        result={timeline}
-        isEmpty={(d) => !d?.days?.length}
-        emptyText="No activation records are loaded yet."
-        sx={card}
-      >
-        {(d) => <ActivationTimelineChart days={d.days} />}
       </SectionCard>
 
       <SectionCard

@@ -158,11 +158,11 @@ describe("accessibility (axe)", () => {
   it("charts have a text alternative and a table view", async () => {
     mockApi({ ...sessionRoutes("fraud_analyst"), ...DATA });
     renderApp("/threat-intelligence");
-    const card = await screen.findByRole("region", { name: "Activation timeline" });
-    expect(await within(card).findByRole("img", { name: /Activation timeline chart/ })).toBeInTheDocument();
+    const card = await screen.findByRole("region", { name: "Flagged agents by county" });
+    expect(await within(card).findByRole("img", { name: /Flagged agents by county chart/ })).toBeInTheDocument();
     await userEvent.click(within(card).getByRole("button", { name: "Show as table" }));
-    const data = within(card).getByRole("table", { name: "Activation timeline data" });
-    expect(within(data).getByText("965")).toBeInTheDocument();
+    const data = within(card).getByRole("table", { name: "Flagged agents by county data" });
+    expect(within(data).getByText("Lamu")).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "Show as chart" })).toHaveAttribute("aria-pressed", "true");
     await expectNoViolations();
   });

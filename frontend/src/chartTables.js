@@ -13,11 +13,6 @@ export const riskBandTable = (summary) => ({
   rows: [["High risk", "high"], ["Review", "review"], ["Low risk", "low"]].map(([band, key]) => ({ band, agents: summary.risk_bands?.[key] ?? 0 })),
 });
 
-export const timelineTable = (timeline) => ({
-  columns: [{ key: "date", label: "Date" }, { key: "flagged", label: "Flagged agents" }, { key: "other", label: "Other agents" }],
-  rows: timeline.days.map((d) => ({ date: d.date, flagged: d.flagged_agents, other: d.other_agents })),
-});
-
 export const regionRateTable = (regions) => ({
   columns: [{ key: "region", label: "County" }, { key: "flagged", label: "Flagged agents" }, { key: "agents", label: "All agents" }, { key: "rate", label: "Flagged rate" }],
   rows: regions.top_by_flagged_rate.map((r) => ({ region: r.region, rate: formatPercent(r.flagged_rate), flagged: r.flagged, agents: r.agents })),

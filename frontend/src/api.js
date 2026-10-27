@@ -105,7 +105,6 @@ export const api = {
   getThreatByRegion: () => request("/threat-intelligence/by-region"),
   getThreatByClient: () => request("/threat-intelligence/by-client"),
   getThreatByCategory: () => request("/threat-intelligence/by-category"),
-  getThreatTimeline: () => request("/threat-intelligence/timeline"),
   getCustomerSharing: () => request("/threat-intelligence/customer-sharing"),
   getRingCandidates: () => request("/threat-intelligence/ring-candidates"),
   getModelInfo: () => request("/model-info"),
