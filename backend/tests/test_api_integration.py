@@ -211,3 +211,17 @@ def test_analytics_reports_flag_sources_and_cutoff(client) -> None:
     body = client.get("/api/analytics").get_json()
     assert abs(body["cutoff"] - 1.444799) < 1e-6
     assert sum(s["count"] for s in body["flag_sources"]) == 1000
+
+
+def test_analytics_platform_averages_include_the_four_signals(client) -> None:
+    """Issue #28: the average of each model input, the collusion score included, from the feature vectors."""
+    login(client, ANALYST)
+    averages = client.get("/api/analytics").get_json()["platform_averages"]
+    assert set(averages) == {"submission_frequency", "time_of_day_dist", "customer_similarity", "collusion_score"}
+    db_session = get_session()
+    try:
+        values = [v.collusion_score for v in db_session.query(FeatureVector).all() if v.collusion_score is not None]
+    finally:
+        db_session.close()
+    assert values and 0 <= averages["collusion_score"] <= 1
+    assert abs(averages["collusion_score"] - sum(values) / len(values)) < 0.01

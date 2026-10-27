@@ -22,41 +22,57 @@ export const REVIEW_STATUS_LABELS = { none: "Not reviewed", ...STATUS_LABELS };
 export const WAITING_TEXT = "Waiting for a compliance officer to agree or overrule";
 
 /** The four model inputs, in the order the model uses them. `key` is the field name in API payloads. */
+/**
+ * The plain names of the model's four signals, keyed by every name the data uses for them (time_of_day_dist in
+ * the database and API, time_of_day_entropy in the model output). One mapping for every page.
+ */
+export const FEATURE_NAMES = {
+  submission_frequency: "Busiest 24 hours",
+  time_of_day_dist: "Spread of working hours",
+  time_of_day_entropy: "Spread of working hours",
+  customer_similarity: "Look-alike customer IDs",
+  collusion_score: "Customers shared with other agents",
+};
+
 export const FEATURES = [
   {
     key: "submission_frequency",
-    label: "Submission frequency",
+    label: FEATURE_NAMES.submission_frequency,
+    unit: "activations in 24 hours",
     digits: 0,
     help: "The most activations the agent submitted in any 24-hour window. A burst far above the usual count is unusual.",
   },
   {
     // The API keeps the older key time_of_day_dist for the v3 time_of_day_entropy.
     key: "time_of_day_dist",
-    label: "Time-of-day entropy",
+    label: FEATURE_NAMES.time_of_day_dist,
+    unit: "0 is one hour, 1 is spread evenly",
     digits: 3,
     help: "How evenly submissions spread over the hours of the day, from 0 (all in one hour) to 1 (spread evenly). Work packed into a few hours, or spread over unusual hours, stands out.",
   },
   {
     key: "customer_similarity",
-    label: "Customer similarity",
+    label: FEATURE_NAMES.customer_similarity,
+    unit: "share of matching ID digits",
     digits: 3,
     help: "How alike the agent's customer ID numbers are, as the share of matching digits between pairs. Made-up or sequential IDs look more alike than real ones.",
   },
   {
     key: "collusion_score",
-    label: "Collusion score",
+    label: FEATURE_NAMES.collusion_score,
+    unit: "share of customers shared",
     digits: 3,
     help: "The share of the agent's customers that at least one other agent also activated. Honest agents rarely share customers.",
   },
 ];
 
 /** Labels for the model's own feature names (as in top_features and reasons). */
-export const MODEL_FEATURE_LABELS = {
-  submission_frequency: "Submission frequency",
-  time_of_day_entropy: "Time-of-day entropy",
-  customer_similarity: "Customer similarity",
-  collusion_score: "Collusion score",
-};
+export const MODEL_FEATURE_LABELS = FEATURE_NAMES;
+
+/** A share as a rate: "20%" or "33.3%", one decimal with no trailing .0 for a whole number. */
+export function formatRate(share) {
+  return `${Number((share * 100).toFixed(1))}%`;
+}
 
 export function formatPercent(share, digits = 1) {
   return share == null ? "—" : `${(share * 100).toFixed(digits)}%`;

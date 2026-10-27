@@ -869,7 +869,8 @@ def get_analytics():
                  (f">= {SCORE_EDGES[2]:.1f}", SCORE_EDGES[2], float("inf"))]
         score_buckets = {label: 0 for label, _, _ in edges}
         region_counts: dict = {}
-        freq_sum = dist_sum = sim_sum = 0.0
+        freq_sum = dist_sum = sim_sum = coll_sum = 0.0
+        coll_count = 0
 
         for v in vectors:
             flag = flags.get(v.vector_id)
@@ -879,6 +880,10 @@ def get_analytics():
             freq_sum += v.submission_frequency
             dist_sum += v.time_of_day_dist
             sim_sum += v.customer_similarity
+            # Issue #28: the fourth signal; vectors written before the column existed have none.
+            if v.collusion_score is not None:
+                coll_sum += v.collusion_score
+                coll_count += 1
 
             bucket_label = next(label for label, low, high in edges if low <= flag.suspicion_score < high)
             score_buckets[bucket_label] += 1
@@ -901,6 +906,7 @@ def get_analytics():
                 "submission_frequency": round(freq_sum / count, 1),
                 "time_of_day_dist": round(dist_sum / count, 3),
                 "customer_similarity": round(sim_sum / count, 3),
+                "collusion_score": round(coll_sum / coll_count, 3) if coll_count else None,
             },
             # Issue #28: proposal counts and the overrule rate (src/review.py, review_stats).
             "review": review.review_stats(db_session),

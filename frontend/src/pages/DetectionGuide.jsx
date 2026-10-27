@@ -11,6 +11,7 @@ import { FlagSourceChip } from "../components/chips";
 import { LoadStatus } from "../components/states";
 import { useApi } from "../hooks/useApi";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { FEATURE_NAMES } from "../format";
 import { mono } from "../theme";
 import { api } from "../api";
 
@@ -41,10 +42,10 @@ const STEPS = [
 ];
 
 const SIGNALS = [
-  ["Timing", "Busiest 24 hours", "The most activations the agent submitted in any 24 hours.", "Unusual when the agent submits far more in a day than agents usually manage."],
-  ["Rhythm", "Spread of working hours", "How evenly the agent's activations spread over the hours of the day.", "Unusual when work is packed into a few odd hours, or spread over every hour."],
-  ["Identity", "Look-alike customer IDs", "How alike the customer IDs the agent enters are.", "Unusual when many IDs are near identical, such as numbers in a sequence."],
-  ["Sharing", "Customers shared with other agents", "The share of the agent's customers that other agents also activated.", "Unusual when many customers are shared; honest agents rarely share them."],
+  ["Timing", FEATURE_NAMES.submission_frequency, "The most activations the agent submitted in any 24 hours.", "Unusual when the agent submits far more in a day than agents usually manage."],
+  ["Rhythm", FEATURE_NAMES.time_of_day_dist, "How evenly the agent's activations spread over the hours of the day.", "Unusual when work is packed into a few odd hours, or spread over every hour."],
+  ["Identity", FEATURE_NAMES.customer_similarity, "How alike the customer IDs the agent enters are.", "Unusual when many IDs are near identical, such as numbers in a sequence."],
+  ["Sharing", FEATURE_NAMES.collusion_score, "The share of the agent's customers that other agents also activated.", "Unusual when many customers are shared; honest agents rarely share them."],
 ];
 
 // Flag source (as the API names it), what it means, and the risk bands it leads to (risk.py).
@@ -400,6 +401,9 @@ function ScoreChart({ scores, cutoff }) {
       </Box>
       <Typography sx={{ fontSize: 13, color: "text.secondary", mt: 1 }}>
         {`Scores of the ${total} agents in the latest run, in steps of ${BIN}.${above ? ` The last bar also counts ${above} ${above === 1 ? "agent" : "agents"} scoring ${CLIP} or more.` : ""}`}
+      </Typography>
+      <Typography sx={{ fontSize: 13, color: "text.secondary", mt: 0.5 }}>
+        This chart includes agents the model learned from, so use the test results below for accuracy.
       </Typography>
     </Paper>
   );

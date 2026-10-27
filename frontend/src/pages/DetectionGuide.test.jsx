@@ -77,6 +77,7 @@ describe("Detection guide", () => {
     const chart = await within(reading).findByRole("img", { name: /^Histogram of the scores of \d+ agents in the latest run/ });
     expect(chart.getAttribute("aria-label")).toMatch(/with a typical agent at about 1 and the cutoff at 1\.500\.$/);
     expect(within(reading).getByText(/^Scores of the \d+ agents in the latest run, in steps of 0\.1\./)).toBeInTheDocument();
+    expect(within(reading).getByText("This chart includes agents the model learned from, so use the test results below for accuracy.")).toBeInTheDocument();
     expect(screen.getAllByText("Scores and ranks are not probabilities. A flag asks a person to look; it is not a finding of fraud.")).toHaveLength(1);
   });
 

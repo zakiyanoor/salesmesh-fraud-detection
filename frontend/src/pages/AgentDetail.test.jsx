@@ -106,7 +106,7 @@ describe("Agent detail", () => {
     )).toBeInTheDocument();
 
     const features = screen.getByRole("region", { name: "Features" });
-    for (const label of ["Submission frequency", "Time-of-day entropy", "Customer similarity", "Collusion score"]) {
+    for (const label of ["Busiest 24 hours", "Spread of working hours", "Look-alike customer IDs", "Customers shared with other agents"]) {
       expect(within(features).getByText(label)).toBeInTheDocument();
     }
     expect(within(features).getByText(/at least one other agent also activated/)).toBeInTheDocument();

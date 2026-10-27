@@ -330,7 +330,7 @@ Query parameters:
                    {"flag_source": "Both", "count": 73}, {"flag_source": "None", "count": 826}],
   "score_distribution": [{"bucket": "< 1.1", "count": 572}, {"bucket": "1.1-1.3", "count": 210}],
   "region_breakdown": [{"region": "Kericho", "flagged": 6, "total": 25}],
-  "platform_averages": {"submission_frequency": 15.8, "time_of_day_dist": 0.778, "customer_similarity": 0.109},
+  "platform_averages": {"submission_frequency": 15.8, "time_of_day_dist": 0.778, "customer_similarity": 0.109, "collusion_score": 0.032},
   "review": {"proposals": 6, "open": 2, "overdue": 1, "withdrawn": 1, "agreed": 2, "overruled": 1, "corrections": 1,
              "overrule_rate": 0.3333, "overdue_hours": 72}
 }

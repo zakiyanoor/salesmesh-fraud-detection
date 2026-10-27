@@ -27,12 +27,18 @@ describe("Analytics", () => {
       expect(within(region).queryByRole("alert")).not.toBeInTheDocument();
     }
     const review = await card("Review outcomes");
-    expect(within(review).getByText("33.3% overruled")).toBeInTheDocument();
-    expect(within(review).getByText("1 of 3 compliance decisions")).toBeInTheDocument();
-    expect(within(review).getByText("Overruled means a compliance officer disagreed with the analyst's proposal.")).toBeInTheDocument();
-    const averages = await card("Platform average behaviour");
-    expect(within(averages).getByText("14.0")).toBeInTheDocument();
-    expect(within(averages).getByText("Customer similarity")).toBeInTheDocument();
+    expect(within(review).getByTestId("overrule-rate")).toHaveTextContent("33.3%");
+    expect(within(review).getByText("of compliance decisions overruled")).toBeInTheDocument();
+    expect(within(review).getByText("1 of 3")).toBeInTheDocument();
+    expect(within(review).getByText("Agreed 2")).toBeInTheDocument();
+    expect(within(review).getByText("Overruled 1")).toBeInTheDocument();
+    expect(within(review).getAllByText("Overruled means a compliance officer disagreed with the analyst's proposal.")).toHaveLength(1);
+    expect(within(review).getByText("Open and withdrawn proposals are not counted.")).toBeInTheDocument();
+    expect(within(review).getByText("How compliance decisions compare with analyst proposals.")).toBeInTheDocument();
+    const averages = await card("Average behaviour across all agents");
+    expect(within(averages).getByText("From the latest detection run.")).toBeInTheDocument();
+    expect(within(averages).getByRole("article", { name: "Busiest 24 hours" })).toHaveTextContent("Busiest 24 hours14.0activations in 24 hours");
+    expect(within(averages).getByRole("article", { name: "Look-alike customer IDs" })).toBeInTheDocument();
     expect(document.title).toBe("Analytics · SalesMesh Fraud Detection");
   });
 
@@ -53,7 +59,9 @@ describe("Analytics", () => {
     expect(within(drives).getByText("Flagged agents by their strongest feature")).toBeInTheDocument();
     await userEvent.click(await within(drives).findByRole("button", { name: "Show as table" }));
     const table = within(drives).getByRole("table", { name: "What drives the flags data" });
-    expect(within(table).getAllByRole("row")[1].textContent).toBe("Collusion score70");
+    // The column names stay; the values use the shared plain names.
+    expect(within(table).getAllByRole("columnheader").map((c) => c.textContent)).toEqual(["Strongest feature", "Flagged agents"]);
+    expect(within(table).getAllByRole("row")[1].textContent).toBe("Customers shared with other agents70");
   });
 
   it("keeps the other cards when one fails, and retries it", async () => {
@@ -87,5 +95,40 @@ describe("Analytics cutoff", () => {
     renderApp("/analytics");
     const card = await screen.findByRole("region", { name: "Suspicion score distribution" });
     await waitFor(() => expect(card).toHaveTextContent("Agents per score range; the cutoff is 2.250"));
+  });
+});
+
+describe("Review outcomes", () => {
+  const withReview = (review) => ({ "GET /api/analytics": { ...FIXTURES["GET /api/analytics"], review: { ...FIXTURES["GET /api/analytics"].review, ...review } } });
+
+  it.each([
+    [{ agreed: 4, overruled: 1 }, "20%", "1 of 5"],
+    [{ agreed: 2, overruled: 1 }, "33.3%", "1 of 3"],
+    [{ agreed: 0, overruled: 2 }, "100%", "2 of 2"],
+  ])("follows the decisions: %j gives %s", async (review, rate, count) => {
+    mockApi(routes("fraud_analyst", withReview(review)));
+    renderApp("/analytics");
+    const card = await screen.findByRole("region", { name: "Review outcomes" });
+    expect(await within(card).findByTestId("overrule-rate")).toHaveTextContent(new RegExp(`^${rate.replace(".", "\\.")}$`));
+    expect(within(card).getByText(count)).toBeInTheDocument();
+  });
+
+  it("says no decisions yet instead of a rate or a bar, and never NaN or 0%", async () => {
+    mockApi(routes("fraud_analyst", withReview({ agreed: 0, overruled: 0, overrule_rate: null })));
+    renderApp("/analytics");
+    const card = await screen.findByRole("region", { name: "Review outcomes" });
+    expect(await within(card).findByTestId("overrule-rate")).toHaveTextContent("No decisions yet");
+    expect(card.textContent).not.toMatch(/NaN|0%|Agreed 0/);
+  });
+
+  it("shows the other states as tiles, with overdue in the warning colour only above 0", async () => {
+    mockApi(routes("fraud_analyst", withReview({ open: 3, overdue: 0, withdrawn: 2, corrections: 1 })));
+    renderApp("/analytics");
+    const card = await screen.findByRole("region", { name: "Review outcomes" });
+    await within(card).findByText("Open");
+    for (const [label, value] of [["Open", "3"], ["Overdue", "0"], ["Withdrawn", "2"], ["Corrections", "1"]]) {
+      expect(within(card).getByText(label).nextSibling).toHaveTextContent(value);
+    }
+    expect(within(card).queryByText(/^Agreed$|^Overruled$/)).not.toBeInTheDocument();
   });
 });
