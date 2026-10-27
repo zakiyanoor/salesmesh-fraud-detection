@@ -55,6 +55,6 @@ describe("session end", () => {
     await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Review history" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Signed in as/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign out" })).not.toBeInTheDocument();
   });
 });

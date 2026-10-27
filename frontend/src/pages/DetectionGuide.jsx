@@ -1,20 +1,36 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  Accordion, AccordionDetails, AccordionSummary, Box, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, Typography,
+  Accordion, AccordionDetails, AccordionSummary, Box, Button, Chip, Link, Paper, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Typography,
 } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMoreOutlined";
-import PageHeader from "../components/PageHeader";
+import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import RiskBadge from "../components/RiskBadge";
+import { FlagSourceChip } from "../components/chips";
 import { LoadStatus } from "../components/states";
 import { useApi } from "../hooks/useApi";
-import { useLatestRun } from "../latestRun/latestRunContext";
-import { formatDateTime } from "../format";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { mono } from "../theme";
 import { api } from "../api";
 
-const WIDTH = 960;
+const MAX_WIDTH = 1200;
+const CONTENT = 880;
 const card = { p: 2.5, borderRadius: "8px", boxShadow: "none" };
 const tabular = { fontVariantNumeric: "tabular-nums" };
+// Every agent's score in the latest run (the endpoint's maximum page; the data has 1000 agents).
+const loadScores = () => api.getAgentScores({ limit: 1000 });
+const BIN = 0.1;
+const CLIP = 4;
+
+const SECTIONS = [
+  ["how-a-flag-is-made", "How a flag is made"],
+  ["what-the-model-looks-at", "What the model looks at"],
+  ["flag-sources-and-risk-bands", "Flag sources and risk bands"],
+  ["reading-a-score", "Reading a score"],
+  ["how-well-it-did", "How well it did on test agents"],
+  ["glossary", "Glossary"],
+];
 
 const STEPS = [
   ["Collect activations", "Every activation an agent submitted in the analysis period."],
@@ -24,19 +40,19 @@ const STEPS = [
   ["A person reviews", "An analyst proposes an outcome and a compliance officer agrees or overrules it."],
 ];
 
-// What the model looks at, keyed by the names the model uses.
 const SIGNALS = [
-  ["Busiest 24 hours", "The most activations the agent submitted in any 24 hours.", "Unusual when the agent submits far more in a day than agents usually manage."],
-  ["Spread of working hours", "How evenly the agent's activations spread over the hours of the day.", "Unusual when work is packed into a few odd hours, or spread over every hour."],
-  ["Look-alike customer IDs", "How alike the customer IDs the agent enters are.", "Unusual when many IDs are near identical, such as numbers in a sequence."],
-  ["Customers shared with other agents", "The share of the agent's customers that other agents also activated.", "Unusual when many customers are shared; honest agents rarely share them."],
+  ["Timing", "Busiest 24 hours", "The most activations the agent submitted in any 24 hours.", "Unusual when the agent submits far more in a day than agents usually manage."],
+  ["Rhythm", "Spread of working hours", "How evenly the agent's activations spread over the hours of the day.", "Unusual when work is packed into a few odd hours, or spread over every hour."],
+  ["Identity", "Look-alike customer IDs", "How alike the customer IDs the agent enters are.", "Unusual when many IDs are near identical, such as numbers in a sequence."],
+  ["Sharing", "Customers shared with other agents", "The share of the agent's customers that other agents also activated.", "Unusual when many customers are shared; honest agents rarely share them."],
 ];
 
+// Flag source (as the API names it), what it means, and the risk bands it leads to (risk.py).
 const FLAG_SOURCES = [
-  ["Model", "The model flagged the agent.", "High"],
-  ["Rule only", "Only the duplicate activation rule flagged the agent.", "Review"],
-  ["Model and rule", "Both flagged the agent.", "High"],
-  ["Not flagged", "Neither flagged the agent.", "Review when the score is close to the cutoff, otherwise Low"],
+  ["ML", "The model flagged the agent.", ["high"]],
+  ["Rule", "Only the duplicate activation rule flagged the agent.", ["review"]],
+  ["Both", "Both flagged the agent.", ["high"]],
+  ["None", "Neither flagged the agent. Review when the score is close to the cutoff, otherwise Low.", ["review", "low"]],
 ];
 
 const SYSTEMS = [["model", "Model"], ["rule", "Duplicate activation rule"], ["model_or_rule", "Model or rule"]];
@@ -57,10 +73,176 @@ function every(minutes) {
   return `every ${minutes} minutes`;
 }
 
-function Section({ title, children }) {
+function prefersReducedMotion() {
+  return typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+}
+
+/** The accent for text on the page surface: the deeper blue in light, the lighter one in dark (AA either way). */
+function useAccent() {
+  const { palette } = useTheme();
+  const dark = palette.mode === "dark";
+  return { accent: dark ? palette.primary.main : palette.primary.dark, dark, palette };
+}
+
+/**
+ * Soft flowing lines drifting slowly behind the hero, at about 8% in the accent. Canvas, no library. It pauses
+ * while the tab is hidden and is drawn once, still, when reduced motion is preferred. Decorative.
+ */
+function FlowingLines() {
+  const ref = useRef(null);
+  const { accent } = useAccent();
+  useEffect(() => {
+    const canvas = ref.current;
+    const context = canvas?.getContext?.("2d");
+    if (!context) return undefined;
+    const still = prefersReducedMotion();
+    let frame = null;
+    let width = 0;
+    let height = 0;
+    const resize = () => {
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      width = canvas.clientWidth;
+      height = canvas.clientHeight;
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    };
+    const draw = (t) => {
+      context.clearRect(0, 0, width, height);
+      context.strokeStyle = accent;
+      context.lineWidth = 1;
+      for (let i = 0; i < 9; i += 1) {
+        const base = height * (0.15 + i * 0.09);
+        context.globalAlpha = 0.06 + (i % 3) * 0.01;
+        context.beginPath();
+        for (let x = 0; x <= width; x += 8) {
+          const y = base + Math.sin(x / (170 + i * 23) + t / (9000 + i * 700) + i) * (14 + i * 2)
+            + Math.sin(x / 61 + t / 5200 + i * 2) * 4;
+          if (x === 0) context.moveTo(x, y); else context.lineTo(x, y);
+        }
+        context.stroke();
+      }
+      context.globalAlpha = 1;
+    };
+    const tick = (t) => {
+      draw(t);
+      frame = requestAnimationFrame(tick);
+    };
+    const start = () => { if (!still && frame === null && !document.hidden) frame = requestAnimationFrame(tick); };
+    const stop = () => { if (frame !== null) cancelAnimationFrame(frame); frame = null; };
+    const onVisibility = () => (document.hidden ? stop() : start());
+    resize();
+    draw(0);
+    start();
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => { resize(); draw(performance.now()); }) : null;
+    observer?.observe(canvas);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stop();
+      observer?.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [accent]);
   return (
-    <Box component="section" aria-label={title} sx={{ mb: 5 }}>
-      <Typography component="h2" sx={{ fontSize: 20, fontWeight: 600, mb: 2 }}>{title}</Typography>
+    <Box
+      component="canvas"
+      ref={ref}
+      aria-hidden="true"
+      data-testid="hero-lines"
+      sx={{
+        position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none",
+        // Fades into the page surface towards the bottom and the right edge.
+        maskImage: "linear-gradient(to bottom, black 35%, transparent), linear-gradient(to right, black 70%, transparent)",
+        maskComposite: "intersect",
+        WebkitMaskImage: "linear-gradient(to bottom, black 35%, transparent)",
+      }}
+    />
+  );
+}
+
+/** A section that fades up 8px once as it enters the view (not at all with reduced motion). */
+function Section({ id, title, children }) {
+  const ref = useRef(null);
+  const [shown, setShown] = useState(() => prefersReducedMotion() || typeof IntersectionObserver === "undefined");
+  useEffect(() => {
+    if (shown) return undefined;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setShown(true);
+        observer.disconnect();
+      }
+    }, { threshold: 0.08 });
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [shown]);
+  return (
+    <Box
+      component="section"
+      id={id}
+      ref={ref}
+      aria-labelledby={`${id}-title`}
+      sx={{
+        mb: 6, scrollMarginTop: 24,
+        opacity: shown ? 1 : 0, transform: shown ? "none" : "translateY(8px)",
+        transition: "opacity 320ms ease-out, transform 320ms ease-out",
+        "@media (prefers-reduced-motion: reduce)": { opacity: 1, transform: "none", transition: "none" },
+      }}
+    >
+      <Typography id={`${id}-title`} component="h2" sx={{ fontSize: 20, fontWeight: 600, mb: 2 }}>{title}</Typography>
+      {children}
+    </Box>
+  );
+}
+
+/** The sticky "On this page" list (1200px and up), marking the section in view. */
+function OnThisPage() {
+  const { accent } = useAccent();
+  const [active, setActive] = useState(SECTIONS[0][0]);
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return undefined;
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (visible[0]) setActive(visible[0].target.id);
+    }, { rootMargin: "0px 0px -60% 0px" });
+    for (const [id] of SECTIONS) {
+      const element = document.getElementById(id);
+      if (element) observer.observe(element);
+    }
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <Box component="nav" aria-label="On this page" sx={{ display: { xs: "none", lg: "block" }, position: "sticky", top: 24, alignSelf: "start" }}>
+      <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 1.5 }}>On this page</Typography>
+      <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0, borderLeft: 1, borderColor: "divider" }}>
+        {SECTIONS.map(([id, title]) => (
+          <li key={id}>
+            <Link
+              href={`#${id}`}
+              underline="hover"
+              aria-current={active === id ? "location" : undefined}
+              sx={{
+                display: "block", fontSize: 13, py: 0.75, pl: 1.5, ml: "-1px", borderLeft: 2,
+                borderColor: active === id ? accent : "transparent",
+                color: active === id ? accent : "text.secondary", fontWeight: active === id ? 500 : 400,
+              }}
+            >
+              {title}
+            </Link>
+          </li>
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
+function Badge({ children }) {
+  const { accent, dark } = useAccent();
+  return (
+    <Box aria-hidden="true" sx={{
+      width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+      bgcolor: (th) => alpha(th.palette.primary.main, dark ? 0.18 : 0.1), color: accent, fontSize: 13, fontWeight: 600,
+      position: "relative", zIndex: 1, boxShadow: (th) => `0 0 0 4px ${th.palette.background.default}`, ...tabular,
+    }}>
       {children}
     </Box>
   );
@@ -70,23 +252,62 @@ function Steps({ info }) {
   return (
     <>
       <Box component="ol" sx={{
-        listStyle: "none", m: 0, p: 0, display: "grid", gap: 2,
-        gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(5, minmax(0, 1fr))" },
+        listStyle: "none", m: 0, p: 0, position: "relative", display: "grid", gap: { xs: 2.5, md: 2 },
+        gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "repeat(5, minmax(0, 1fr))" },
+        // The thin line joining the steps: across the badges on wide screens, down them on narrow ones.
+        "&::before": {
+          content: '""', position: "absolute", bgcolor: "divider",
+          top: { xs: 14, md: 13 }, bottom: { xs: 14, md: "auto" }, left: { xs: 13, md: 14 }, right: { xs: "auto", md: 14 },
+          width: { xs: "1px", md: "auto" }, height: { xs: "auto", md: "1px" },
+        },
       }}>
         {STEPS.map(([name, line], i) => (
-          <Paper component="li" key={name} sx={card}>
-            <Typography sx={{ ...mono, fontSize: 13, color: "text.secondary", mb: 0.5 }}>{i + 1}</Typography>
-            <Typography sx={{ fontSize: 15, fontWeight: 600, mb: 0.5 }}>{name}</Typography>
-            <Typography sx={{ fontSize: 14, color: "text.secondary" }}>{line}</Typography>
-          </Paper>
+          <Box component="li" key={name} sx={{ display: "flex", flexDirection: { xs: "row", md: "column" }, gap: 1.5, minWidth: 0 }}>
+            <Badge>{i + 1}</Badge>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontSize: 15, fontWeight: 600, mb: 0.25 }}>{name}</Typography>
+              <Typography sx={{ fontSize: 14, color: "text.secondary" }}>{line}</Typography>
+            </Box>
+          </Box>
         ))}
       </Box>
       {info && (
-        <Typography sx={{ fontSize: 14, mt: 2 }}>
-          {`Detection runs ${every(info.detection_interval_minutes)}. Every page shows the latest run.`}
+        <Typography sx={{ fontSize: 14, mt: 3 }}>
+          {`Detection runs on a schedule, ${every(info.detection_interval_minutes)} by default. Every page shows the results of the latest run.`}
         </Typography>
       )}
     </>
+  );
+}
+
+function TintChip({ label }) {
+  const { accent, dark } = useAccent();
+  return (
+    <Chip size="small" label={label} sx={{
+      height: 22, fontSize: 12, fontWeight: 500, color: accent, borderRadius: "6px",
+      bgcolor: (th) => alpha(th.palette.primary.main, dark ? 0.16 : 0.08),
+    }} />
+  );
+}
+
+function SignalCard({ chip, name, sentence, unusual, sx }) {
+  const { accent, dark } = useAccent();
+  return (
+    <Paper component="article" aria-label={name} sx={{
+      ...card, transition: "border-color 120ms ease", "&:hover": { borderColor: alpha(accent, 0.4) }, ...sx,
+    }}>
+      <TintChip label={chip} />
+      <Typography component="h3" sx={{ fontSize: 16, fontWeight: 600, mt: 1.25, mb: 0.5 }}>{name}</Typography>
+      <Typography sx={{ fontSize: 14, mb: unusual ? 1.5 : 0 }}>{sentence}</Typography>
+      {unusual && (
+        <Box sx={{
+          px: 1.5, py: 1, borderLeft: 2, borderColor: accent, borderRadius: "0 6px 6px 0",
+          bgcolor: (th) => alpha(th.palette.primary.main, dark ? 0.08 : 0.04),
+        }}>
+          <Typography sx={{ fontSize: 14, color: "text.secondary" }}>{unusual}</Typography>
+        </Box>
+      )}
+    </Paper>
   );
 }
 
@@ -94,21 +315,16 @@ function Signals() {
   return (
     <>
       <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" } }}>
-        {SIGNALS.map(([name, sentence, unusual]) => (
-          <Paper key={name} component="article" aria-label={name} sx={card}>
-            <Typography component="h3" sx={{ fontSize: 15, fontWeight: 600, mb: 0.5 }}>{name}</Typography>
-            <Typography sx={{ fontSize: 14, mb: 1 }}>{sentence}</Typography>
-            <Typography sx={{ fontSize: 14, color: "text.secondary" }}>{unusual}</Typography>
-          </Paper>
+        {SIGNALS.map(([chip, name, sentence, unusual]) => (
+          <SignalCard key={name} chip={chip} name={name} sentence={sentence} unusual={unusual} />
         ))}
       </Box>
-      <Paper component="article" aria-label="The duplicate activation rule" sx={{ ...card, mt: 2 }}>
-        <Typography component="h3" sx={{ fontSize: 15, fontWeight: 600, mb: 0.5 }}>The duplicate activation rule</Typography>
-        <Typography sx={{ fontSize: 14 }}>
-          Beside the model, a simple rule flags an agent when the same customer and client pair appears twice where it
-          should not: used by another agent too, or repeated by the same agent after it was already completed.
-        </Typography>
-      </Paper>
+      <SignalCard
+        chip="Rule"
+        name="The duplicate activation rule"
+        sentence="Beside the model, a simple rule flags an agent when the same customer and client pair appears twice where it should not: used by another agent too, or repeated by the same agent after it was already completed."
+        sx={{ mt: 2 }}
+      />
     </>
   );
 }
@@ -117,20 +333,26 @@ function FlagSources() {
   const head = { fontSize: 13, fontWeight: 500, color: "text.secondary" };
   return (
     <TableContainer component={Paper} sx={{ ...card, p: 0 }}>
-      <Table size="small" aria-label="Flag sources and risk bands">
+      <Table size="small" aria-label="Flag sources and risk bands" sx={{ "& td": { borderColor: "divider", py: 1.25 }, "& tbody tr:last-of-type td": { borderBottom: 0 } }}>
         <TableHead>
           <TableRow>
             <TableCell sx={head}>Flagged by</TableCell>
-            <TableCell sx={head}>Meaning</TableCell>
+            <TableCell sx={{ ...head, display: { xs: "none", sm: "table-cell" } }}>Meaning</TableCell>
             <TableCell sx={head}>Risk band</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {FLAG_SOURCES.map(([source, meaning, band]) => (
+          {FLAG_SOURCES.map(([source, meaning, bands]) => (
             <TableRow key={source}>
-              <TableCell sx={{ fontWeight: 500, whiteSpace: "nowrap" }}>{source}</TableCell>
-              <TableCell>{meaning}</TableCell>
-              <TableCell>{band}</TableCell>
+              <TableCell>
+                <FlagSourceChip source={source} />
+                {/* On phones the meaning sits under the chip instead of in its own narrow column. */}
+                <Typography sx={{ display: { xs: "block", sm: "none" }, fontSize: 13, color: "text.secondary", mt: 0.75 }}>{meaning}</Typography>
+              </TableCell>
+              <TableCell sx={{ fontSize: 14, display: { xs: "none", sm: "table-cell" } }}>{meaning}</TableCell>
+              <TableCell>
+                <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>{bands.map((b) => <RiskBadge key={b} band={b} />)}</Box>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -139,22 +361,56 @@ function FlagSources() {
   );
 }
 
-/** A scale with the typical agent's score and the cutoff marked; the cutoff comes from /api/model-info. */
-function ScoreScale({ cutoff }) {
-  // The scale runs from 0 to twice the cutoff, so the cutoff sits in the middle.
-  const at = (value) => `${Math.min(value / (2 * cutoff), 1) * 100}%`;
-  const mark = (value, label) => (
-    <Box sx={{ position: "absolute", left: at(value), top: 0, transform: "translateX(-50%)", textAlign: "center" }}>
-      <Box sx={{ width: 2, height: 18, bgcolor: "text.primary", mx: "auto" }} />
-      <Typography sx={{ fontSize: 13, mt: 0.75, whiteSpace: "nowrap", ...tabular }}>{label}</Typography>
-    </Box>
-  );
+/** Agents per 0.1 of score in the latest run, from 0 to CLIP; scores above CLIP are counted in the last bar. */
+function scoreBins(scores) {
+  const values = scores.map((s) => s.anomaly_score).filter((v) => Number.isFinite(v));
+  const bins = Array.from({ length: Math.round(CLIP / BIN) }, (_, i) => ({ start: Math.round(i * BIN * 10) / 10, agents: 0 }));
+  for (const v of values) {
+    const i = Math.min(bins.length - 1, Math.max(0, Math.floor(v / BIN)));
+    bins[i].agents += 1;
+  }
+  return { bins: bins.map((b) => ({ ...b, mid: Math.round((b.start + BIN / 2) * 100) / 100 })), total: values.length, above: values.filter((v) => v >= CLIP).length };
+}
+
+function ScoreChart({ scores, cutoff }) {
+  const { accent, palette } = useAccent();
+  const { bins, total, above } = scoreBins(scores);
+  const axis = { fill: palette.text.secondary, fontSize: 12 };
+  const label = (value, position) => ({ value, position, fill: palette.text.primary, fontSize: 12 });
   return (
-    <Box role="img" aria-label={`Score scale with a typical agent at about 1 and the cutoff at ${cutoff.toFixed(3)}`}
-      sx={{ position: "relative", height: 56, mx: { xs: 6, sm: 8 }, mt: 1 }}>
-      <Box sx={{ position: "absolute", left: 0, right: 0, top: 8, height: 2, bgcolor: "divider" }} />
-      {mark(1, "Typical agent, about 1")}
-      {mark(cutoff, `Cutoff, ${cutoff.toFixed(3)}`)}
+    <Paper sx={{ ...card, pt: 3 }}>
+      <Box role="img" aria-label={`Histogram of the scores of ${total} agents in the latest run, with a typical agent at about 1 and the cutoff at ${cutoff.toFixed(3)}.`}>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={bins} margin={{ top: 28, right: 12, bottom: 8, left: 0 }} barCategoryGap={1}>
+            <CartesianGrid vertical={false} stroke={palette.divider} />
+            <XAxis dataKey="mid" type="number" domain={[0, CLIP]} ticks={[0, 1, 2, 3, 4]} tickFormatter={(v) => (v === CLIP ? `${CLIP}+` : String(v))}
+              tick={axis} axisLine={{ stroke: palette.divider }} tickLine={false} />
+            <YAxis allowDecimals={false} tick={axis} axisLine={false} tickLine={false} width={40} />
+            <Tooltip
+              cursor={{ fill: palette.action.selected }}
+              formatter={(value) => [value, "Agents"]}
+              labelFormatter={(mid) => `Score ${(mid - BIN / 2).toFixed(1)} to ${(mid + BIN / 2).toFixed(1)}`}
+              contentStyle={{ background: palette.background.paper, border: `1px solid ${palette.divider}`, color: palette.text.primary }}
+            />
+            <Bar dataKey="agents" fill={alpha(accent, 0.55)} isAnimationActive={false} />
+            <ReferenceLine x={1} stroke={palette.text.secondary} strokeDasharray="3 3" label={label("Typical agent, about 1", "insideTopRight")} />
+            <ReferenceLine x={cutoff} stroke={accent} strokeWidth={1.5} label={label(`Cutoff, ${cutoff.toFixed(3)}`, "insideTopLeft")} />
+          </BarChart>
+        </ResponsiveContainer>
+      </Box>
+      <Typography sx={{ fontSize: 13, color: "text.secondary", mt: 1 }}>
+        {`Scores of the ${total} agents in the latest run, in steps of ${BIN}.${above ? ` The last bar also counts ${above} ${above === 1 ? "agent" : "agents"} scoring ${CLIP} or more.` : ""}`}
+      </Typography>
+    </Paper>
+  );
+}
+
+function Proportion({ part, whole }) {
+  const { accent, palette } = useAccent();
+  const share = whole > 0 ? part / whole : 0;
+  return (
+    <Box aria-hidden="true" sx={{ height: 4, borderRadius: 2, bgcolor: palette.divider, mt: 0.75, mb: 0.5, overflow: "hidden" }}>
+      <Box sx={{ height: "100%", width: `${share * 100}%`, bgcolor: accent }} />
     </Box>
   );
 }
@@ -167,12 +423,13 @@ function Summary({ info }) {
         return (
           <Paper key={key} component="article" aria-label={label} sx={card}>
             <Typography component="h3" sx={{ fontSize: 15, fontWeight: 600, mb: 1.5 }}>{label}</Typography>
-            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
-              {[["Precision", r.precision, `${r.tp} of ${r.flagged}`], ["Recall", r.recall, `${r.tp} of ${r.tp + r.fn}`]].map(([name, value, counts]) => (
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2.5 }}>
+              {[["Precision", r.precision, r.tp, r.flagged], ["Recall", r.recall, r.tp, r.tp + r.fn]].map(([name, value, part, whole]) => (
                 <Box key={name}>
                   <Typography sx={{ fontSize: 13, color: "text.secondary" }}>{name}</Typography>
                   <Typography sx={{ fontFamily: (th) => th.typography.h1.fontFamily, fontSize: 30, fontWeight: 500, lineHeight: 1.2, ...tabular }}>{two(value)}</Typography>
-                  <Typography sx={{ fontSize: 13, color: "text.secondary", ...tabular }}>{counts}</Typography>
+                  <Proportion part={part} whole={whole} />
+                  <Typography sx={{ fontSize: 13, color: "text.secondary", ...tabular }}>{`${part} of ${whole}`}</Typography>
                 </Box>
               ))}
             </Box>
@@ -217,6 +474,9 @@ function FullResults({ info }) {
           </TableBody>
         </Table>
       </TableContainer>
+      <Typography sx={{ fontSize: 14, color: "text.secondary", mt: 1.5 }}>
+        In brackets: the counts behind each figure, and the likely range (95% interval) for PR AUC and ROC AUC on another sample of the same size.
+      </Typography>
       <Typography sx={{ fontSize: 14, mt: 1.5 }}>
         {"The model flags an agent whose score is at or above the cutoff of "}
         <Box component="span" sx={mono}>{info.cutoff.toFixed(3)}</Box>
@@ -231,12 +491,13 @@ function TestResults({ info }) {
   return (
     <>
       <Summary info={info} />
-      <Box sx={{ mt: 2, display: "grid", gap: 0.5 }}>
+      <Box sx={{ mt: 2.5, display: "grid", gap: 0.5 }}>
         <Typography sx={{ fontSize: 14 }}>{`Measured once on ${info.test_agents} held out test agents, ${info.test_fraud_agents} of them fraud.`}</Typography>
+        <Typography sx={{ fontSize: 14 }}>{`Accuracy figures come only from these ${info.test_agents} test agents. Scores shown for other agents include agents the model learned from.`}</Typography>
         <Typography sx={{ fontSize: 14 }}>Not a promise for other data.</Typography>
         <Typography sx={{ fontSize: 14 }}>The rule never wrongly flagged an honest test agent; that comes from how the test data was made.</Typography>
       </Box>
-      <Button size="small" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls="full-results" sx={{ mt: 1.5, px: 0 }}>
+      <Button variant="outlined" size="small" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls="full-results" sx={{ mt: 2 }}>
         {open ? "Hide full results" : "Show full results"}
       </Button>
       {open && <Box id="full-results"><FullResults info={info} /></Box>}
@@ -245,51 +506,69 @@ function TestResults({ info }) {
 }
 
 function Glossary() {
+  const { accent } = useAccent();
   return (
-    <Box>
+    <Paper sx={{ ...card, p: 0, overflow: "hidden" }}>
       {GLOSSARY.map(([term, meaning]) => (
-        <Accordion key={term} disableGutters elevation={0} square
-          sx={{ border: 1, borderColor: "divider", "&:not(:last-of-type)": { borderBottom: 0 }, "&::before": { display: "none" }, bgcolor: "background.paper" }}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 2 }}>
+        <Accordion key={term} disableGutters elevation={0} square sx={{
+          bgcolor: "transparent", "&::before": { display: "none" }, "&:not(:last-of-type)": { borderBottom: 1, borderColor: "divider" },
+          "&.Mui-expanded .MuiAccordionSummary-expandIconWrapper": { color: accent },
+        }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 2.5 }}>
             <Typography sx={{ fontSize: 15, fontWeight: 500 }}>{term}</Typography>
           </AccordionSummary>
-          <AccordionDetails sx={{ px: 2, pt: 0 }}>
+          <AccordionDetails sx={{ px: 2.5, pt: 0 }}>
             <Typography sx={{ fontSize: 14, color: "text.secondary" }}>{meaning}</Typography>
           </AccordionDetails>
         </Accordion>
       ))}
-    </Box>
+    </Paper>
   );
 }
 
-/** The detection guide (issue #28), for every role. Every figure comes from /api/model-info, read from the frozen results. */
+/**
+ * The detection guide (issue #28), for every role. Figures come from /api/model-info (the frozen results) and
+ * the score chart from /api/agent-scores (the latest run). The model version and last run are in the app footer.
+ */
 export default function DetectionGuide() {
+  useDocumentTitle("Detection guide");
   const result = useApi(api.getModelInfo);
-  const run = useLatestRun();
+  const scores = useApi(loadScores);
   const info = result.data;
-  const lastRun = run.data?.run;
 
   return (
-    <Box sx={{ maxWidth: WIDTH }}>
-      <PageHeader title="Detection guide" subtitle="How agents are flagged, and how to read the numbers." />
-      <Section title="How a flag is made"><Steps info={info} /></Section>
-      <Section title="What the model looks at"><Signals /></Section>
-      <Section title="Flag sources and risk bands"><FlagSources /></Section>
-      <Section title="Reading a score">
-        {info ? <ScoreScale cutoff={info.cutoff} /> : <LoadStatus result={result} />}
-        <Typography sx={{ fontSize: 14, mt: 2 }}>
-          Scores and ranks are not probabilities. A flag asks a person to look; it is not a finding of fraud.
-        </Typography>
-      </Section>
-      <Section title="How well it did on test agents">
-        {info ? <TestResults info={info} /> : <LoadStatus result={result} />}
-      </Section>
-      <Section title="Glossary"><Glossary /></Section>
-      {info && (
-        <Typography data-testid="guide-footer" sx={{ fontSize: 13, color: "text.secondary", borderTop: 1, borderColor: "divider", pt: 2 }}>
-          {`Model ${info.model_version}. Last detection run ${lastRun ? formatDateTime(lastRun.finished_at || lastRun.started_at) : "not yet"}`}
-        </Typography>
-      )}
+    <Box sx={{ maxWidth: MAX_WIDTH }}>
+      {/* Hero band: title and subtitle over the faint flowing lines. */}
+      <Box sx={{ position: "relative", overflow: "hidden", mx: { xs: -2, sm: -3 }, px: { xs: 2, sm: 3 }, pt: { xs: 3, md: 5 }, pb: { xs: 4, md: 6 }, mb: 4 }}>
+        <FlowingLines />
+        <Box sx={{ position: "relative" }}>
+          <Typography component="h1" sx={{ fontFamily: (th) => th.typography.h1.fontFamily, fontSize: { xs: 34, md: 44 }, fontWeight: 600, letterSpacing: "-0.02em", lineHeight: 1.1, mb: 1.5 }}>
+            Detection guide
+          </Typography>
+          <Typography sx={{ fontSize: { xs: 16, md: 18 }, color: "text.secondary", maxWidth: 640 }}>
+            How agents are flagged, and how to read the numbers.
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: `minmax(0, ${CONTENT}px) 200px` }, columnGap: 6 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Section id="how-a-flag-is-made" title="How a flag is made"><Steps info={info} /></Section>
+          <Section id="what-the-model-looks-at" title="What the model looks at"><Signals /></Section>
+          <Section id="flag-sources-and-risk-bands" title="Flag sources and risk bands"><FlagSources /></Section>
+          <Section id="reading-a-score" title="Reading a score">
+            {info && scores.data ? <ScoreChart scores={scores.data.scores || []} cutoff={info.cutoff} /> : <LoadStatus result={info ? scores : result} />}
+            <Typography sx={{ fontSize: 14, mt: 2 }}>
+              Scores and ranks are not probabilities. A flag asks a person to look; it is not a finding of fraud.
+            </Typography>
+          </Section>
+          <Section id="how-well-it-did" title="How well it did on test agents">
+            {info ? <TestResults info={info} /> : <LoadStatus result={result} />}
+          </Section>
+          <Section id="glossary" title="Glossary"><Glossary /></Section>
+        </Box>
+        <OnThisPage />
+      </Box>
     </Box>
   );
 }
