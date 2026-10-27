@@ -13,7 +13,7 @@ import ManageAccountsIcon from "@mui/icons-material/ManageAccountsOutlined";
 import HelpIcon from "@mui/icons-material/HelpOutlineOutlined";
 import ThemeMenu from "./ThemeMenu";
 import { useAuth } from "../auth/authContext";
-import { ROLE_LABELS, menuFor } from "../auth/roles";
+import { menuFor, roleLabel } from "../auth/roles";
 
 export const DRAWER_WIDTH = 240;
 
@@ -92,13 +92,10 @@ export default function Sidebar({ variant = "permanent", open = true, onClose, o
 
         <Box>
           <Divider sx={{ mb: 2 }} />
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", overflowWrap: "anywhere" }}>
-            Signed in as {user?.username}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-            {ROLE_LABELS[user?.role] || user?.role}
-          </Typography>
-          <Button size="small" onClick={logout} sx={{ px: 0 }}>
+          {/* The signed-in account: the username, then its role in smaller muted text. */}
+          <Typography sx={{ fontSize: 14, fontWeight: 500, lineHeight: 1.4, overflowWrap: "anywhere" }}>{user?.username}</Typography>
+          <Typography sx={{ fontSize: 12, color: "text.secondary", lineHeight: 1.4, mt: 0.25, mb: 1 }}>{roleLabel(user?.role)}</Typography>
+          <Button size="small" onClick={logout} sx={{ px: 0, minWidth: 0 }}>
             Sign out
           </Button>
         </Box>

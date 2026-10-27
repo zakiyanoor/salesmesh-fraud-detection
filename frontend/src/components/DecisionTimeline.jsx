@@ -1,6 +1,6 @@
 import { Box, Typography } from "@mui/material";
 import { CorrectedChip, DecisionStatusChip, OutcomeChip } from "./chips";
-import { OUTCOME_LABELS, formatDateTime } from "../format";
+import { OUTCOME_LABELS, WAITING_TEXT, formatDateTime } from "../format";
 
 const noteSx = { mt: 0.5, whiteSpace: "pre-wrap", overflowWrap: "anywhere" };
 const when = (at) => (at ? ` on ${formatDateTime(at)}` : "");
@@ -24,7 +24,7 @@ function closing(d) {
       </Step>
     );
   }
-  return <Step>{d.overdue ? "Waiting for a compliance officer (overdue)" : "Waiting for a compliance officer"}</Step>;
+  return <Step>{d.overdue ? `${WAITING_TEXT} (overdue)` : WAITING_TEXT}</Step>;
 }
 
 /**

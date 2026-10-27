@@ -11,7 +11,7 @@ describe("session restore", () => {
     const { calls } = mockApi(sessionRoutes("fraud_analyst"));
     renderApp("/");
     expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
-    expect(within(menu()).getByText("Signed in as analyst_01")).toBeInTheDocument();
+    expect(within(menu()).getByText("analyst_01")).toBeInTheDocument();
     expect(within(menu()).getByText("Fraud analyst")).toBeInTheDocument();
     expect(calls[0].path).toBe("/api/me");
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
@@ -53,9 +53,9 @@ describe("session restore", () => {
 
 describe("role-based menus and guards", () => {
   it.each([
-    ["fraud_analyst", ["Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history", "How the model works"]],
-    ["compliance_officer", ["Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history", "Confirm queue", "How the model works"]],
-    ["admin", ["Overview", "Threat intelligence", "Analytics", "Audit log", "Reports", "Accounts", "How the model works"]],
+    ["fraud_analyst", ["Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history", "Detection guide"]],
+    ["compliance_officer", ["Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history", "Confirm queue", "Detection guide"]],
+    ["admin", ["Overview", "Threat intelligence", "Analytics", "Audit log", "Reports", "Accounts", "Detection guide"]],
   ])("%s sees only its menu", async (role, expected) => {
     mockApi(sessionRoutes(role));
     renderApp("/");
@@ -121,14 +121,14 @@ describe("error handling", () => {
     mockApi({ ...sessionRoutes("fraud_analyst"), "GET /api/review-decisions": reply(403, { error: "Forbidden" }) });
     renderApp("/history");
     expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
-    expect(within(menu()).getByText("Signed in as analyst_01")).toBeInTheDocument();
+    expect(within(menu()).getByText("analyst_01")).toBeInTheDocument();
   });
 
   it("a 404 shows an error state and keeps the user signed in", async () => {
     mockApi({ ...sessionRoutes("fraud_analyst"), "GET /api/agents/NOPE": reply(404, { error: "Agent not found" }) });
     renderApp("/agents/NOPE");
     expect(await screen.findByText("Agent not found")).toBeInTheDocument();
-    expect(within(menu()).getByText("Signed in as analyst_01")).toBeInTheDocument();
+    expect(within(menu()).getByText("analyst_01")).toBeInTheDocument();
   });
 
   it("a 500 shows an error with retry, and retry loads the page", async () => {

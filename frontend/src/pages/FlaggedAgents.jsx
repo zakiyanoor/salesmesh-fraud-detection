@@ -33,6 +33,8 @@ export default function FlaggedAgents() {
         decisions={history.decisions}
         sources={FLAGGED_SOURCES}
         emptyText="No agents are flagged in the latest run."
+        refined
+        noun="flagged agents"
       />
     </>
   );

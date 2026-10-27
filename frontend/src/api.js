@@ -69,7 +69,12 @@ export async function request(path, options) {
 export async function download(path, params) {
   const response = await send(path, { params });
   const match = /filename="?([^";]+)"?/.exec(response.headers.get("Content-Disposition") || "");
-  return { blob: await response.blob(), filename: match ? match[1] : path.split("/").pop() };
+  return {
+    blob: await response.blob(),
+    filename: match ? match[1] : path.split("/").pop(),
+    // The audit log export says when it stopped at its row cap.
+    limited: response.headers.get("X-Row-Limit-Reached") === "true",
+  };
 }
 
 const id = encodeURIComponent;
@@ -100,7 +105,6 @@ export const api = {
   getThreatByRegion: () => request("/threat-intelligence/by-region"),
   getThreatByClient: () => request("/threat-intelligence/by-client"),
   getThreatByCategory: () => request("/threat-intelligence/by-category"),
-  getThreatTimeline: () => request("/threat-intelligence/timeline"),
   getCustomerSharing: () => request("/threat-intelligence/customer-sharing"),
   getRingCandidates: () => request("/threat-intelligence/ring-candidates"),
   getModelInfo: () => request("/model-info"),

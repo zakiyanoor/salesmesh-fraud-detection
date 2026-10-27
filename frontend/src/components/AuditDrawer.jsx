@@ -2,7 +2,11 @@ import { Box, Divider, Drawer, IconButton, Typography } from "@mui/material";
 import CloseIcon from "@mui/icons-material/CloseOutlined";
 import AgentId from "./AgentId";
 import { AuditResultChip } from "./chips";
-import { AUDIT_ACTIONS, AUDIT_CATEGORIES, safeDetails } from "../audit";
+import { AUDIT_ACTIONS, AUDIT_CATEGORIES, categoryHasAgents, safeDetails } from "../audit";
+import { roleLabel } from "../auth/roles";
+
+// Detail keys that hold a role, shown with the role's label.
+const ROLE_KEYS = ["role", "denied_role", "new_role", "old_role"];
 import { formatDateTime } from "../format";
 import { mono } from "../theme";
 
@@ -48,10 +52,10 @@ export default function AuditDrawer({ entry, onClose }) {
           <Box component="dl" sx={{ m: 0, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 2, rowGap: 1 }}>
             <Field label="Result"><AuditResultChip entry={entry} /></Field>
             <Field label="Actor" monospace>{entry.actor}</Field>
-            <Field label="Actor type">{entry.actor_type}</Field>
+            <Field label="Actor type">{entry.actor_type === "system" ? "System" : "Person"}</Field>
             <Field label="Category">{AUDIT_CATEGORIES[entry.category] || entry.category}</Field>
             <Field label="Action" monospace>{entry.action}</Field>
-            <Field label="Agent"><AgentId id={entry.target_agent_id} /></Field>
+            {categoryHasAgents(entry.category) && <Field label="Agent"><AgentId id={entry.target_agent_id} /></Field>}
             <Field label="Request IP (masked)" monospace>{entry.request_ip || "—"}</Field>
           </Box>
           <Typography variant="overline" color="text.secondary" component="h3" sx={{ display: "block", mt: 3 }}>Details</Typography>
@@ -61,7 +65,8 @@ export default function AuditDrawer({ entry, onClose }) {
             <Box component="dl" sx={{ m: 0, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 2, rowGap: 1 }}>
               {details.map(([key, value]) => (
                 <Field key={key} label={key} monospace={typeof value !== "string" || key.endsWith("_id")}>
-                  {key === "notes" ? <Box component="span" sx={{ whiteSpace: "pre-wrap" }}>{value}</Box> : <Value value={value} />}
+                  {key === "notes" ? <Box component="span" sx={{ whiteSpace: "pre-wrap" }}>{value}</Box>
+                    : ROLE_KEYS.includes(key) && typeof value === "string" ? roleLabel(value) : <Value value={value} />}
                 </Field>
               ))}
             </Box>

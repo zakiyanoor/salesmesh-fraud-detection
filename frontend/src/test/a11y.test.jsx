@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { configureAxe } from "vitest-axe";
@@ -58,7 +58,7 @@ const PAGES = [
   ["compliance_officer", "/threat-intelligence", "Threat intelligence"],
   ["compliance_officer", "/review/confirm", "Confirm queue"],
   ["admin", "/audit-log", "Audit log"],
-  ["admin", "/how-it-works", "How the model works"],
+  ["admin", "/detection-guide", "Detection guide"],
   ["admin", "/reports", "Reports"],
   ["admin", "/accounts", "Accounts"],
   ["admin", "/flagged", "Access denied"],
@@ -118,6 +118,34 @@ describe("accessibility (axe)", () => {
     expect(await axe(document.body)).toHaveNoViolations();
   });
 
+  it("the overview in the dark scheme, with both chart tables open, has no violations", async () => {
+    window.localStorage.setItem("salesmesh.colorMode", "dark");
+    mockApi({ ...sessionRoutes("fraud_analyst"), ...DATA });
+    renderApp("/");
+    const attention = await screen.findByRole("region", { name: "Needs attention" });
+    await within(attention).findAllByRole("link");
+    for (const name of ["Flag sources", "Risk bands"]) {
+      await userEvent.click(within(screen.getByRole("region", { name })).getByRole("button", { name: "Show as table" }));
+    }
+    await expectNoViolations();
+  });
+
+  it("the overview's compact list on a phone has no violations", async () => {
+    // useMediaQuery reads matchMedia: report a phone width so Needs attention renders as a list.
+    vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
+      matches: /max-width:\s*599/.test(query), media: query, onchange: null,
+      addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false,
+    }));
+    mockApi({ ...sessionRoutes("fraud_analyst"), ...DATA });
+    renderApp("/");
+    const attention = await screen.findByRole("region", { name: "Needs attention" });
+    const list = await within(attention).findByRole("list", { name: "Agents that need attention" });
+    expect(within(list).getAllByRole("listitem").length).toBeGreaterThan(0);
+    expect(within(attention).queryByRole("table")).not.toBeInTheDocument();
+    await expectNoViolations();
+    vi.restoreAllMocks();
+  });
+
   it("the audit drawer and a chart's table view have no violations", async () => {
     mockApi({ ...sessionRoutes("admin"), ...DATA });
     renderApp("/audit-log");
@@ -129,12 +157,12 @@ describe("accessibility (axe)", () => {
 
   it("charts have a text alternative and a table view", async () => {
     mockApi({ ...sessionRoutes("fraud_analyst"), ...DATA });
-    renderApp("/analytics");
-    const card = await screen.findByRole("region", { name: "Daily activations" });
-    expect(await within(card).findByRole("img", { name: /Daily activations chart/ })).toBeInTheDocument();
+    renderApp("/threat-intelligence");
+    const card = await screen.findByRole("region", { name: "Flagged agents by county" });
+    expect(await within(card).findByRole("img", { name: /Flagged agents by county chart/ })).toBeInTheDocument();
     await userEvent.click(within(card).getByRole("button", { name: "Show as table" }));
-    const data = within(card).getByRole("table", { name: "Daily activations data" });
-    expect(within(data).getByText("965")).toBeInTheDocument();
+    const data = within(card).getByRole("table", { name: "Flagged agents by county data" });
+    expect(within(data).getByText("Lamu")).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "Show as chart" })).toHaveAttribute("aria-pressed", "true");
     await expectNoViolations();
   });
@@ -148,6 +176,16 @@ describe("accessibility (axe)", () => {
     expect(skip).toHaveFocus();
     expect(skip).toHaveAttribute("href", "#main-content");
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+  });
+
+  it("the ring table showing all connected agents has no violations", async () => {
+    mockApi({ ...sessionRoutes("fraud_analyst"), ...DATA });
+    renderApp("/threat-intelligence");
+    const rings = await screen.findByRole("region", { name: "Ring candidates" });
+    await within(rings).findByRole("table", { name: "Ring candidate groups" });
+    await userEvent.click(within(rings).getByRole("button", { name: "All connected agents" }));
+    await within(rings).findByRole("table", { name: "Connected agent groups" });
+    await expectNoViolations();
   });
 
   it("the ring graph with a selected agent has no violations", async () => {

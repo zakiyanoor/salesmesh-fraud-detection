@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useLocation, useParams, useNavigate, Link as RouterLink } from "react-router-dom";
 import {
-  Alert, Box, Button, Divider, Link, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+  Alert, Box, Button, Chip, Link, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
 } from "@mui/material";
 import PageHeader from "../components/PageHeader";
 import RiskBadge from "../components/RiskBadge";
@@ -16,42 +16,75 @@ import { LoadStatus } from "../components/states";
 import { useApi } from "../hooks/useApi";
 import { useAuth } from "../auth/authContext";
 import { COMPLIANCE_OFFICER, FRAUD_ANALYST, PAGES } from "../auth/roles";
-import { CUTOFF, FEATURES, OUTCOME_LABELS, formatDate, formatNumber, initials } from "../format";
+import { FEATURES, OUTCOME_LABELS, formatDate, formatNumber, initials } from "../format";
 import { PROPOSED_MESSAGE, WITHDRAWN_MESSAGE, correctedMessage, otherOutcome } from "../review";
+import { alpha } from "@mui/material/styles";
 import { mono } from "../theme";
 import { api } from "../api";
 
 const CONFIRM_PATH = PAGES.find((p) => p.key === "confirm").path;
 
-function ScoreCard({ score, percentile }) {
-  const above = score != null && score >= CUTOFF;
-  // The bar runs from 0 to twice the cutoff, so the cutoff sits in the middle.
-  const position = score == null ? 0 : Math.min(score / (2 * CUTOFF), 1) * 100;
+/** A card with a 16px sentence case title: 8px radius, 1px border, 20px padding, no shadow. */
+function Panel({ label, title, children, sx }) {
   return (
-    <Paper component="section" aria-label="Score" sx={{ p: 3 }}>
-      <Typography variant="overline" color="text.secondary" component="h2">Suspicion score</Typography>
-      <Typography variant="h2" component="p" sx={{ ...mono, color: "primary.main" }}>{formatNumber(score, 3)}</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        {score == null
-          ? "Not scored in the latest run."
-          : `${above ? "At or above" : "Below"} the model cutoff of ${CUTOFF.toFixed(3)}${above ? ", so the model flags this agent." : "."}`}
-      </Typography>
-      {score != null && percentile != null && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          {`Higher than ${Number(percentile).toFixed(1)}% of agents scored in the latest run. This is a rank, not a probability.`}
-        </Typography>
-      )}
-      <Box sx={{ position: "relative", height: 8, bgcolor: "divider", borderRadius: 4 }} aria-hidden="true">
-        <Box sx={{ height: "100%", width: `${position}%`, bgcolor: above ? "risk.high" : "primary.main", borderRadius: 4 }} />
-        <Box sx={{ position: "absolute", left: "50%", top: -4, bottom: -4, width: 2, bgcolor: "text.primary" }} />
-      </Box>
-      <Typography variant="caption" color="text.secondary">
-        A typical agent scores about 1. The marker is the cutoff. Scores are not probabilities.
-      </Typography>
+    <Paper component="section" aria-label={label} sx={{ p: 2.5, borderRadius: "8px", boxShadow: "none", minWidth: 0, ...sx }}>
+      <Typography component="h2" sx={{ fontSize: 16, fontWeight: 600, lineHeight: 1.4, mb: 1.5 }}>{title}</Typography>
+      {children}
     </Paper>
   );
 }
 
+/**
+ * The score against the model cutoff, read from GET /api/model-info. The bar runs from a typical agent's
+ * score (about 1) at the left end to as far again past the cutoff, so the cutoff marker sits in the middle.
+ */
+function ScoreCard({ score, percentile, cutoff, cutoffError }) {
+  const known = score != null && cutoff != null;
+  const above = known && score >= cutoff;
+  const span = cutoff != null ? 2 * (cutoff - 1) : 1;
+  const position = known ? Math.min(Math.max((score - 1) / span, 0), 1) * 100 : 0;
+  return (
+    <Panel label="Score" title="Suspicion score">
+      <Typography component="p" sx={{
+        fontFamily: (th) => th.typography.h1.fontFamily, fontSize: 44, fontWeight: 500, lineHeight: 1.1,
+        fontVariantNumeric: "tabular-nums", color: "text.primary", mb: 1,
+      }}>
+        {formatNumber(score, 3)}
+      </Typography>
+      <Typography sx={{ fontSize: 15, fontWeight: 500, mb: 1 }}>
+        {score == null
+          ? "Not scored in the latest run."
+          : known
+            ? `${above ? "At or above" : "Below"} the model cutoff of ${cutoff.toFixed(3)}${above ? ", so the model flags this agent." : "."}`
+            : cutoffError ? "The model cutoff could not be loaded." : "Reading the model cutoff…"}
+      </Typography>
+      {score != null && percentile != null && (
+        <Typography sx={{ fontSize: 14, color: "text.secondary", mb: 2 }}>
+          {`Higher than ${Number(percentile).toFixed(1)}% of agents scored in the latest run. This is a rank, not a probability.`}
+        </Typography>
+      )}
+      {cutoff != null && (
+        <Box sx={{ mb: 1.5 }}>
+          <Box sx={{ position: "relative", height: 16, mb: 0.5 }}>
+            <Typography component="span" sx={{ position: "absolute", left: "50%", transform: "translateX(-50%)", fontSize: 12, color: "text.secondary", whiteSpace: "nowrap" }}>
+              {`Cutoff ${cutoff.toFixed(3)}`}
+            </Typography>
+          </Box>
+          <Box sx={{ position: "relative", height: 8, bgcolor: "divider", borderRadius: 4 }} aria-hidden="true">
+            <Box sx={{ height: "100%", width: `${position}%`, bgcolor: above ? "risk.high" : "primary.main", borderRadius: 4 }} />
+            <Box sx={{ position: "absolute", left: "50%", top: -4, bottom: -4, width: 2, bgcolor: "text.primary" }} />
+          </Box>
+          <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 0.75 }}>Typical agent, about 1</Typography>
+        </Box>
+      )}
+      <Typography sx={{ fontSize: 13, color: "text.secondary" }}>
+        A typical agent scores about 1. The marker is the cutoff. Scores are not probabilities.
+      </Typography>
+    </Panel>
+  );
+}
+
+/** One aligned row per feature: name and help on the left, the value and the platform average on the right. */
 function FeatureList({ features, averages }) {
   return (
     <Box component="dl" sx={{ m: 0 }}>
@@ -59,22 +92,21 @@ function FeatureList({ features, averages }) {
         const value = features?.[f.key];
         const average = averages?.[f.key];
         return (
-          // dt and dd sit directly in a div, as a description list allows; the grid lays them out.
-          <Box
-            key={f.key}
-            sx={{
-              py: 1.5, borderBottom: 1, borderColor: "divider", "&:last-of-type": { borderBottom: 0 },
-              display: "grid", gridTemplateColumns: "1fr auto", columnGap: 2,
-            }}
-          >
-            <Typography component="dt" variant="body2" sx={{ fontWeight: 500 }}>{f.label}</Typography>
-            <Typography component="dd" variant="body2" sx={{ ...mono, m: 0 }}>{formatNumber(value, f.digits)}</Typography>
-            <Typography component="dd" variant="caption" color="text.secondary" sx={{ m: 0, gridColumn: "1 / -1" }}>{f.help}</Typography>
-            {average != null && (
-              <Typography component="dd" variant="caption" color="text.secondary" sx={{ m: 0, gridColumn: "1 / -1", ...mono }}>
-                Platform average {formatNumber(average, f.digits)}
-              </Typography>
-            )}
+          <Box key={f.key} sx={{
+            py: 1.5, borderBottom: 1, borderColor: "divider", "&:last-of-type": { borderBottom: 0, pb: 0 }, "&:first-of-type": { pt: 0 },
+            display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", columnGap: 3, alignItems: "start",
+          }}>
+            {/* dt and dd sit directly in the row, as a description list allows; the grid places them. */}
+            <Typography component="dt" sx={{ fontSize: 14, fontWeight: 500, gridColumn: 1, gridRow: 1 }}>{f.label}</Typography>
+            <Typography component="dd" sx={{ fontSize: 13, color: "text.secondary", m: 0, mt: 0.25, gridColumn: 1, gridRow: 2 }}>{f.help}</Typography>
+            <Box component="dd" sx={{ m: 0, textAlign: "right", gridColumn: 2, gridRow: "1 / span 2" }}>
+              <Typography sx={{ ...mono, fontSize: 15, fontVariantNumeric: "tabular-nums" }}>{formatNumber(value, f.digits)}</Typography>
+              {average != null && (
+                <Typography sx={{ fontSize: 12, color: "text.secondary", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                  Platform average {formatNumber(average, f.digits)}
+                </Typography>
+              )}
+            </Box>
           </Box>
         );
       })}
@@ -88,13 +120,25 @@ function Evidence({ detail }) {
   return (
     <>
       {detail.score?.reasons && (
-        <Typography variant="body2" sx={{ mb: 2 }}>
-          <Box component="span" sx={{ color: "text.secondary" }}>Model reasons: </Box>{detail.score.reasons}
-        </Typography>
+        <Box sx={{
+          mb: 2, px: 2, py: 1.5, borderRadius: "6px", border: 1, borderColor: "divider",
+          bgcolor: (th) => alpha(th.palette.primary.main, th.palette.mode === "dark" ? 0.08 : 0.04),
+        }}>
+          <Typography sx={{ fontSize: 13, color: "text.secondary", mb: 0.25 }}>Model reasons</Typography>
+          <Typography sx={{ fontSize: 14 }}>{detail.score.reasons}</Typography>
+        </Box>
       )}
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        Duplicate rule: {detail.score?.rule_flagged ? `flagged, ${detail.score.duplicate_pairs} customer and client pairs` : "not flagged"}
-      </Typography>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mb: 1.5 }}>
+        <Typography sx={{ fontSize: 14, color: "text.secondary" }}>Duplicate rule</Typography>
+        {detail.score?.rule_flagged ? (
+          <>
+            <Chip size="small" variant="outlined" color="warning" label="Flagged" />
+            <Typography sx={{ fontSize: 14, color: "text.secondary" }}>{`${detail.score.duplicate_pairs} customer and client pairs`}</Typography>
+          </>
+        ) : (
+          <Chip size="small" variant="outlined" label="Not flagged" />
+        )}
+      </Box>
       {evidence.length > 0 && (
         <TableContainer>
           <Table size="small" aria-label="Duplicate activation evidence">
@@ -152,12 +196,10 @@ function Evidence({ detail }) {
 
 function ReviewNote({ children, action }) {
   return (
-    <Paper component="section" aria-label="Review" sx={{ p: 3 }}>
-      <Typography variant="overline" color="text.secondary" component="h2">Review</Typography>
-      <Divider sx={{ mb: 2, mt: 1 }} />
-      <Typography variant="body2" color="text.secondary" sx={{ mb: action ? 2 : 0 }}>{children}</Typography>
+    <Panel label="Review" title="Review">
+      <Typography sx={{ fontSize: 14, color: "text.secondary", mb: action ? 2 : 0 }}>{children}</Typography>
       {action}
-    </Paper>
+    </Panel>
   );
 }
 
@@ -257,6 +299,7 @@ export default function AgentDetail() {
   const load = useCallback(() => Promise.all([api.getAgentDetail(agentId), api.getAnalytics()]), [agentId]);
   const result = useApi(load);
   const decisions = useApi(api.getReviewDecisions);
+  const modelInfo = useApi(api.getModelInfo);
   // After a review action the detail is fetched again quietly, so the page keeps its place and the message.
   const [fresh, setFresh] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -267,7 +310,11 @@ export default function AgentDetail() {
 
   // Back keeps the list's filters; opened directly, it goes to the flagged list.
   const goBack = () => (location.key === "default" ? navigate("/flagged") : navigate(-1));
-  const back = <Button onClick={goBack} sx={{ mb: 3, px: 0 }}>← Back</Button>;
+  const back = (
+    <Link component="button" type="button" onClick={goBack} color="primary.dark" sx={{ display: "inline-block", mb: 2, fontSize: 14, fontWeight: 500 }}>
+      Back to flagged agents
+    </Link>
+  );
   if (!result.data) {
     return (
       <Box sx={{ maxWidth: 1100 }}>
@@ -293,7 +340,7 @@ export default function AgentDetail() {
       {back}
       <PageHeader
         title={`Agent ${detail.agent_id}`}
-        subtitle={`${detail.region ?? "Unknown region"} · Registered ${formatDate(detail.registration_timestamp)}${detail.account_status ? ` · Account ${detail.account_status}` : ""}`}
+        subtitle={`${detail.region ?? "Unknown county"}, registered ${formatDate(detail.registration_timestamp, { recorded: true })}${detail.account_status ? `, account ${detail.account_status}` : ""}`}
       >
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1.5 }}>
           <RiskBadge band={detail.score?.risk_band ?? detail.risk_band} />
@@ -301,25 +348,23 @@ export default function AgentDetail() {
         </Box>
       </PageHeader>
 
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3, mb: 3, alignItems: "start" }}>
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "repeat(2, minmax(0, 1fr))" }, gap: 3, mb: 3, alignItems: "start" }}>
         <Box sx={{ display: "grid", gap: 3, minWidth: 0 }}>
-          <ScoreCard score={score} percentile={detail.score?.score_percentile} />
-          <Paper component="section" aria-label="Features" sx={{ p: 3 }}>
-            <Typography variant="overline" color="text.secondary" component="h2">Features the model uses</Typography>
+          <ScoreCard score={score} percentile={detail.score?.score_percentile} cutoff={modelInfo.data?.cutoff} cutoffError={Boolean(modelInfo.error)} />
+          <Panel label="Features" title="Features the model uses">
             <FeatureList features={detail.features} averages={analytics.platform_averages} />
-          </Paper>
+          </Panel>
         </Box>
         <Box sx={{ display: "grid", gap: 3, minWidth: 0 }}>
           {notice?.agentId === agentId && (
             <Alert severity="success" role="status" onClose={() => setNotice(null)}>{notice.message}</Alert>
           )}
           <ReviewSection key={detail.review?.open_decision_id ?? detail.review?.final_decision_id ?? "none"} role={user?.role} detail={detail} onDone={reviewDone} />
-          <SectionCard title="Decision history" result={own}>
+          <SectionCard title="Decision history" result={own} panel sx={{ p: 2.5 }}>
             {(list) => <DecisionTimeline decisions={list} />}
           </SectionCard>
-          <Paper component="section" aria-label="Identity" sx={{ p: 3 }}>
-            <Typography variant="overline" color="text.secondary" component="h2">Identity (masked)</Typography>
-            <Box component="dl" sx={{ m: 0, mt: 1, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 2, rowGap: 0.5 }}>
+          <Panel label="Identity" title="Identity (masked)">
+            <Box component="dl" sx={{ m: 0, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 3, rowGap: 0.75 }}>
               <Typography component="dt" variant="body2" color="text.secondary">Name</Typography>
               <Typography component="dd" variant="body2" sx={{ m: 0 }}>{initials(identity.full_name)}</Typography>
               <Typography component="dt" variant="body2" color="text.secondary">Phone</Typography>
@@ -327,14 +372,13 @@ export default function AgentDetail() {
               <Typography component="dt" variant="body2" color="text.secondary">National ID</Typography>
               <Typography component="dd" variant="body2" sx={{ ...mono, m: 0 }}>{identity.national_id_number ?? "—"}</Typography>
             </Box>
-          </Paper>
+          </Panel>
         </Box>
       </Box>
 
-      <Paper component="section" aria-label="Evidence" sx={{ p: 3 }}>
-        <Typography variant="overline" color="text.secondary" component="h2">Evidence</Typography>
-        <Box sx={{ mt: 1 }}><Evidence detail={detail} /></Box>
-      </Paper>
+      <Panel label="Evidence" title="Evidence">
+        <Evidence detail={detail} />
+      </Panel>
       <AgentActivity agentId={detail.agent_id} />
     </Box>
   );

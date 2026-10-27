@@ -15,6 +15,7 @@ import json
 import uuid
 from datetime import datetime, timedelta
 
+from src.auth import Administrator
 from src.db import AUDIT_CATEGORIES, AdminActionLog, get_session
 
 ANONYMOUS = "anonymous"
@@ -84,7 +85,10 @@ def filtered_query(db_session, args):
             raise ValueError(f"category must be one of {list(AUDIT_CATEGORIES)}")
         query = query.filter(AdminActionLog.category == category)
     if args.get("actor"):
-        query = query.filter(AdminActionLog.admin_id == args["actor"])
+        # An account ID, or a username: the matching account's ID is searched too.
+        actor = args["actor"].strip()
+        ids = {actor} | {a for (a,) in db_session.query(Administrator.admin_id).filter(Administrator.username == actor)}
+        query = query.filter(AdminActionLog.admin_id.in_(sorted(ids)))
     if args.get("agent_id"):
         query = query.filter(AdminActionLog.target_agent_id == args["agent_id"])
     if args.get("date_from"):
@@ -96,6 +100,26 @@ def filtered_query(db_session, args):
 
 def active_filters(args):
     return {k: args[k] for k in ("category", "actor", "agent_id", "date_from", "date_to") if args.get(k)}
+
+
+# Actions that are only written when they happened, and actions that record a refusal or a failure.
+SUCCESS_ACTIONS = {
+    "login", "logout", "propose_decision", "withdraw_decision", "agree_decision", "overrule_decision", "confirm_decision",
+    "correct_decision", "customer_viewed", "report_download", "role_change", "account_deactivated",
+    "account_reactivated", "password_reset",
+}
+FAILED_ACTIONS = {"login_failure", "access_denied", "review_refused"}
+
+
+def result_of(action, details):
+    """"Success" or "Failed" where the entry says which, else "" (for example a flag change)."""
+    if action in FAILED_ACTIONS:
+        return "Failed"
+    if action in SUCCESS_ACTIONS:
+        return "Success"
+    if action == "ai_detection_run" and isinstance(details, dict) and details.get("status") in ("succeeded", "failed"):
+        return "Success" if details["status"] == "succeeded" else "Failed"
+    return ""
 
 
 def entry_payload(entry):

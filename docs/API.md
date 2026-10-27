@@ -132,7 +132,7 @@ Issue #28. A flag is a request for human review, and a decision never changes a 
 | POST | `/api/review-decisions/<decision_id>/overrule` | compliance_officer | Overrule someone else's proposal |
 | POST | `/api/review-decisions/<decision_id>/corrections` | compliance_officer | Correct a final decision |
 | GET | `/api/review-decisions` | all | Review decisions, newest first, with their history |
-| GET | `/api/audit-log` | admin, compliance_officer | Audit trail, filtered and paged |
+| GET | `/api/audit-log` | admin | Audit trail, filtered and paged |
 | GET | `/api/reports/flagged-agents.csv` | admin | Flagged agents of the latest run (masked) |
 | GET | `/api/reports/audit-log.csv` | admin | Audit entries as CSV (same filters) |
 | GET | `/api/reports/detection-summary.pdf` | admin | One-page detection summary |
@@ -144,7 +144,7 @@ Issue #28. A flag is a request for human review, and a decision never changes a 
 
 ### POST /api/login
 
-Body: `{"username": "...", "password": "..."}`. Records a `login` entry (category `authentication`). A failure records `login_failure` with actor `anonymous`, the username tried and the reason.
+Body: `{"username": "...", "password": "..."}`. Records a `login` entry (category `authentication`). A failure records `login_failure` with actor `anonymous` and the reason, with the username tried only when it belongs to an account; a username that matches no account is stored as "unknown username".
 
 ```json
 {"message": "Login successful", "role": "fraud_analyst", "username": "analyst_01"}
@@ -330,7 +330,7 @@ Query parameters:
                    {"flag_source": "Both", "count": 73}, {"flag_source": "None", "count": 826}],
   "score_distribution": [{"bucket": "< 1.1", "count": 572}, {"bucket": "1.1-1.3", "count": 210}],
   "region_breakdown": [{"region": "Kericho", "flagged": 6, "total": 25}],
-  "platform_averages": {"submission_frequency": 15.8, "time_of_day_dist": 0.778, "customer_similarity": 0.109},
+  "platform_averages": {"submission_frequency": 15.8, "time_of_day_dist": 0.778, "customer_similarity": 0.109, "collusion_score": 0.032},
   "review": {"proposals": 6, "open": 2, "overdue": 1, "withdrawn": 1, "agreed": 2, "overruled": 1, "corrections": 1,
              "overrule_rate": 0.3333, "overdue_hours": 72}
 }
@@ -338,7 +338,7 @@ Query parameters:
 
 ### GET /api/model-info
 
-Any signed-in role; not audited (issue #28). The figures for the "How the model works" page, read from the frozen results files on every request and never retyped:
+Any signed-in role; not audited (issue #28). The figures for the Detection guide page, read from the frozen results files on every request and never retyped:
 
 - `ml/runs/20261013-093050_selection_s42/operating_point.json` (hashed in `ml/results/FREEZE.md`): `model_version`, `features`, `cutoff`, `cutoff_rule`, `cutoff_chosen_on`;
 - `ml/runs/20261013-103859_final_evaluation_s42/summary.json`: `test_agents`, `test_fraud_agents`;
@@ -460,11 +460,11 @@ Errors: `400` (notes; outcomes not one of the two values; `new_outcome` equal to
 
 ### GET /api/audit-log
 
-**admin and compliance_officer.** Newest first. Event types are in "Audit log" above.
+**admin only** (other roles get `403`). Newest first. Event types are in "Audit log" above.
 
 Query parameters (all optional):
 - `category`: one of the six categories (anything else returns `400`);
-- `actor`: exact actor, for example `ADM_ADMIN_01`, `anonymous` or `system:lof_v3_4f`;
+- `actor`: an exact actor (for example `ADM_ADMIN_01`, `anonymous` or `system:lof_v3_4f`) or a username, which also matches that account's ID;
 - `agent_id`: the target agent;
 - `date_from`, `date_to`: `YYYY-MM-DD` or an ISO datetime; a date in `date_to` includes that whole day;
 - `limit`: default 100, maximum 1000;
@@ -630,7 +630,7 @@ A63269,Nairobi,active,9.803964,1.444799,ML,high,customer IDs look alike: similar
 
 #### GET /api/reports/audit-log.csv
 
-The same filters as `GET /api/audit-log` (no paging), newest first, at most 50,000 rows. Columns: `timestamp, actor, actor_type, category, action, target_agent_id, request_ip, details`.
+The same filters as `GET /api/audit-log` (no paging), newest first, at most 50,000 rows; when more matched, the response has the header `X-Row-Limit-Reached: true`. Columns: `Time (UTC)` (ISO, ending in `Z`), `Actor`, `Actor type`, `Category`, `Action`, `Agent`, `Request IP (masked)`, `Result` (`Success` or `Failed` where the entry says which, otherwise blank), `Details`.
 
 #### GET /api/reports/detection-summary.pdf
 
@@ -650,10 +650,10 @@ The footer holds the generated time, the actor, the data load id and a data hash
 | POST | `/api/admin/accounts/<admin_id>/deactivate` | none | `403` own account, `404` unknown, `409` last active admin |
 | POST | `/api/admin/accounts/<admin_id>/reactivate` | none | `403` own account, `404` unknown |
 
-Changes are audited (category `admin`). A request that changes nothing returns `"changed": false` and is not audited. The second example below uses an illustrative account.
+The list gives each account `last_login`: its most recent successful sign in, taken from the latest `login` audit entry (ISO UTC ending in `Z`), or `null`. No column stores it. Changes are audited (category `admin`). A request that changes nothing returns `"changed": false` and is not audited. The second example below uses an illustrative account.
 
 ```json
-{"count": 4, "accounts": [{"admin_id": "ADM_ADMIN_01", "username": "admin_01", "role": "admin", "is_active": true}]}
+{"count": 4, "accounts": [{"admin_id": "ADM_ADMIN_01", "username": "admin_01", "role": "admin", "is_active": true, "last_login": "2026-10-27T05:30:00Z"}]}
 ```
 
 ```json

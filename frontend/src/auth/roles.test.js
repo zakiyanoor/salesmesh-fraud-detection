@@ -7,20 +7,20 @@ describe("menus per role", () => {
   it("fraud analyst", () => {
     expect(labels("fraud_analyst")).toEqual([
       "Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history",
-      "How the model works",
+      "Detection guide",
     ]);
   });
 
   it("compliance officer gets the analyst menu plus Confirm queue", () => {
     expect(labels("compliance_officer")).toEqual([
       "Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history",
-      "Confirm queue", "How the model works",
+      "Confirm queue", "Detection guide",
     ]);
   });
 
   it("admin", () => {
     expect(labels("admin")).toEqual([
-      "Overview", "Threat intelligence", "Analytics", "Audit log", "Reports", "Accounts", "How the model works",
+      "Overview", "Threat intelligence", "Analytics", "Audit log", "Reports", "Accounts", "Detection guide",
     ]);
   });
 

@@ -10,6 +10,7 @@ Admin report downloads (issue #18): two CSV files and a one-page PDF.
 import csv
 import hashlib
 import io
+import json
 from datetime import datetime
 
 from reportlab.lib import colors
@@ -26,7 +27,7 @@ FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 AUDIT_CSV_CAP = 50000
 FLAGGED_COLUMNS = ["agent_id", "region", "account_status", "anomaly_score", "threshold", "flag_source", "risk_band",
                    "reasons", "duplicate_pairs", "masked_name", "masked_phone", "masked_national_id"]
-AUDIT_COLUMNS = ["timestamp", "actor", "actor_type", "category", "action", "target_agent_id", "request_ip", "details"]
+AUDIT_COLUMNS = ["Time (UTC)", "Actor", "Actor type", "Category", "Action", "Agent", "Request IP (masked)", "Result", "Details"]
 
 
 def csv_safe(value):
@@ -80,12 +81,22 @@ def flagged_agents_csv(db_session, run):
 
 
 def audit_log_csv(db_session, args):
-    """Audit entries matching the audit-log filters, newest first, at most AUDIT_CSV_CAP rows."""
-    entries = audit.filtered_query(db_session, args).limit(AUDIT_CSV_CAP).all()
-    records = [{"timestamp": e.timestamp.isoformat(), "actor": e.admin_id, "actor_type": e.actor_type,
-                "category": e.category, "action": e.action, "target_agent_id": e.target_agent_id,
-                "request_ip": e.request_ip, "details": e.details} for e in entries]
-    return to_csv(AUDIT_COLUMNS, records), len(records)
+    """
+    Audit entries matching the audit-log filters, newest first, at most AUDIT_CSV_CAP rows:
+    (content, row_count, truncated), truncated when more entries matched than the cap.
+    """
+    entries = audit.filtered_query(db_session, args).limit(AUDIT_CSV_CAP + 1).all()
+    truncated = len(entries) > AUDIT_CSV_CAP
+    entries = entries[:AUDIT_CSV_CAP]
+    records = []
+    for e in entries:
+        details = json.loads(e.details) if e.details else None
+        records.append({
+            "Time (UTC)": f"{e.timestamp.isoformat()}Z", "Actor": e.admin_id, "Actor type": e.actor_type,
+            "Category": e.category, "Action": e.action, "Agent": e.target_agent_id,
+            "Request IP (masked)": e.request_ip, "Result": audit.result_of(e.action, details), "Details": e.details,
+        })
+    return to_csv(AUDIT_COLUMNS, records), len(records), truncated
 
 
 def data_fingerprint(db_session):

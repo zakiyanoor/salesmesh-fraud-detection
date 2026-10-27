@@ -93,6 +93,9 @@ export function createAppTheme() {
       MuiCssBaseline: {
         styleOverrides: (theme) => ({
           "*:focus-visible": { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
+          // Recharts measures label text in a span it appends to the body, off screen, and leaves the last label
+          // in it (often "0"). Hidden, it is still measurable but no longer part of the page text or a copy.
+          "#recharts_measurement_span": { visibility: "hidden" },
         }),
       },
       MuiPaper: {

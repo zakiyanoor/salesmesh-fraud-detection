@@ -8,17 +8,29 @@ const STATUS = { succeeded: "succeeded", failed: "failed", running: "running" };
 export default function AppFooter() {
   const run = useLatestRun();
   let text;
+  let model = null;
   if (run.loading || run.error?.status === 401) text = "Checking the last detection run…";
   else if (run.error) text = "Detection run status unavailable";
   else if (!run.data?.run) text = "No detection run yet";
   else {
     const r = run.data.run;
     const when = formatDateTime(r.finished_at || r.started_at);
-    text = `Model ${r.model_version || "unknown"} · Last detection run ${when}${r.status === "succeeded" ? "" : ` (${STATUS[r.status] || r.status})`}`;
+    model = `Model ${r.model_version || "unknown"}`;
+    text = `Last detection run ${when}${r.status === "succeeded" ? "" : ` (${STATUS[r.status] || r.status})`}`;
   }
   return (
     <Box component="footer" sx={{ mt: 6, pt: 2, borderTop: 1, borderColor: "divider" }}>
-      <Typography variant="caption" color="text.secondary" aria-live="polite">{text}</Typography>
+      <Typography variant="caption" color="text.secondary" aria-live="polite">
+        {model && (
+          <>
+            {`${model} `}
+            {/* A thin rule between the model and the run, instead of a middle dot. */}
+            <Box component="span" aria-hidden="true" sx={{ display: "inline-block", width: "1px", height: "0.9em", bgcolor: "divider", mx: 1, verticalAlign: "-0.1em" }} />
+            {" "}
+          </>
+        )}
+        {text}
+      </Typography>
     </Box>
   );
 }

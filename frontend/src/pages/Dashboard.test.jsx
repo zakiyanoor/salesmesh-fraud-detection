@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { mockApi, renderApp, reply, sessionRoutes } from "../test/server";
+import { FIXTURES, mockApi, renderApp, reply, sessionRoutes } from "../test/server";
 
 const section = (name) => screen.getByRole("region", { name });
 
@@ -27,6 +27,67 @@ describe("Overview", () => {
     expect(within(attention).getByRole("group", { name: "Score 5.564, percentile 98.9" })).toHaveTextContent("5.564 Top 2%");
     // Only high-risk agents are listed.
     expect(within(attention).queryByText("A20002")).not.toBeInTheDocument();
+    expect(within(attention).getAllByRole("columnheader").map((c) => c.textContent)).toEqual(["Agent ID", "Score (rank)", "Risk", "Flagged by"]);
+    // Flagged by is a chip, as on the other pages; the score keeps its Top X% text and has no bar.
+    expect(within(attention).getAllByText("Model and rule")[0].closest(".MuiChip-root")).not.toBeNull();
+    expect(within(attention).queryByText(/model cutoff/)).not.toBeInTheDocument();
+  });
+
+  it("shows the five figure cards in the main order, with the run date in Nairobi time", async () => {
+    mockApi(sessionRoutes("fraud_analyst"));
+    renderApp("/");
+    const summary = await screen.findByRole("region", { name: "Summary" });
+    await within(summary).findByText("1000");
+    const labels = ["Agents scored", "Flagged (high risk)", "Review band", "Rule-only flags", "Last detection run"];
+    const order = [...summary.querySelectorAll("p")].map((p) => p.textContent).filter((t) => labels.includes(t));
+    expect(order).toEqual(labels);
+    // 2026-10-13T15:07:16 is stored in UTC; Nairobi is UTC+3.
+    expect(within(summary).getByText("13 Oct 2026, 18:07")).toBeInTheDocument();
+  });
+
+  it("labels the donut centre and keeps both chart table views", async () => {
+    mockApi(sessionRoutes("fraud_analyst"));
+    renderApp("/");
+    const sources = await screen.findByRole("region", { name: "Flag sources" });
+    expect(await within(sources).findByRole("heading", { level: 2, name: "Flag sources" })).toBeInTheDocument();
+    await userEvent.click(within(sources).getByRole("button", { name: "Show as table" }));
+    expect(within(sources).getByRole("table", { name: "Flag sources data" })).toBeInTheDocument();
+    await userEvent.click(within(sources).getByRole("button", { name: "Show as chart" }));
+    expect(sources.querySelector('[aria-label="Total agents scored"]')).toHaveTextContent("1000");
+    const bands = section("Risk bands");
+    expect(within(bands).getByText("Review: rule only or score 1.3 and above")).toBeInTheDocument();
+    await userEvent.click(within(bands).getByRole("button", { name: "Show as table" }));
+    expect(within(bands).getByRole("table", { name: "Risk bands data" })).toHaveTextContent("High risk");
+  });
+
+  it("links to all flagged agents and adds no accuracy or test agent note", async () => {
+    mockApi(sessionRoutes("fraud_analyst"));
+    renderApp("/");
+    expect(await screen.findByRole("link", { name: "See all flagged agents" })).toHaveAttribute("href", "/flagged");
+    expect(screen.getByRole("main").textContent).not.toMatch(/accura|test agents|learned from|counted separately/i);
+  });
+
+  it("hides the link from an admin, who cannot open Flagged agents", async () => {
+    mockApi(sessionRoutes("admin"));
+    renderApp("/");
+    await screen.findByRole("region", { name: "Needs attention" });
+    expect(screen.queryByRole("link", { name: "See all flagged agents" })).not.toBeInTheDocument();
+  });
+
+  it("says how old the figures are when the latest run is more than 48 hours old", async () => {
+    const old = new Date(Date.now() - 5 * 24 * 3_600_000 - 60_000).toISOString().replace("Z", "");
+    mockApi({ ...sessionRoutes("fraud_analyst"), "GET /api/detection-runs/latest": { run: { ...FIXTURES["GET /api/detection-runs/latest"].run, started_at: old, finished_at: old } } });
+    renderApp("/");
+    expect(await screen.findByTestId("stale-run")).toHaveTextContent("The figures below are from a detection run 5 days ago.");
+    expect(screen.getByTestId("stale-run")).not.toHaveAttribute("role", "alert");
+  });
+
+  it("says nothing about age for a recent run", async () => {
+    const recent = new Date(Date.now() - 3 * 3_600_000).toISOString().replace("Z", "");
+    mockApi({ ...sessionRoutes("fraud_analyst"), "GET /api/detection-runs/latest": { run: { ...FIXTURES["GET /api/detection-runs/latest"].run, started_at: recent, finished_at: recent } } });
+    renderApp("/");
+    expect(await within(await screen.findByRole("region", { name: "Summary" })).findByText("Succeeded")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByTestId("stale-run")).not.toBeInTheDocument());
   });
 
   it("fetches the latest detection run once for the card and the footer", async () => {
@@ -34,7 +95,7 @@ describe("Overview", () => {
     renderApp("/");
     const summary = await screen.findByRole("region", { name: "Summary" });
     expect(await within(summary).findByText("Succeeded")).toBeInTheDocument();
-    expect(await within(screen.getByRole("contentinfo")).findByText(/^Model lof_v3_4f · Last detection run /)).toBeInTheDocument();
+    expect(await within(screen.getByRole("contentinfo")).findByText(/^Model lof_v3_4f Last detection run /)).toBeInTheDocument();
     expect(await within(section("Needs attention")).findByRole("link", { name: "A35485" })).toBeInTheDocument();
     expect(calls.filter((c) => c.path === "/api/detection-runs/latest")).toHaveLength(1);
   });

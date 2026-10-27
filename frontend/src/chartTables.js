@@ -13,13 +13,8 @@ export const riskBandTable = (summary) => ({
   rows: [["High risk", "high"], ["Review", "review"], ["Low risk", "low"]].map(([band, key]) => ({ band, agents: summary.risk_bands?.[key] ?? 0 })),
 });
 
-export const timelineTable = (timeline) => ({
-  columns: [{ key: "date", label: "Date" }, { key: "flagged", label: "Flagged agents" }, { key: "other", label: "Other agents" }],
-  rows: timeline.days.map((d) => ({ date: d.date, flagged: d.flagged_agents, other: d.other_agents })),
-});
-
 export const regionRateTable = (regions) => ({
-  columns: [{ key: "region", label: "Region" }, { key: "rate", label: "Flagged rate" }, { key: "flagged", label: "Flagged" }, { key: "agents", label: "Agents" }],
+  columns: [{ key: "region", label: "County" }, { key: "flagged", label: "Flagged agents" }, { key: "agents", label: "All agents" }, { key: "rate", label: "Flagged rate" }],
   rows: regions.top_by_flagged_rate.map((r) => ({ region: r.region, rate: formatPercent(r.flagged_rate), flagged: r.flagged, agents: r.agents })),
 });
 
@@ -28,14 +23,15 @@ export const scoreDistributionTable = (analytics) => ({
   rows: analytics.score_distribution,
 });
 
-export const regionBreakdownTable = (analytics) => ({
-  columns: [{ key: "region", label: "Region" }, { key: "flagged", label: "Flagged" }, { key: "total", label: "Total" }],
-  rows: analytics.region_breakdown,
-});
+/** "08:00 to 08:59" for hour 8 of the 24 hour clock. */
+export const hourRange = (hour) => {
+  const h = String(hour).padStart(2, "0");
+  return `${h}:00 to ${h}:59`;
+};
 
 export const hourTable = (activity) => ({
-  columns: [{ key: "hour", label: "Hour of day" }, { key: "activations", label: "Activations" }],
-  rows: activity.hours.map((h) => ({ hour: h.hour, activations: h.activations })),
+  columns: [{ key: "hour", label: "Hours" }, { key: "activations", label: "Activations" }],
+  rows: activity.hours.map((h) => ({ hour: hourRange(h.hour), activations: h.activations })),
 });
 
 export const ringTimelineTable = (graph) => ({

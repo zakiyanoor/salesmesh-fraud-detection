@@ -39,9 +39,36 @@ describe("Flagged agents", () => {
     expect(within(rows).getAllByText("High risk")).toHaveLength(2);
     expect(within(rows).getByText("Rule only")).toBeInTheDocument();
     expect(within(rows).getByText("Proposed")).toBeInTheDocument();
+    // The Proposed chip says what it waits for, in the decision history's words.
+    await userEvent.hover(within(rows).getByText("Proposed"));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Waiting for a compliance officer to agree or overrule");
+    await userEvent.unhover(within(rows).getByText("Proposed"));
     expect(within(rows).getByText("Agreed")).toBeInTheDocument();
     expect(within(rows).getByRole("link", { name: "A10001" })).toHaveAttribute("href", "/agents/A10001");
     expect(document.title).toBe("Flagged agents · SalesMesh Fraud Detection");
+  });
+
+  it("counts the flagged agents, and how many match while filters are active", async () => {
+    mockApi(routes());
+    renderApp("/flagged");
+    await table("Flagged agents");
+    expect(screen.getByText("3 flagged agents")).toBeInTheDocument();
+    await userEvent.type(screen.getByRole("textbox", { name: "Search by agent ID" }), "A1");
+    expect(await screen.findByText("1 of 3 match your filters")).toBeInTheDocument();
+  });
+
+  it("shows a removable chip for each active filter, beside Clear filters", async () => {
+    mockApi(routes());
+    renderApp("/flagged?risk=high&source=ML");
+    const search = await screen.findByRole("search", { name: "Filter agents" });
+    expect(within(search).getByText("Risk: High risk")).toBeInTheDocument();
+    expect(within(search).getByText("Flagged by: Model")).toBeInTheDocument();
+    expect(within(search).getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
+    expect(screen.getByText("1 of 3 match your filters")).toBeInTheDocument();
+    await userEvent.click(within(search).getByLabelText("Remove filter Flagged by: Model"));
+    expect(currentLocation()).toBe("/flagged?risk=high");
+    expect(within(search).queryByText("Flagged by: Model")).not.toBeInTheDocument();
+    expect(await screen.findByText("2 of 3 match your filters")).toBeInTheDocument();
   });
 
   it("shows the rank beside the raw score, with the exact percentile in the label and tooltip", async () => {

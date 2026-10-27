@@ -8,7 +8,7 @@ from sqlalchemy import inspect as sa_inspect, text
 from src import audit
 from src.api import app
 from src.db import AUDIT_CATEGORIES, engine, migrate_schema
-from tests.helpers import ANALYST, COMPLIANCE, login
+from tests.helpers import ADMIN, ANALYST, COMPLIANCE, login
 
 
 def entries(client, **filters):
@@ -47,7 +47,7 @@ def test_database_refuses_changes_to_audit_rows(database, statement) -> None:
 def test_no_route_can_change_or_delete_audit_entries(client) -> None:
     methods = {m for r in app.url_map.iter_rules() if "audit" in r.rule for m in r.methods} - {"HEAD", "OPTIONS"}
     assert methods == {"GET"}
-    login(client, COMPLIANCE)
+    login(client, ADMIN)
     for method in ("put", "patch", "delete", "post"):
         assert getattr(client, method)("/api/audit-log").status_code == 405
 
@@ -57,7 +57,7 @@ def test_login_success_failure_and_logout_are_recorded(client) -> None:
     client.post("/api/login", json={"username": ANALYST["username"], "password": "wrong-password"})
     login(client, ANALYST)
     client.post("/api/logout")
-    found = newest(client, COMPLIANCE, category="authentication", date_from=started.isoformat())
+    found = newest(client, ADMIN, category="authentication", date_from=started.isoformat())
     failure = next(e for e in found if e["action"] == "login_failure")
     assert failure["actor"] == audit.ANONYMOUS and failure["details"]["username"] == ANALYST["username"]
     assert "password" not in str(failure["details"]).lower().replace("invalid credentials", "")
@@ -66,10 +66,28 @@ def test_login_success_failure_and_logout_are_recorded(client) -> None:
     assert all(e["actor_type"] == "user" and e["request_ip"] == "127.0.*.*" for e in found)
 
 
+def test_failed_sign_in_with_an_unknown_username_does_not_store_the_typed_text(client) -> None:
+    started = datetime.utcnow() - timedelta(seconds=1)
+    typed = "someone-typed-this-0712345678"
+    client.post("/api/login", json={"username": typed, "password": "wrong-password"})
+    found = newest(client, ADMIN, category="authentication", date_from=started.isoformat())
+    failure = next(e for e in found if e["action"] == "login_failure")
+    assert failure["details"] == {"username": "unknown username", "reason": "invalid credentials"}
+    assert typed not in str(found)
+
+
+def test_actor_filter_accepts_a_username(client) -> None:
+    login(client, ANALYST)
+    client.post("/api/logout")
+    by_id = newest(client, ADMIN, actor=ANALYST["admin_id"], category="authentication")
+    by_name = entries(client, actor=ANALYST["username"], category="authentication")
+    assert by_name and [e["log_id"] for e in by_name] == [e["log_id"] for e in by_id]
+
+
 def test_unauthenticated_request_is_recorded_as_access_denied(client) -> None:
     started = datetime.utcnow() - timedelta(seconds=1)
     assert client.get("/api/flagged-agents").status_code == 401
-    denied = newest(client, COMPLIANCE, category="authorization", actor=audit.ANONYMOUS, date_from=started.isoformat())
+    denied = newest(client, ADMIN, category="authorization", actor=audit.ANONYMOUS, date_from=started.isoformat())
     entry = next(e for e in denied if e["details"]["route"] == "/api/flagged-agents")
     assert entry["action"] == "access_denied" and entry["details"]["status"] == 401
     assert entry["details"]["role"] is None and entry["details"]["reason"] == "Authentication required"
@@ -79,6 +97,7 @@ def test_wrong_role_is_recorded_as_access_denied(client) -> None:
     login(client, COMPLIANCE)
     started = datetime.utcnow() - timedelta(seconds=1)
     assert client.post("/api/review-decisions", json={"flag_id": "x", "decision_outcome": "y"}).status_code == 403
+    login(client, ADMIN)
     denied = entries(client, category="authorization", actor=COMPLIANCE["admin_id"], date_from=started.isoformat())
     entry = next(e for e in denied if e["details"]["route"] == "/api/review-decisions")
     assert entry["details"]["status"] == 403 and entry["details"]["role"] == "compliance_officer"
@@ -86,7 +105,7 @@ def test_wrong_role_is_recorded_as_access_denied(client) -> None:
 
 
 def test_filters_and_paging(client) -> None:
-    login(client, COMPLIANCE)
+    login(client, ADMIN)
     for category in AUDIT_CATEGORIES:
         assert all(e["category"] == category for e in entries(client, category=category))
     assert client.get("/api/audit-log?category=nope").status_code == 400

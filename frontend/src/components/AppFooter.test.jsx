@@ -14,8 +14,8 @@ describe("footer", () => {
     mockApi(sessionRoutes(role));
     renderApp(path);
     const f = await footer();
-    expect(await within(f).findByText(/^Model lof_v3_4f · Last detection run /)).toBeInTheDocument();
-    expect(f.textContent).toContain(new Date("2026-10-13T15:07:16").toLocaleString());
+    expect(await within(f).findByText(/^Model lof_v3_4f Last detection run /)).toBeInTheDocument();
+    expect(f.textContent).toContain("Last detection run 13 Oct 2026, 18:07");
   });
 
   it("names a run that did not succeed", async () => {
@@ -47,8 +47,8 @@ describe("footer", () => {
     const { calls } = mockApi({ ...sessionRoutes("fraud_analyst"), "GET /api/detection-runs/latest": () => ({ run: runs[served++] }) });
     renderApp("/history");
     const f = await footer();
-    expect(await within(f).findByText(/^Model lof_v3_4f · Last detection run /)).toBeInTheDocument();
-    expect(f.textContent).toContain(new Date("2026-10-13T15:07:16").toLocaleString());
+    expect(await within(f).findByText(/^Model lof_v3_4f Last detection run /)).toBeInTheDocument();
+    expect(f.textContent).toContain("Last detection run 13 Oct 2026, 18:07");
 
     await userEvent.click(within(screen.getByRole("navigation", { name: "Main menu" })).getByRole("link", { name: "Analytics" }));
     expect(f.textContent).not.toContain("Checking");
@@ -61,5 +61,16 @@ describe("footer", () => {
     renderApp("/sign-in");
     await screen.findByRole("button", { name: "Sign in" });
     expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+  });
+});
+
+describe("footer separator", () => {
+  it("separates the model and the run with a thin rule, not a middle dot", async () => {
+    mockApi(sessionRoutes("fraud_analyst"));
+    renderApp("/history");
+    const f = await footer();
+    await within(f).findByText(/^Model lof_v3_4f Last detection run /);
+    expect(f.textContent).not.toContain("·");
+    expect(f.querySelector('span[aria-hidden="true"]')).not.toBeNull();
   });
 });

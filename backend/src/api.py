@@ -54,7 +54,7 @@ from src.db import (
 )
 from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER, ROLE_ADMIN, DEACTIVATED,
-    VALID_ROLES,
+    VALID_ROLES, username_exists,
 )
 from src import accounts, activity, customers, model_info, reports, review, ring_graph, threat_intel
 from src import audit
@@ -70,7 +70,8 @@ app.config.update(
     SESSION_COOKIE_SAMESITE=CONFIG["SESSION_COOKIE_SAMESITE"],
     PERMANENT_SESSION_LIFETIME=CONFIG["PERMANENT_SESSION_LIFETIME"],
 )
-CORS(app, supports_credentials=True, origins=CONFIG["CORS_ORIGINS"])
+CORS(app, supports_credentials=True, origins=CONFIG["CORS_ORIGINS"],
+     expose_headers=["Content-Disposition", "X-Row-Limit-Reached"])
 
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
 if not FLASK_SECRET_KEY:
@@ -277,8 +278,11 @@ def login():
         # The actor is unknown until a login succeeds, so failures are "anonymous".
         reason = ("invalid credentials" if not admin else "account deactivated" if not admin["is_active"]
                   else "unknown role")
-        audit.record_now(audit.ANONYMOUS, "login_failure", "authentication",
-                         details={"username": str(data["username"])[:100], "reason": reason},
+        # A username that matches no account is not stored: it may be anything a person typed.
+        known = admin is not None or username_exists(data["username"])
+        details = ({"username": str(data["username"])[:100], "reason": reason} if known
+                   else {"username": "unknown username", "reason": reason})
+        audit.record_now(audit.ANONYMOUS, "login_failure", "authentication", details=details,
                          request_ip=request.remote_addr)
         g.audit_recorded = True
         message = ("Invalid username or password" if not admin else DEACTIVATED if not admin["is_active"]
@@ -818,7 +822,7 @@ def list_review_decisions():
 
 
 @app.route("/api/audit-log", methods=["GET"])
-@role_required(ROLE_ADMIN, ROLE_COMPLIANCE_OFFICER)
+@role_required(ROLE_ADMIN)
 def get_audit_log():
     """Newest first. Filters: category, actor, agent_id, date_from, date_to; paging: limit (max 1000), offset."""
     try:
@@ -865,7 +869,8 @@ def get_analytics():
                  (f">= {SCORE_EDGES[2]:.1f}", SCORE_EDGES[2], float("inf"))]
         score_buckets = {label: 0 for label, _, _ in edges}
         region_counts: dict = {}
-        freq_sum = dist_sum = sim_sum = 0.0
+        freq_sum = dist_sum = sim_sum = coll_sum = 0.0
+        coll_count = 0
 
         for v in vectors:
             flag = flags.get(v.vector_id)
@@ -875,6 +880,10 @@ def get_analytics():
             freq_sum += v.submission_frequency
             dist_sum += v.time_of_day_dist
             sim_sum += v.customer_similarity
+            # Issue #28: the fourth signal; vectors written before the column existed have none.
+            if v.collusion_score is not None:
+                coll_sum += v.collusion_score
+                coll_count += 1
 
             bucket_label = next(label for label, low, high in edges if low <= flag.suspicion_score < high)
             score_buckets[bucket_label] += 1
@@ -897,6 +906,7 @@ def get_analytics():
                 "submission_frequency": round(freq_sum / count, 1),
                 "time_of_day_dist": round(dist_sum / count, 3),
                 "customer_similarity": round(sim_sum / count, 3),
+                "collusion_score": round(coll_sum / coll_count, 3) if coll_count else None,
             },
             # Issue #28: proposal counts and the overrule rate (src/review.py, review_stats).
             "review": review.review_stats(db_session),
@@ -1044,6 +1054,9 @@ def _download(name, extension, mimetype, build):
         response = app.response_class(content, mimetype=mimetype)
         response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
         response.headers["Cache-Control"] = "no-store"
+        if extra.get("truncated"):
+            # The export stopped at the row cap; the page says so after the download.
+            response.headers["X-Row-Limit-Reached"] = "true"
         return response
     finally:
         db_session.close()
@@ -1071,8 +1084,8 @@ def report_flagged_agents():
 @role_required(ROLE_ADMIN)
 def report_audit_log():
     def build(db_session):
-        content, rows = reports.audit_log_csv(db_session, request.args)
-        return content, rows, {"cap": reports.AUDIT_CSV_CAP}
+        content, rows, truncated = reports.audit_log_csv(db_session, request.args)
+        return content, rows, {"cap": reports.AUDIT_CSV_CAP, "truncated": truncated}
 
     return _download("audit-log", "csv", "text/csv", build)
 

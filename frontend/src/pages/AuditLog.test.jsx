@@ -58,8 +58,9 @@ describe("Audit log", () => {
     expect(currentLocation()).toBe("/audit-log?category=review&size=10&actor=ADM_ADMIN_01");
     await waitFor(() => expect(Object.fromEntries(auditCalls(calls).at(-1))).toEqual({ category: "review", actor: "ADM_ADMIN_01", limit: "10", offset: "0" }));
 
-    await userEvent.type(screen.getByLabelText("From"), "2026-10-01");
-    await userEvent.type(screen.getByLabelText("To"), "2026-10-13");
+    // Dates are typed as day/month/year and sent in the API format.
+    await userEvent.type(screen.getByLabelText("From date"), "01/10/2026");
+    await userEvent.type(screen.getByLabelText("To date"), "13/10/2026");
     await userEvent.click(screen.getByRole("button", { name: "Apply filters" }));
     await waitFor(() => {
       params = auditCalls(calls).at(-1);
@@ -69,6 +70,59 @@ describe("Audit log", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
     expect(currentLocation()).toBe("/audit-log?size=10");
+  });
+
+  it("shows an inline error for an invalid date or a From date after the To date, and applies nothing", async () => {
+    const { calls } = mockApi(routes());
+    renderApp("/audit-log");
+    await table();
+    const before = auditCalls(calls).length;
+    await userEvent.type(screen.getByLabelText("From date"), "2026-10-01");
+    await userEvent.click(screen.getByRole("button", { name: "Apply filters" }));
+    expect(screen.getByText("Enter a real date as dd/mm/yyyy.")).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText("From date"));
+    await userEvent.type(screen.getByLabelText("From date"), "14/10/2026");
+    await userEvent.type(screen.getByLabelText("To date"), "13/10/2026");
+    await userEvent.click(screen.getByRole("button", { name: "Apply filters" }));
+    expect(screen.getByText("The To date must be on or after the From date.")).toBeInTheDocument();
+    expect(auditCalls(calls)).toHaveLength(before);
+    expect(currentLocation()).toBe("/audit-log");
+  });
+
+  it("shows dates from the address as day/month/year", async () => {
+    mockApi(routes());
+    renderApp("/audit-log?date_from=2026-10-01");
+    await table();
+    expect(screen.getByLabelText("From date")).toHaveValue("01/10/2026");
+  });
+
+  it("uses the new subtitle and accepts a username as the actor", async () => {
+    mockApi(routes());
+    renderApp("/audit-log");
+    await table();
+    expect(screen.getByText("A permanent record of who did what, and when. Entries cannot be changed or deleted.")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Actor" })).toHaveAttribute("placeholder", "Username or account ID");
+  });
+
+  it.each([
+    ["", true], ["review", true], ["ai_decision", true], ["authentication", false], ["report", false], ["admin", false],
+  ])("shows the Agent column for category '%s': %s", async (category, shown) => {
+    mockApi(routes());
+    renderApp(`/audit-log${category ? `?category=${category}` : ""}`);
+    const t = await table();
+    const headers = within(t).getAllByRole("columnheader").map((c) => c.textContent);
+    expect(headers.includes("Agent")).toBe(shown);
+  });
+
+  it("leaves the Agent field out of the drawer for a sign-in entry", async () => {
+    mockApi(routes("admin", () => ({ total: 1, count: 1, entries: [entry(1, { category: "authentication", action: "login", target_agent_id: null, details: { role: "admin" } })] })));
+    renderApp("/audit-log");
+    const t = await table();
+    await userEvent.click(within(t).getByRole("button", { name: /^Details of/ }));
+    const drawer = await screen.findByRole("dialog");
+    expect(within(drawer).queryByText("Agent")).not.toBeInTheDocument();
+    expect(within(drawer).getByText("Administrator")).toBeInTheDocument();
+    expect(within(drawer).getByText("Person")).toBeInTheDocument();
   });
 
   it("pages on the server", async () => {

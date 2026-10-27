@@ -8,6 +8,9 @@ import { FlagSourceChip } from "./chips";
 import { LoadStatus } from "./states";
 import { useApi } from "../hooks/useApi";
 import { formatDateTime } from "../format";
+
+// Activation times are shown as recorded, in Nairobi time.
+const RECORDED = { recorded: true };
 import { mono } from "../theme";
 import { api } from "../api";
 
@@ -34,7 +37,7 @@ export default function CustomerDialog({ customerRef, customerId, fromAgent, onC
               {data.client_ids.length > 0 && <Box component="span" sx={mono}>{` (${data.client_ids.join(", ")})`}</Box>}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {`First seen ${formatDateTime(data.first_seen)} · Last seen ${formatDateTime(data.last_seen)}`}
+              {`First seen ${formatDateTime(data.first_seen, RECORDED)} · Last seen ${formatDateTime(data.last_seen, RECORDED)}`}
             </Typography>
 
             <TableContainer sx={{ mb: 3 }}>
@@ -58,8 +61,8 @@ export default function CustomerDialog({ customerRef, customerId, fromAgent, onC
                       <TableCell><FlagSourceChip source={a.flag_source} /></TableCell>
                       <TableCell align="right" sx={mono}>{a.activations}</TableCell>
                       <TableCell sx={mono}>{a.client_ids.join(", ")}</TableCell>
-                      <TableCell sx={{ whiteSpace: "nowrap" }}>{formatDateTime(a.first_seen)}</TableCell>
-                      <TableCell sx={{ whiteSpace: "nowrap" }}>{formatDateTime(a.last_seen)}</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>{formatDateTime(a.first_seen, RECORDED)}</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>{formatDateTime(a.last_seen, RECORDED)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -85,7 +88,7 @@ export default function CustomerDialog({ customerRef, customerId, fromAgent, onC
                 <TableBody>
                   {data.activations.map((r, i) => (
                     <TableRow key={`${r.timestamp}-${r.agent_id}-${i}`}>
-                      <TableCell sx={{ whiteSpace: "nowrap" }}>{formatDateTime(r.timestamp)}</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>{formatDateTime(r.timestamp, RECORDED)}</TableCell>
                       <TableCell sx={mono}>{r.agent_id}</TableCell>
                       <TableCell sx={mono}>{r.client_id}</TableCell>
                       <TableCell>{r.status}</TableCell>

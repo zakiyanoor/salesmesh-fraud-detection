@@ -6,8 +6,16 @@ export const ADMIN = "admin";
 export const ROLE_LABELS = {
   [FRAUD_ANALYST]: "Fraud analyst",
   [COMPLIANCE_OFFICER]: "Compliance officer",
-  [ADMIN]: "Admin",
+  [ADMIN]: "Administrator",
 };
+
+// The legacy role value of an older account; it cannot sign in, but is shown with the same word.
+const LEGACY_LABELS = { administrator: "Administrator" };
+
+/** The one label for a role everywhere in the interface: "Fraud analyst", "Compliance officer", "Administrator". */
+export function roleLabel(role) {
+  return ROLE_LABELS[role] || LEGACY_LABELS[role] || role || "";
+}
 
 const REVIEWERS = [FRAUD_ANALYST, COMPLIANCE_OFFICER];
 const EVERYONE = [FRAUD_ANALYST, COMPLIANCE_OFFICER, ADMIN];
@@ -25,7 +33,7 @@ export const PAGES = [
   { key: "audit", path: "/audit-log", label: "Audit log", roles: [ADMIN], menu: true },
   { key: "reports", path: "/reports", label: "Reports", roles: [ADMIN], menu: true },
   { key: "accounts", path: "/accounts", label: "Accounts", roles: [ADMIN], menu: true },
-  { key: "howItWorks", path: "/how-it-works", label: "How the model works", roles: EVERYONE, menu: true },
+  { key: "howItWorks", path: "/detection-guide", label: "Detection guide", roles: EVERYONE, menu: true },
 ];
 
 export function menuFor(role) {

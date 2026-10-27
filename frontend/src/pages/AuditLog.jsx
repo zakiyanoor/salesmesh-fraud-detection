@@ -11,7 +11,9 @@ import { filterWidth } from "../components/filters";
 import { paging } from "../components/tableState";
 import { useApi } from "../hooks/useApi";
 import { useQueryParams } from "../hooks/useQueryParams";
-import { AUDIT_ACTIONS, AUDIT_CATEGORIES } from "../audit";
+import { AUDIT_ACTIONS, AUDIT_CATEGORIES, categoryHasAgents } from "../audit";
+import DayField from "../components/DayField";
+import { checkDayRange, fromIsoDay } from "../components/dayDates";
 import { formatDateTime } from "../format";
 import { mono } from "../theme";
 import { api } from "../api";
@@ -19,22 +21,35 @@ import { api } from "../api";
 const DEFAULTS = { category: "", actor: "", agent_id: "", date_from: "", date_to: "", page: "0", size: "25" };
 const FILTER_KEYS = ["category", "actor", "agent_id", "date_from", "date_to"];
 
-/** Filters edited locally and applied together, so typing does not send a request per key. */
+/**
+ * Filters edited locally and applied together, so typing does not send a request per key. Dates are typed as
+ * dd/mm/yyyy and kept in the address as YYYY-MM-DD; an invalid date or a From date after the To date is shown
+ * under the field and nothing is applied.
+ */
 function AuditFilters({ values, onApply }) {
-  const [draft, setDraft] = useState(() => Object.fromEntries(FILTER_KEYS.map((k) => [k, values[k]])));
+  const [draft, setDraft] = useState(() => ({
+    ...Object.fromEntries(FILTER_KEYS.map((k) => [k, values[k]])),
+    date_from: fromIsoDay(values.date_from),
+    date_to: fromIsoDay(values.date_to),
+  }));
+  const [errors, setErrors] = useState({});
   const set = (key) => (e) => setDraft((d) => ({ ...d, [key]: e.target.value }));
+  const setDay = (key) => (value) => setDraft((d) => ({ ...d, [key]: value }));
   const active = FILTER_KEYS.some((k) => values[k]);
-
   return (
     <Box
       component="form"
       role="search"
       aria-label="Filter audit events"
+      noValidate
       onSubmit={(e) => {
         e.preventDefault();
-        onApply(Object.fromEntries(FILTER_KEYS.map((k) => [k, draft[k].trim()])));
+        const range = checkDayRange(draft.date_from, draft.date_to);
+        setErrors(range);
+        if (range.fromError || range.toError) return;
+        onApply({ category: draft.category, actor: draft.actor.trim(), agent_id: draft.agent_id.trim(), date_from: range.from, date_to: range.to });
       }}
-      sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap", alignItems: "center" }}
+      sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap", alignItems: "flex-start" }}
     >
       <TextField
         select
@@ -51,10 +66,10 @@ function AuditFilters({ values, onApply }) {
         <MenuItem value="">All categories</MenuItem>
         {Object.entries(AUDIT_CATEGORIES).map(([value, text]) => <MenuItem key={value} value={value}>{text}</MenuItem>)}
       </TextField>
-      <TextField size="small" label="Actor" placeholder="ADM_ADMIN_01" value={draft.actor} onChange={set("actor")} sx={filterWidth(180)} />
+      <TextField size="small" label="Actor" placeholder="Username or account ID" value={draft.actor} onChange={set("actor")} slotProps={{ inputLabel: { shrink: true } }} sx={filterWidth(200)} />
       <TextField size="small" label="Agent ID" value={draft.agent_id} onChange={set("agent_id")} sx={filterWidth(140)} />
-      <TextField size="small" type="date" label="From" value={draft.date_from} onChange={set("date_from")} slotProps={{ inputLabel: { shrink: true } }} sx={filterWidth(160)} />
-      <TextField size="small" type="date" label="To" value={draft.date_to} onChange={set("date_to")} slotProps={{ inputLabel: { shrink: true } }} sx={filterWidth(160)} />
+      <DayField label="From date" value={draft.date_from} onChange={setDay("date_from")} error={errors.fromError} />
+      <DayField label="To date" value={draft.date_to} onChange={setDay("date_to")} error={errors.toError} />
       <Button type="submit" variant="outlined">Apply filters</Button>
       {active && <Button onClick={() => onApply(Object.fromEntries(FILTER_KEYS.map((k) => [k, ""])))}>Clear filters</Button>}
     </Box>
@@ -85,7 +100,8 @@ export default function AuditLog() {
     { key: "actor", label: "Actor", render: (e) => <Box component="span" sx={mono}>{e.actor}</Box> },
     { key: "category", label: "Category", render: (e) => AUDIT_CATEGORIES[e.category] || e.category },
     { key: "action", label: "Action", render: (e) => AUDIT_ACTIONS[e.action] || e.action },
-    { key: "agent", label: "Agent", render: (e) => <AgentId id={e.target_agent_id} /> },
+    // Agents appear only in Review and Detection entries, so the column is left out for other categories.
+    ...(categoryHasAgents(category) ? [{ key: "agent", label: "Agent", render: (e) => <AgentId id={e.target_agent_id} /> }] : []),
     { key: "result", label: "Result", render: (e) => <AuditResultChip entry={e} /> },
     {
       key: "details",
@@ -110,7 +126,7 @@ export default function AuditLog() {
 
   return (
     <>
-      <PageHeader title="Audit log" subtitle="Every sign-in, refusal, review, account change, report download and detection run, newest first. Entries cannot be changed or deleted." />
+      <PageHeader title="Audit log" subtitle="A permanent record of who did what, and when. Entries cannot be changed or deleted." />
       {/* Remounting on a new query string keeps the form in step with Back and Forward. */}
       <AuditFilters key={searchParams.toString()} values={query} onApply={(filters) => setQuery({ ...filters, page: 0 })} />
       <Divider sx={{ mb: 2 }} />

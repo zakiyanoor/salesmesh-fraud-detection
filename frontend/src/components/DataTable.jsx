@@ -18,10 +18,20 @@ const visuallyHidden = {
  * sort is { key, dir }; page and rowsPerPage are numbers. Sorting and paging happen here, unless
  * totalCount is given: then rows are already the current page from the server.
  * onRowClick(row, element) makes rows clickable; the row takes focus so a drawer can return focus to it.
+ * refined: the finished look (Flagged agents): 13px secondary headings, hairline rows with a hover and a
+ * keyboard focus highlight, tabular numerals, and flat 8px cards on narrow screens.
  */
+// The refined table: quiet headings, hairline rows, a highlight on hover and while a row holds keyboard focus.
+const REFINED_TABLE = {
+  "& th": { fontSize: 13, fontWeight: 500, color: "text.secondary", py: 1, borderColor: "divider" },
+  "& td": { fontSize: 14, py: 1.25, borderColor: "divider", fontVariantNumeric: "tabular-nums" },
+  "& tbody tr:last-of-type td": { borderBottom: 0 },
+  "& tbody tr:focus-within": { bgcolor: "action.hover" },
+};
+
 export default function DataTable({
   label, columns, rows, rowKey, sort, onSort, page, rowsPerPage, onPageChange, onRowsPerPageChange, emptyText,
-  totalCount, onRowClick,
+  totalCount, onRowClick, refined = false, hidePagingWhenOnePage = false,
 }) {
   const theme = useTheme();
   const cards = useMediaQuery(theme.breakpoints.down("md"), { noSsr: true });
@@ -48,7 +58,8 @@ export default function DataTable({
   const visible = serverPaged ? sorted : sorted.slice(safePage * rowsPerPage, safePage * rowsPerPage + rowsPerPage);
   const titleColumn = columns.find((c) => c.title) || columns[0];
 
-  const pagination = count > 0 && (
+  // With hidePagingWhenOnePage, the paging row (and Rows per page) is left out while every row fits on one page.
+  const pagination = count > 0 && !(hidePagingWhenOnePage && count <= rowsPerPage) && (
     <TablePagination
       component="div"
       count={count}
@@ -69,7 +80,7 @@ export default function DataTable({
         )}
         <Box component="ul" sx={{ listStyle: "none", p: 0, m: 0, display: "grid", gap: 1.5 }}>
           {visible.map((row) => (
-            <Paper component="li" key={rowKey(row)} sx={{ p: 2 }}>
+            <Paper component="li" key={rowKey(row)} sx={{ p: 2, ...(refined ? { borderRadius: "8px", boxShadow: "none" } : {}) }}>
               <Box sx={{ mb: 1 }}>{titleColumn.render(row)}</Box>
               <Box component="dl" sx={{ m: 0, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 2, rowGap: 0.75 }}>
                 {columns.filter((c) => c !== titleColumn && !c.action).map((c) => (
@@ -93,7 +104,7 @@ export default function DataTable({
   return (
     <Box component="section" aria-label={label}>
       <TableContainer>
-        <Table size="small" aria-label={label}>
+        <Table size="small" aria-label={label} sx={refined ? REFINED_TABLE : undefined}>
           <TableHead>
             <TableRow>
               {columns.map((c) => (

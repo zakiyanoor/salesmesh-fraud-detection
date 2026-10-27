@@ -17,7 +17,7 @@ export default function ScoreWithRank({ score, percentile, digits = 3 }) {
         describeChild
         title={`Percentile ${exact}: higher than ${exact}% of agents scored in the latest run. A rank, not a probability.`}
       >
-        <Box component="span" tabIndex={0} sx={{ color: "text.secondary", fontSize: "0.85em" }}>
+        <Box component="span" tabIndex={0} sx={{ color: "text.secondary", fontSize: "max(12px, 0.85em)" }}>
           {formatPercentile(percentile)}
         </Box>
       </Tooltip>

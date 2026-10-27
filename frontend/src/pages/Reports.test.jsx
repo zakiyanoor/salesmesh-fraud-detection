@@ -84,11 +84,47 @@ describe("Reports", () => {
     const audit = await card("Audit log");
     await userEvent.click(within(audit).getByRole("combobox", { name: "Category" }));
     await userEvent.click(screen.getByRole("option", { name: "Review" }));
-    await userEvent.type(within(audit).getByLabelText("From"), "2026-10-01");
+    await userEvent.type(within(audit).getByLabelText("From date"), "01/10/2026");
     await userEvent.click(within(audit).getByRole("button", { name: "Download CSV" }));
     await within(audit).findByText("Downloaded audit-log_2026-10-13.csv");
     const url = calls.find((c) => c.path === "/api/reports/audit-log.csv").url;
     expect(url).toBe("/api/reports/audit-log.csv?category=review&date_from=2026-10-01");
+  });
+
+  it("explains an invalid date or a From date after the To date, and does not download", async () => {
+    const { calls } = mockApi({ ...sessionRoutes("admin"), "GET /api/reports/audit-log.csv": file("x\n", "a.csv", "text/csv") });
+    renderApp("/reports");
+    const audit = await card("Audit log");
+    await userEvent.type(within(audit).getByLabelText("From date"), "31/02/2026");
+    expect(within(audit).getByText("Enter a real date as dd/mm/yyyy.")).toBeInTheDocument();
+    await userEvent.clear(within(audit).getByLabelText("From date"));
+    await userEvent.type(within(audit).getByLabelText("From date"), "20/10/2026");
+    await userEvent.type(within(audit).getByLabelText("To date"), "01/10/2026");
+    expect(within(audit).getByText("The To date must be on or after the From date.")).toBeInTheDocument();
+    await userEvent.click(within(audit).getByRole("button", { name: "Download CSV" }));
+    expect(calls.some((c) => c.path === "/api/reports/audit-log.csv")).toBe(false);
+  });
+
+  it("says when an export was limited to the newest 50,000 events, and only then", async () => {
+    mockApi({
+      ...sessionRoutes("admin"),
+      "GET /api/reports/audit-log.csv": () => new Response("x\n", { status: 200, headers: {
+        "Content-Type": "text/csv", "Content-Disposition": 'attachment; filename="audit-log_2026-10-27.csv"', "X-Row-Limit-Reached": "true",
+      } }),
+    });
+    renderApp("/reports");
+    const audit = await card("Audit log");
+    expect(audit.textContent).not.toMatch(/50,000/);
+    expect(audit).toHaveTextContent("Audit events, newest first. Narrow them by category and date.");
+    await userEvent.click(within(audit).getByRole("button", { name: "Download CSV" }));
+    expect(await within(audit).findByText(/This export was limited to the newest 50,000 events\./)).toBeInTheDocument();
+  });
+
+  it("uses the agreed wording", async () => {
+    mockApi(sessionRoutes("admin"));
+    renderApp("/reports");
+    expect(await screen.findByText("Download results to share outside the dashboard. Names, phone numbers and national IDs are masked, and every download is recorded in the audit log.")).toBeInTheDocument();
+    expect(within(await card("Flagged agents")).getByText(/flagged by the model or the duplicate rule/)).toBeInTheDocument();
   });
 
   it.each(["fraud_analyst", "compliance_officer"])("sends a %s to the access denied page", async (role) => {
