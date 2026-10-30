@@ -27,11 +27,10 @@ def recreate_test_database(name):
         raise pytest.UsageError(f"refusing to drop {name!r}: only a *_test database may be recreated")
     from sqlalchemy import create_engine, text
 
-    from src.db import DB_HOST, DB_PASSWORD, DB_PORT, DB_USER, engine
+    from src.db import database_url, engine
 
     engine.dispose()
-    server = create_engine(f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/postgres",
-                           isolation_level="AUTOCOMMIT")
+    server = create_engine(database_url("postgres"), isolation_level="AUTOCOMMIT")
     try:
         with server.connect() as conn:
             conn.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))

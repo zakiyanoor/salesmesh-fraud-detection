@@ -18,6 +18,7 @@ Moved from the root `README.md` (issue #26). Setup and commands: `SETUP.md`.
   - Read-only threat intelligence views, computed once per detection run; admin-only CSV and PDF reports with masked identities and protection against formula injection.
   - Endpoints: `API.md`; changes: `../backend/CHANGES.md`.
 - **Frontend:** React and MUI dashboard. It shows each agent's `risk_band` and `flag_source`, and the raw score with its rank in the latest run. Details: `FRONTEND.md`.
+- **Deployment** (issue #20, `DEPLOYMENT.md`): Docker Compose on one Linux server. Caddy serves the built frontend and forwards `/api/*` to the API on one origin with automatic HTTPS; the API runs under Gunicorn (one worker, four threads, `TRUST_PROXY=true`); the scheduler runs as its own single process from the same image; PostgreSQL 17 runs in its own container, or a managed database is used instead. The API image holds only the `ml/` files read at run time and never `ml/data`.
 
 ## Roles and permissions
 
@@ -35,6 +36,7 @@ An admin cannot change or deactivate their own account, and the last active admi
 
 - `ml/`: synthetic data, the ML pipeline, results (`ml/results/`) and run folders (`ml/runs/`); docs `ml/README.md`, `ml/DATA_CARD.md`, `ml/MODEL_CARD.md`
 - `backend/`: Flask API (`src/api.py`), the review rules (`src/review.py`), settings (`src/config.py`), auth, database layer (`src/db.py`, `src/migrate.py`, `src/load_data.py`), detection (`src/scoring_service.py`, `src/ml_bridge.py`, `src/pipeline.py`) and the scheduler (`src/scheduler.py`)
-- `docs/`: `API.md` (API reference), `FRONTEND.md`, `SETUP.md`, this file, and `screenshots/`
+- `docs/`: `API.md` (API reference), `FRONTEND.md`, `SETUP.md`, `DEPLOYMENT.md`, `OPERATIONS.md`, this file, and `screenshots/`
+- `deploy/`: the proxy image, the Caddyfile, the production env example and the smoke test; `docker-compose.yml` and `backend/Dockerfile` belong to the same deployment
 - `frontend/`: React dashboard
-- `.github/workflows/ci.yml`: the ml, backend and frontend tests on every push
+- `.github/workflows/ci.yml`: the ml, backend and frontend tests on every push, the parity and freeze tests inside the built API image, and the Compose stack with the smoke test

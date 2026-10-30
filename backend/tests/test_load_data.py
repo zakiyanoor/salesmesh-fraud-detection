@@ -25,9 +25,9 @@ def run_module(module, *args):
 
 
 def make_test_db_engine():
-    from src.db import DB_HOST, DB_PASSWORD, DB_PORT, DB_USER
+    from src.db import database_url
 
-    return create_engine(f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{TEST_DB}")
+    return create_engine(database_url(TEST_DB))
 
 
 def test_loader_reads_exactly_the_five_named_files(monkeypatch):

@@ -89,3 +89,36 @@ def test_local_environments_get_a_random_customer_ref_key_unless_one_is_set() ->
     assert load_config({"APP_ENV": "test", **KEY})["CUSTOMER_REF_KEY"] == "k" * 32
     with pytest.raises(ConfigError, match="CUSTOMER_REF_KEY"):
         load_config({"APP_ENV": "test", "CUSTOMER_REF_KEY": "too short"})
+
+
+# --- Deployment settings (issue #20) ---
+
+def test_limiter_storage_workers_and_proxy_trust_have_safe_defaults() -> None:
+    config = load_config(dict(KEY))
+    assert config["RATELIMIT_STORAGE_URI"] == "memory://" and config["WEB_CONCURRENCY"] == 1
+    assert config["TRUST_PROXY"] is False and config["WARNINGS"] == []
+    assert load_config({**KEY, "RATELIMIT_STORAGE_URI": ""})["RATELIMIT_STORAGE_URI"] == "memory://"
+
+
+def test_limiter_storage_workers_and_proxy_trust_are_read_from_the_environment() -> None:
+    config = load_config({**KEY, "RATELIMIT_STORAGE_URI": "redis://cache:6379", "WEB_CONCURRENCY": "3",
+                          "TRUST_PROXY": "true"})
+    assert config["RATELIMIT_STORAGE_URI"] == "redis://cache:6379" and config["WEB_CONCURRENCY"] == 3
+    assert config["TRUST_PROXY"] is True and config["WARNINGS"] == []
+
+
+def test_production_warns_when_memory_storage_meets_several_workers() -> None:
+    (warning,) = load_config({**KEY, "WEB_CONCURRENCY": "2"})["WARNINGS"]
+    assert "memory://" in warning and "2 workers" in warning
+    assert load_config({"APP_ENV": "development", "WEB_CONCURRENCY": "2"})["WARNINGS"] == []
+
+
+@pytest.mark.parametrize("environ, message", [
+    ({"RATELIMIT_STORAGE_URI": "localhost:6379"}, "RATELIMIT_STORAGE_URI"),
+    ({"WEB_CONCURRENCY": "two"}, "WEB_CONCURRENCY"),
+    ({"WEB_CONCURRENCY": "0"}, "WEB_CONCURRENCY"),
+    ({"TRUST_PROXY": "perhaps"}, "TRUST_PROXY"),
+])
+def test_unsafe_deployment_values_are_refused(environ, message) -> None:
+    with pytest.raises(ConfigError, match=message):
+        load_config({**KEY, **environ})

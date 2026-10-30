@@ -1,0 +1,96 @@
+# Private demo deployment (issue #20); docs/DEPLOYMENT.md has the commands.
+# Settings come from deploy/.env.production (copied from deploy/.env.production.example, never committed).
+# Only the proxy publishes ports. For an outside database, set DB_HOST (and DB_SSLMODE) in the env file and
+# start the other services with --no-deps, as DEPLOYMENT.md describes.
+
+name: salesmesh
+
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+    target: runtime
+  image: salesmesh-api
+  env_file: deploy/.env.production
+
+services:
+  db:
+    image: postgres:17
+    env_file: deploy/.env.production
+    # The postgres image reads POSTGRES_*; the env file holds the same values as DB_*.
+    entrypoint: ["sh", "-c", "export POSTGRES_USER=\"$$DB_USER\" POSTGRES_PASSWORD=\"$$DB_PASSWORD\" POSTGRES_DB=\"$$DB_NAME\"; exec docker-entrypoint.sh postgres"]
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$DB_USER\" -d \"$$DB_NAME\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    <<: *backend
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  scheduler:
+    <<: *backend
+    command: ["python", "-m", "src.scheduler"]
+    # These take precedence over the env file: one detection run on start, then one a day.
+    environment:
+      DETECTION_INTERVAL_MINUTES: "1440"
+      DETECTION_RUN_ON_START: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    # Exactly one copy: a second scheduler would start overlapping detection runs.
+    deploy:
+      replicas: 1
+    restart: unless-stopped
+
+  proxy:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.proxy
+    image: salesmesh-proxy
+    env_file: deploy/.env.production
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+  # First load only: the five input files are mounted one by one, so labels.csv and rings.csv never
+  # enter a container. Run with: docker compose --profile setup run --rm load-data
+  load-data:
+    <<: *backend
+    profiles: ["setup"]
+    command: ["python", "-m", "src.load_data"]
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./ml/data/synthetic/clients.csv:/app/ml/data/synthetic/clients.csv:ro
+      - ./ml/data/synthetic/agents.csv:/app/ml/data/synthetic/agents.csv:ro
+      - ./ml/data/synthetic/agent_identity.csv:/app/ml/data/synthetic/agent_identity.csv:ro
+      - ./ml/data/synthetic/agent_categories.csv:/app/ml/data/synthetic/agent_categories.csv:ro
+      - ./ml/data/synthetic/activation_records.csv:/app/ml/data/synthetic/activation_records.csv:ro
+    restart: "no"
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

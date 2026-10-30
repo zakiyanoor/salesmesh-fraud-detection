@@ -106,7 +106,7 @@ def active_filters(args):
 SUCCESS_ACTIONS = {
     "login", "logout", "propose_decision", "withdraw_decision", "agree_decision", "overrule_decision", "confirm_decision",
     "correct_decision", "customer_viewed", "report_download", "role_change", "account_deactivated",
-    "account_reactivated", "password_reset",
+    "account_reactivated", "password_reset", "account_created",
 }
 FAILED_ACTIONS = {"login_failure", "access_denied", "review_refused"}
 

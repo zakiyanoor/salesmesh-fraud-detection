@@ -27,6 +27,7 @@ export const AUDIT_ACTIONS = {
   account_deactivated: "Account deactivated",
   account_reactivated: "Account reactivated",
   password_reset: "Password reset (local recovery)",
+  account_created: "First admin created",
   report_download: "Report downloaded",
   ai_detection_run: "Detection run",
   ai_flag: "Flag changed",

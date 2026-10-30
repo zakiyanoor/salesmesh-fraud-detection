@@ -1,5 +1,10 @@
 venv/
 .env
+# Deployment settings with real secrets (issue #20); only the .example file is tracked.
+deploy/.env.production
+.env.*
+!.env.example
+!*.env.production.example
 __pycache__/
 *.pyc
 

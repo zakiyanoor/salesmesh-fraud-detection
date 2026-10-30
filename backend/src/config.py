@@ -12,6 +12,11 @@ SESSION_LIFETIME_MINUTES default 60
 CUSTOMER_REF_KEY         key for the customer references in URLs and the audit log (issue #28); at least
                          32 characters; required in production, a random key per process in development and test.
                          Never logged or returned; errors name the setting, never its value.
+RATELIMIT_STORAGE_URI    Flask-Limiter storage (default memory://, which counts per process)
+WEB_CONCURRENCY          Gunicorn worker processes (default 1); with memory:// and more than one worker the
+                         login limit is counted per worker, so production warns
+TRUST_PROXY              default false; true when a reverse proxy sets X-Forwarded-For and X-Forwarded-Proto,
+                         so the rate limiter and the audit log see the client address
 The session cookie is always HttpOnly.
 """
 
@@ -24,6 +29,7 @@ DEV_ORIGIN = "http://localhost:5173"
 SAMESITE_VALUES = ("Lax", "Strict")
 DEFAULT_SESSION_MINUTES = 60
 MIN_CUSTOMER_REF_KEY_LENGTH = 32
+DEFAULT_RATELIMIT_STORAGE = "memory://"
 TRUE, FALSE = ("1", "true", "yes", "on"), ("0", "false", "no", "off", "")
 
 
@@ -81,6 +87,20 @@ def load_config(environ):
         raise ConfigError(f"CUSTOMER_REF_KEY must be set to at least {MIN_CUSTOMER_REF_KEY_LENGTH} characters"
                           + (" in production" if not local else ""))
 
+    storage = environ.get("RATELIMIT_STORAGE_URI", "").strip() or DEFAULT_RATELIMIT_STORAGE
+    if "://" not in storage:
+        raise ConfigError("RATELIMIT_STORAGE_URI must be a storage URI such as memory:// or redis://host:6379")
+    try:
+        workers = int(environ.get("WEB_CONCURRENCY", 1))
+    except ValueError as error:
+        raise ConfigError("WEB_CONCURRENCY must be a whole number") from error
+    if workers < 1:
+        raise ConfigError("WEB_CONCURRENCY must be at least 1")
+    warnings = []
+    if app_env == "production" and storage == DEFAULT_RATELIMIT_STORAGE and workers > 1:
+        warnings.append(f"RATELIMIT_STORAGE_URI is memory:// with {workers} workers: each worker counts login "
+                        "attempts separately; use a shared storage or one worker")
+
     return {
         "APP_ENV": app_env,
         "DEBUG": debug,
@@ -90,4 +110,8 @@ def load_config(environ):
         "SESSION_COOKIE_SAMESITE": samesite,
         "PERMANENT_SESSION_LIFETIME": timedelta(minutes=minutes),
         "CUSTOMER_REF_KEY": customer_ref_key,
+        "RATELIMIT_STORAGE_URI": storage,
+        "WEB_CONCURRENCY": workers,
+        "TRUST_PROXY": _flag(environ, "TRUST_PROXY", False),
+        "WARNINGS": warnings,
     }

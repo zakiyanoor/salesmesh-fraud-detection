@@ -1,0 +1,39 @@
+# Single origin (issue #20): the built frontend and /api on one address, with automatic HTTPS.
+# SITE_ADDRESS is a domain name (a public certificate) or localhost (a locally trusted certificate).
+# reverse_proxy sets X-Forwarded-For, X-Forwarded-Proto and X-Forwarded-Host itself and, with no
+# trusted_proxies configured, replaces any such headers sent by the client; TRUST_PROXY=true lets the
+# API read them.
+
+{$SITE_ADDRESS:localhost} {
+	encode zstd gzip
+
+	request_body {
+		max_size 1MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		# The script hashes are the inline colour scheme script in frontend/index.html with LF and with CRLF
+		# line endings; frontend/src/test/csp.test.js fails if the script changes without them.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-QMIqTpn9Wq8jUzzB92RozgJe0lh69iPzAJ4BBCl6ZJs=' 'sha256-VhYKuoDZbqKCYKvGk/ILgcE38hrlbxhd9oBDAbRd5SQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@page not path /assets/*
+		header @page Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

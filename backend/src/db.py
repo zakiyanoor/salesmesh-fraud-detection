@@ -10,7 +10,10 @@ detection_runs (scheduler status), threat_views (the threat intelligence
 views computed once per run) and data_loads (loader provenance).
 
 DB_NAME (default salesmesh_fraud_detection) and the other DB_* settings come
-from the environment, so the tests can use their own database.
+from the environment, so the tests can use their own database. DB_SSLMODE
+(optional, for example require) is passed to the connection, and
+DB_CREATE_DATABASE=false makes migrate use an existing database instead of
+creating it (issue #20).
 
 Uses SQLAlchemy as the ORM (Section 3.5.4), connecting to PostgreSQL.
 """
@@ -18,7 +21,7 @@ Uses SQLAlchemy as the ORM (Section 3.5.4), connecting to PostgreSQL.
 import os
 from dotenv import load_dotenv
 from sqlalchemy import (
-    create_engine, text, CheckConstraint, Column, String, Integer, Float, DateTime, ForeignKey, Boolean, Text, JSON,
+    URL, create_engine, text, CheckConstraint, Column, String, Integer, Float, DateTime, ForeignKey, Boolean, Text, JSON,
     UniqueConstraint,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship, validates
@@ -31,10 +34,20 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "5432")
 DB_NAME = os.getenv("DB_NAME", "salesmesh_fraud_detection")
+DB_SSLMODE = os.getenv("DB_SSLMODE", "").strip()
+DB_CREATE_DATABASE = os.getenv("DB_CREATE_DATABASE", "true").strip().lower() not in ("0", "false", "no", "off")
 
-DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-engine = create_engine(DATABASE_URL, echo=False)
+def database_url(name=DB_NAME, user=DB_USER, password=DB_PASSWORD, host=DB_HOST, port=DB_PORT, sslmode=DB_SSLMODE):
+    """The connection URL; URL.create escapes the password, so any character in it works."""
+    return URL.create("postgresql+psycopg2", username=user, password=password or None, host=host,
+                      port=int(port) if port else None, database=name,
+                      query={"sslmode": sslmode} if sslmode else {})
+
+
+DATABASE_URL = database_url()
+
+engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
@@ -519,9 +532,7 @@ def create_all_tables():
 
 def create_database_if_missing(name=DB_NAME):
     """Creates the PostgreSQL database `name` if it does not exist (connects to the server's postgres db)."""
-    server = create_engine(
-        f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/postgres", isolation_level="AUTOCOMMIT"
-    )
+    server = create_engine(database_url("postgres"), isolation_level="AUTOCOMMIT")
     try:
         with server.connect() as conn:
             exists = conn.execute(text("SELECT 1 FROM pg_database WHERE datname = :n"), {"n": name}).scalar()
