@@ -45,6 +45,7 @@ from flask import Flask, g, jsonify, request, session
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from werkzeug.middleware.proxy_fix import ProxyFix
 from sqlalchemy import and_, func
 from sqlalchemy.exc import IntegrityError
 from src.db import (
@@ -61,9 +62,21 @@ from src import audit
 from src.config import load_config
 from src.pipeline import compute_client_category_breakdown
 
-# Debug, CORS and the session cookie flags come from the environment (src/config.py; issue #26).
+# Debug, CORS, the session cookie flags, the limiter storage and proxy trust come from the environment
+# (src/config.py; issues #20 and #26).
 CONFIG = load_config(os.environ)
 app = Flask(__name__)
+for warning in CONFIG["WARNINGS"]:
+    app.logger.warning(warning)
+
+
+def behind_proxy(wsgi_app):
+    """Client address and scheme from the one reverse proxy in front (Caddy), for TRUST_PROXY=true."""
+    return ProxyFix(wsgi_app, x_for=1, x_proto=1)
+
+
+if CONFIG["TRUST_PROXY"]:
+    app.wsgi_app = behind_proxy(app.wsgi_app)
 app.config.update(
     SESSION_COOKIE_SECURE=CONFIG["SESSION_COOKIE_SECURE"],
     SESSION_COOKIE_HTTPONLY=CONFIG["SESSION_COOKIE_HTTPONLY"],
@@ -78,10 +91,8 @@ if not FLASK_SECRET_KEY:
     raise RuntimeError("FLASK_SECRET_KEY not set in .env")
 app.secret_key = FLASK_SECRET_KEY
 
-# Per-IP rate limiting. In-memory storage is per-process, which suits the
-# single-process dev server; a multi-worker deployment needs a shared backend
-# (e.g. storage_uri="redis://...").
-limiter = Limiter(get_remote_address, app=app, storage_uri="memory://")
+# Per-IP rate limiting. memory:// counts per process, so more than one worker needs a shared storage.
+limiter = Limiter(get_remote_address, app=app, storage_uri=CONFIG["RATELIMIT_STORAGE_URI"])
 
 
 def log_admin_action(db_session, admin_id, action, target_agent_id=None, category="review", details=None):
@@ -1173,4 +1184,5 @@ def health_check():
 
 
 if __name__ == "__main__":
+    # Development server only; production runs Gunicorn (docs/DEPLOYMENT.md).
     app.run(debug=CONFIG["DEBUG"], port=5000)

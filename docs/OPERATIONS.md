@@ -26,4 +26,23 @@ Create the three demo accounts (`analyst_01`, `compliance_01`, `admin_01`) in a 
 python -m src.auth
 ```
 
-There is no command to create other accounts or to delete one. A deactivated account cannot sign in and stays in the list, so its audit history keeps a named actor.
+Create the first admin on a new database (issue #20). It works only while no account has the admin role, applies the usual password rule, reads the password from the environment variable you name, and writes an `account_created` entry to the audit log without the password. Every later attempt is refused:
+
+```bash
+python -m src.manage_accounts create-admin <username> --password-env ADMIN_PASSWORD [--admin-id ADM_...]
+```
+
+There is no other command to create accounts, and none to delete one. A deactivated account cannot sign in and stays in the list, so its audit history keeps a named actor.
+
+## Running the commands in the deployment
+
+In the Docker Compose deployment (`DEPLOYMENT.md`) the same commands run in a single use container of the API image, with the settings from `deploy/.env.production`. A password is passed by the name of an environment variable, never as an argument:
+
+```bash
+read -rs NEW_PASSWORD && export NEW_PASSWORD
+docker compose run --rm -e NEW_PASSWORD api python -m src.manage_accounts reset-password <admin_id or username> --new-password-env NEW_PASSWORD
+unset NEW_PASSWORD
+docker compose run --rm -e ACTING_PASSWORD api python -m src.manage_accounts deactivate <admin_id> --as <admin username> --password-env ACTING_PASSWORD
+```
+
+Backups, upgrades, the scheduler checks and secret rotation are described in `DEPLOYMENT.md`.

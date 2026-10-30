@@ -1,8 +1,57 @@
 # Backend changes
 
+## Sprint 13: deployment (issue #20)
+
+Branch `feature/deployment`. A private demonstration deployment on one Linux server with Docker Compose and HTTPS, following the supervisor review. No model, score, feature or data change, no schema change, and nothing under `ml/` was edited. Instructions: `docs/DEPLOYMENT.md`.
+
+### Settings (`src/config.py`, `src/api.py`)
+
+- **`RATELIMIT_STORAGE_URI`** (default `memory://`) sets the Flask-Limiter storage, which was hard coded before. A value without `://` is refused.
+- **`WEB_CONCURRENCY`** (default 1) is the number of Gunicorn workers. In production, `memory://` with more than one worker logs a warning, because each worker would count login attempts separately.
+- **`TRUST_PROXY`** (default false). When true, the app is wrapped in Werkzeug's `ProxyFix(x_for=1, x_proto=1)`, so the rate limiter and the audit log see the client address that Caddy forwards instead of the proxy's address. When false, `X-Forwarded-For` is ignored.
+- `app.run` remains for the development server only; production runs Gunicorn.
+
+### Database connection (`src/db.py`, `src/migrate.py`)
+
+- The URL is built with SQLAlchemy's `URL.create`, so a password with `@`, `:`, `/`, `#` or other special characters works. The test helpers use the same builder.
+- **`DB_SSLMODE`** (optional, for example `require`) is passed to the connection, and the engine uses `pool_pre_ping`.
+- **`DB_CREATE_DATABASE`** (default true). When false, `python -m src.migrate` uses the existing database and does not connect to the `postgres` database to create it, as most managed services require.
+
+### First administrator (`src/manage_accounts.py`)
+
+- **`create-admin <username> --password-env VARIABLE [--admin-id ID]`** creates the first account with the admin role. Before, a production database had no way to obtain one, because the demonstration accounts are refused in production.
+- It works only while no admin account exists, under a table lock, so two concurrent runs cannot both succeed. It applies the existing password rule, reads the password from the named environment variable, never prints or logs it, and writes an `account_created` audit entry (category `admin`, channel "first admin") without it.
+- `account_created` counts as a success action in the audit log and has the label "First admin created" in the frontend.
+
+### Requirements
+
+- `requirements.txt` holds the runtime packages and gains `gunicorn==26.2.0` and `scipy==1.18.1`, the version pinned in `ml/requirements.txt`, so the image installs the scipy the frozen pipeline ran with instead of whatever pip resolves.
+- **New `requirements-dev.txt`:** the runtime file plus `pytest`. The CI backend job installs both.
+
+### Deployment files
+
+- **`backend/Dockerfile`:** `python:3.14-slim`, an unprivileged user (uid 10001), the pinned runtime packages, `backend/src`, and only these `ml/` files: the Python modules, `results/FREEZE.md`, the scoring bundle of `runs/20261013-100433_explain`, `operating_point.json` of `runs/20261013-093050_selection_s42`, and `summary.json` and `test_metrics.csv` of `runs/20261013-103859_final_evaluation_s42`. It runs `gunicorn --threads 4 --bind 0.0.0.0:8000 src.api:app` with `WEB_CONCURRENCY=1`. A `test` stage adds pytest for CI.
+- **`.dockerignore`:** excludes `.env` files, virtual environments, `node_modules`, `.git`, `ml/data`, caches, logs and `docs`.
+- **`deploy/Dockerfile.proxy`:** Node 22 builds the frontend with `VITE_API_BASE` unset, and the result is served by `caddy:2.11-alpine`.
+- **`deploy/Caddyfile`:** automatic HTTPS for `SITE_ADDRESS` (default `localhost`), `/api/*` forwarded to `api:8000` with the forwarded headers, a fallback to `index.html` for client side routes, security headers (HSTS, `nosniff`, frame denial, referrer policy, a Content Security Policy that allows the inline colour scheme script by its hash) and a 1 MB request body limit.
+- **`docker-compose.yml`:** `db` (PostgreSQL 17, a named volume, a health check), `api`, `scheduler` (the same image, `python -m src.scheduler`, one copy, `DETECTION_INTERVAL_MINUTES=1440` and `DETECTION_RUN_ON_START=true`) and `proxy` (ports 80 and 443). Only the proxy publishes ports. A `load-data` task in the `setup` profile mounts the five input files one by one, so `labels.csv` and `rings.csv` never enter a container.
+- **`deploy/.env.production.example`:** every setting with a one line comment and the secrets left empty. `backend/.env.example` and `frontend/.env.example` describe the new settings, and `.gitignore` excludes `deploy/.env.production`.
+- **`deploy/smoke_test.py`:** checks a live address (section 8 of `docs/DEPLOYMENT.md`); standard library only, and the password is never printed.
+
+### Tests and CI
+
+- **New `tests/test_deployment.py`:** with `TRUST_PROXY` on, the forwarded address reaches the audit log and the limiter (a different forwarded address is not limited); with it off, the header is ignored by both; URLs keep passwords with special characters and apply `sslmode` only when set; `migrate` can skip creating the database; `create-admin` works once, is audited without the password, refuses when an admin exists, and checks the password and the username. The test limiter keeps `memory://`.
+- **`tests/test_config.py`:** the defaults, values and refusals of the new settings, and the warning.
+- **New `frontend/src/test/csp.test.js`:** the Caddyfile's policy contains the hash of the inline script in `frontend/index.html`, with LF and with CRLF line endings, and allows no inline script otherwise.
+- **CI:** the job `image-parity` builds the test image, prints the library versions, and runs `tests/test_parity.py` and `ml/tests/test_freeze.py` inside it with the repository's `ml/` mounted read only. The job `deploy-smoke` builds the images, runs the first time setup and the stack on a throwaway database with generated values, runs the smoke test, waits for a scheduler run, restarts the API and tears everything down. Neither job uses deployment secrets.
+
+### Corrections in this file
+
+- The analysis period is 1 to 30 August 2026; the statement on the git history now points to `ml/results/HISTORY_REWRITE.md`; old test counts are replaced by counts from `pytest --collect-only`; the Sprint 12 heading no longer calls that sprint frontend only.
+
 ## Sprint 12: analyst pages (issue #28)
 
-Branch `feature/analyst-ui`. Frontend only: no backend change, no migration.
+Branch `feature/analyst-ui`. Mostly frontend. The backend changed for the administrator pages and Analytics items below (`src/accounts.py`, `src/api.py`, `src/audit.py`, `src/auth.py`, `src/reports.py` and their tests); there is no schema change and no migration.
 
 - **One date format everywhere** (`frontend/src/format.js`): day, short month, year and 24 hour time in Nairobi time, for example "13 Oct 2026, 17:26", on every page and in the footer. System times from the API (runs, decisions, audit) are UTC and are converted; activation data is shown as recorded.
 - **Overview finish** (`frontend/src/pages/Dashboard.jsx`): the same layout, content and numbers as before with a refined look: tinted icon squares on the figure cards, sentence case card titles, a thicker donut with its legend beside it, slimmer risk band bars with values, and a balanced needs attention table with flag source chips. No score bar. New: a line when the latest run is more than 48 hours old, and "See all flagged agents". An earlier redesign on this branch (instrument bar, horizontal bars, score bar) was reverted.
@@ -279,7 +328,7 @@ Branch `sprint-7/hybrid-hardening`.
   - the `tests/helpers.py` fallbacks are removed;
   - the frontend's mocked logins type a placeholder.
 - **Backend tests:** `tests/conftest.py` loads `backend/.env` and stops with a clear message if a `DEMO_*_PASSWORD` is missing. CI generates them per run.
-- **The previous demo passwords remain in git history**, which was not rewritten. Treat them as public. The local development accounts were reset with `manage_accounts reset-password`. Reset them on any other database that still uses them.
+- **The previous demo passwords remain in git history.** The history was rewritten on 24 October 2026 to correct commit message metadata, and that rewrite changed no file content apart from one line in `ml/results/PR_DESCRIPTION.md` (`ml/results/HISTORY_REWRITE.md`), so the old passwords are still in earlier commits. Treat them as public. The local development accounts were reset with `manage_accounts reset-password`. Reset them on any other database that still uses them.
 - **Tests** (`tests/test_demo_accounts.py`):
   - refused in production, unset and unknown `APP_ENV`;
   - names the missing variables;
@@ -304,7 +353,7 @@ Branch `sprint-7/hybrid-hardening`.
 - **Checked in fresh Python 3.14 virtual environments:**
   - `pip check` is clean in both;
   - none of the seven unused packages, nor matplotlib in the backend, is installed;
-  - the ml suite (192) and the backend suite (234) pass.
+  - the ml suite and the backend suite pass. Current size, from `pytest --collect-only` on 30 October 2026: 204 ml tests (`ml/tests`) and 395 backend tests.
 
 ### Known issue: frontend test timeouts on a busy computer
 
@@ -476,7 +525,7 @@ Branch `sprint-3/backend-database`. The backend now runs on the final v3 synthet
   - Its sha256 must match `FREEZE.md`.
   - Its cutoff must match `ml/runs/20261013-093050_selection_s42/operating_point.json` (1.4447993633890617).
   - Its features must be the 4 model features.
-- **Analysis period:** from the first record's day to the day after the last record. On the v3 data that is 2026-08-01 to 2026-08-31, the period the model was frozen on.
+- **Analysis period:** from the first record's day to the day after the last record. On the v3 data that is 1 to 30 August 2026 (records from 2026-08-01 up to, but not including, 2026-08-31), the period the model was frozen on.
 - **The duplicate activation rule runs beside the model.**
   - Every counted pair gets evidence rows: `shared customer` with the other agent, or `repeat after completed` with the record ids.
   - The evidence must reproduce `ml`'s per-agent counts, or the run fails.
@@ -546,5 +595,5 @@ Elsewhere: `ml/models/isolation_forest_v2.joblib` (v2 model, no longer used). Th
 - **Line endings (fixed in commit `e31f5eb`):** with `core.autocrlf=true`, checkout had rewritten three frozen ML markdown files with CRLF, so 4 ML freeze tests failed.
   - The root `.gitattributes` now pins each hashed file to the line ending it was frozen with: LF for `FREEZE.md`, `acceptance_criteria.md`, `selection_rule.md` and `selection_notes.md`; CRLF for the hashed data files (the CSVs, `operating_point.json` and `data_generation.py`).
   - Binary files (`*.joblib`, `*.png`) are never converted.
-  - No stored content changed. All 17 frozen hashes match `FREEZE.md`, and all 185 ML tests pass.
+  - No stored content changed. All 16 frozen hashes match `FREEZE.md` (17 tests in `tests/test_freeze.py`), and the ML suite passes (204 tests in `ml/tests` collected on 30 October 2026).
 - **Audit:** reading identity is not written to the audit log; consider it if identity becomes viewable beyond the masked form.

@@ -1,0 +1,17 @@
+# Build context for backend/Dockerfile and deploy/Dockerfile.proxy (issue #20).
+.git
+.github
+venv
+**/.venv
+**/node_modules
+frontend/dist
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+.coverage
+htmlcov
+**/*.log
+**/.env
+**/.env.*
+docs
+ml/data

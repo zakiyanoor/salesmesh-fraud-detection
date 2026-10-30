@@ -10,13 +10,13 @@ All backend commands run from inside `backend/`. The virtual environment lives a
 python -m venv venv
 venv\Scripts\activate          # Windows (macOS/Linux: source venv/bin/activate)
 cd backend
-pip install -r requirements.txt   # backend/requirements.txt: the API, database, scheduler, reports, and the frozen ML code it imports
+pip install -r requirements.txt -r requirements-dev.txt   # runtime packages (the API, database, scheduler, reports, the frozen ML code it imports, Gunicorn) and pytest
 ```
 
 Copy `backend/.env.example` to `backend/.env` and fill in the empty values:
 - **Required:** `FLASK_SECRET_KEY`, `DB_PASSWORD`, and the three `DEMO_*_PASSWORD` values (at least 12 characters each).
 - **`APP_ENV`:** the example sets `development`. If it is unset, the backend runs as `production`: no debug, `Secure` cookies and no CORS origin.
-- **Optional:** the other settings (CORS origins, the cookie flags, a 60-minute session lifetime, the database and the scheduler) are explained in the file.
+- **Optional:** the other settings (CORS origins, the cookie flags, a 60 minute session lifetime, the rate limiter storage, proxy trust, the database with its SSL mode, and the scheduler) are explained in the file.
 - **Never commit `backend/.env`.**
 
 Then, from `backend/`:
@@ -25,11 +25,16 @@ Then, from `backend/`:
 python -m src.migrate      # create the database, tables and columns if missing (safe to repeat)
 python -m src.load_data    # reload the five v3 files from ml/data/synthetic (hash and count checked; never labels.csv)
 python -m src.auth         # demo accounts analyst_01, compliance_01, admin_01 (APP_ENV development/test; DEMO_*_PASSWORD)
+python -m src.manage_accounts create-admin <username> --password-env ADMIN_PASSWORD   # first admin on a database without one
 python -m src.pipeline     # one detection run with the frozen lof_v3_4f model
 python -m src.scheduler    # detection now and then every DETECTION_INTERVAL_MINUTES
 python -m src.api          # the API on port 5000
 pytest                     # tests, on the separate salesmesh_fraud_detection_test database
 ```
+
+## Deployment
+
+A private demonstration deployment on one Linux server (Docker Compose, Caddy with HTTPS, Gunicorn, a separate scheduler process) is described in `DEPLOYMENT.md`. It uses `docker-compose.yml`, `backend/Dockerfile`, `deploy/Dockerfile.proxy`, `deploy/Caddyfile`, `deploy/.env.production.example` and the smoke test `deploy/smoke_test.py`.
 
 ## Frontend
 

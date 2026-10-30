@@ -11,6 +11,12 @@ Usage (from backend/):
 The password is read from the environment variable named by --password-env,
 or prompted for.
 
+First administrator (issue #20), on a new database with no admin account yet:
+  python -m src.manage_accounts create-admin <username> --password-env ADMIN_PASSWORD
+It refuses once any admin account exists. The password is read from the named
+environment variable, checked by the same rule as every account, never printed,
+and the creation is audited without it.
+
 Local recovery (issue #19), for a forgotten password:
   python -m src.manage_accounts reset-password <admin_id or username> --new-password-env NEW_PASSWORD
 It needs no admin password because it only works with direct access to the
@@ -22,9 +28,13 @@ environment variable, is never printed, and the reset is audited without it.
 import argparse
 import getpass
 import os
+import uuid
+
+from sqlalchemy import text
+from werkzeug.security import generate_password_hash
 
 from src import accounts, audit
-from src.auth import MIN_PASSWORD_LENGTH, ROLE_ADMIN, verify_login
+from src.auth import MIN_PASSWORD_LENGTH, ROLE_ADMIN, Administrator, create_admin_table, validate_password, verify_login
 from src.db import get_session
 
 RECOVERY_HELP = (
@@ -102,6 +112,43 @@ def reset_password(account, new_password):
         db_session.close()
 
 
+def create_first_admin(username, password, admin_id=None):
+    """
+    Creates the first admin account and its audit entry in one transaction; returns the account payload.
+    The table lock makes two concurrent runs safe: the second one sees the first admin and is refused.
+    """
+    username = (username or "").strip()
+    if not username or len(username) > 100:
+        raise CommandError("the username must be 1 to 100 characters")
+    try:
+        validate_password(password)
+    except ValueError as e:
+        raise CommandError(str(e)) from None
+    create_admin_table()
+    db_session = get_session()
+    try:
+        db_session.execute(text("LOCK TABLE administrators IN EXCLUSIVE MODE"))
+        if db_session.query(Administrator).filter(Administrator.role == ROLE_ADMIN).first() is not None:
+            raise CommandError("an admin account already exists; use the Accounts page or the other commands")
+        if db_session.query(Administrator).filter(Administrator.username == username).first() is not None:
+            raise CommandError(f"the username {username!r} is already taken")
+        admin = Administrator(admin_id=admin_id or f"ADM_{uuid.uuid4().hex[:8].upper()}", username=username,
+                              password_hash=generate_password_hash(password), role=ROLE_ADMIN)
+        db_session.add(admin)
+        db_session.flush()
+        audit.record(db_session, local_actor(), "account_created", "admin", details={
+            "target_admin_id": admin.admin_id, "target_username": admin.username, "role": ROLE_ADMIN,
+            "channel": "first admin"})
+        payload = accounts.account_payload(admin)
+        db_session.commit()
+        return payload
+    except Exception:
+        db_session.rollback()
+        raise
+    finally:
+        db_session.close()
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="python -m src.manage_accounts",
@@ -120,6 +167,12 @@ def build_parser():
         command.add_argument("--as", dest="actor", required=True, help="username of the acting admin")
         command.add_argument("--password-env", help="environment variable holding the acting admin's password")
 
+    first = commands.add_parser("create-admin", help="Create the first admin account (only while no admin exists)")
+    first.add_argument("username", help="username of the new admin")
+    first.add_argument("--password-env", required=True, metavar="VARIABLE",
+                       help="name of the environment variable that holds the password (not the password itself)")
+    first.add_argument("--admin-id", help="account id (default: ADM_ and eight random characters)")
+
     reset = commands.add_parser("reset-password", help="Local recovery for a forgotten password (no admin password needed)",
                                 description=RECOVERY_HELP)
     reset.add_argument("account", help="admin_id or username of the account to reset")
@@ -130,6 +183,17 @@ def build_parser():
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
+
+    if args.action == "create-admin":
+        password = os.environ.get(args.password_env)
+        if not password:
+            raise SystemExit(f"Refused: environment variable {args.password_env} is not set or is empty")
+        try:
+            account = create_first_admin(args.username, password, args.admin_id)
+        except CommandError as e:
+            raise SystemExit(f"Refused: {e}")
+        print(f"Created the first admin {account['username']} ({account['admin_id']}).")
+        return
 
     if args.action == "reset-password":
         new_password = os.environ.get(args.new_password_env)

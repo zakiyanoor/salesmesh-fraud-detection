@@ -1,6 +1,8 @@
-# Backend runtime and tests (issue #26). Direct dependencies only; pip resolves the rest.
-# Web API
+# Backend runtime (issues #20 and #26). Direct dependencies only; pip resolves the rest.
+# Test packages are in requirements-dev.txt.
+# Web API and its production server
 Flask==3.1.3
+gunicorn==26.2.0
 Werkzeug==3.1.8
 flask-cors==6.0.5
 Flask-Limiter==4.1.1
@@ -16,7 +18,7 @@ reportlab==5.0.1
 numpy==2.5.2
 pandas==3.0.5
 scikit-learn==1.9.0
+# Same version as ml/requirements.txt, so the image resolves what the frozen pipeline used.
+scipy==1.18.1
 joblib==1.6.0
 Faker==40.37.0
-# Tests
-pytest==9.1.1
