@@ -18,8 +18,11 @@ export function otherOutcome(outcome) {
   return outcome === "confirmed_fraud" ? "legitimate" : "confirmed_fraud";
 }
 
-export function closedMessage(agentId, status, outcomeLabel) {
-  return `Proposal for ${agentId} ${status === "overruled" ? "overruled" : "agreed"}. The final outcome is ${outcomeLabel}.`;
+export const DEACTIVATION_REQUESTED_MESSAGE = "An administrator has been asked to deactivate the agent.";
+
+export function closedMessage(agentId, status, outcomeLabel, deactivationRequested = false) {
+  const message = `Proposal for ${agentId} ${status === "overruled" ? "overruled" : "agreed"}. The final outcome is ${outcomeLabel}.`;
+  return deactivationRequested ? `${message} ${DEACTIVATION_REQUESTED_MESSAGE}` : message;
 }
 
 export const NOTES_HINT =

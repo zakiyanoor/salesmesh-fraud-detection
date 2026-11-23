@@ -11,7 +11,7 @@ import SwapHorizOutlined from "@mui/icons-material/SwapHorizOutlined";
 import ScheduleOutlined from "@mui/icons-material/ScheduleOutlined";
 import EditNoteOutlined from "@mui/icons-material/EditNoteOutlined";
 import FlagOutlined from "@mui/icons-material/OutlinedFlag";
-import { FLAG_SOURCE_LABELS, OUTCOME_LABELS, REVIEW_STATUS_LABELS, STATUS_LABELS, WAITING_TEXT } from "../format";
+import { DEACTIVATION_LABELS, FLAG_SOURCE_LABELS, OUTCOME_LABELS, REVIEW_STATUS_LABELS, STATUS_LABELS, WAITING_TEXT } from "../format";
 import { auditResult } from "../audit";
 
 const chip = { size: "small", variant: "outlined" };
@@ -36,6 +36,19 @@ export function DecisionStatusChip({ status }) {
       <Chip {...chip} color={color} icon={icon} label={STATUS_LABELS[status]} tabIndex={0} />
     </Tooltip>
   );
+}
+
+/** An agent's deactivation state (active, pending_deactivation, deactivated) or a request's status (also cancelled). */
+export function DeactivationChip({ state }) {
+  const styles = {
+    active: [<CheckCircleOutlined fontSize="small" key="i" />, "success"],
+    pending_deactivation: [<HourglassEmptyOutlined fontSize="small" key="i" />, "warning"],
+    deactivated: [<BlockOutlined fontSize="small" key="i" />, "error"],
+    cancelled: [<UndoOutlined fontSize="small" key="i" />, "default"],
+  };
+  if (!styles[state]) return null;
+  const [icon, color] = styles[state];
+  return <Chip {...chip} color={color} icon={icon} label={DEACTIVATION_LABELS[state]} />;
 }
 
 /** An open proposal waiting longer than the server's limit (3 days). Nothing decides it automatically. */

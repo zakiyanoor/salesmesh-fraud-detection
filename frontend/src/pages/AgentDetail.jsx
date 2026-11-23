@@ -11,12 +11,13 @@ import CustomerDialog from "../components/CustomerDialog";
 import AgentActivity from "../components/AgentActivity";
 import DecisionTimeline from "../components/DecisionTimeline";
 import SectionCard from "../components/SectionCard";
-import { FlagSourceChip } from "../components/chips";
+import ProposalDialog from "../components/ProposalDialog";
+import { DeactivationChip, FlagSourceChip, OutcomeChip } from "../components/chips";
 import { LoadStatus } from "../components/states";
 import { useApi } from "../hooks/useApi";
 import { useAuth } from "../auth/authContext";
 import { COMPLIANCE_OFFICER, FRAUD_ANALYST, PAGES } from "../auth/roles";
-import { FEATURES, OUTCOME_LABELS, formatDate, formatNumber, initials } from "../format";
+import { FEATURES, OUTCOME_LABELS, formatDate, formatDateTime, formatNumber, initials } from "../format";
 import { PROPOSED_MESSAGE, WITHDRAWN_MESSAGE, correctedMessage, otherOutcome } from "../review";
 import { alpha } from "@mui/material/styles";
 import { mono } from "../theme";
@@ -205,10 +206,10 @@ function ReviewNote({ children, action }) {
 
 /**
  * What this viewer can do with the agent's flag (issue #28), from the server's review block: an analyst
- * proposes on any flagged agent or withdraws their own open proposal; a compliance officer corrects a
- * final decision here and agrees or overrules in the confirm queue.
+ * proposes on any flagged agent or withdraws their own open proposal; a compliance officer agrees with or
+ * overrules an open proposal, as in the confirm queue, and corrects a final decision.
  */
-function ReviewSection({ role, detail, onDone }) {
+function ReviewSection({ role, detail, decisions, onDone }) {
   const review = detail.review || {};
   const [dialog, setDialog] = useState(null);
   const queue = <Button component={RouterLink} to={CONFIRM_PATH} variant="outlined">Open the confirm queue</Button>;
@@ -282,7 +283,46 @@ function ReviewSection({ role, detail, onDone }) {
     );
   }
   if (role === COMPLIANCE_OFFICER && review.open_decision_id) {
-    return <ReviewNote action={queue}>A proposal on this agent is waiting in the confirm queue.</ReviewNote>;
+    const proposal = decisions?.find((d) => d.decision_id === review.open_decision_id);
+    if (!proposal) {
+      return <ReviewNote action={queue}>A proposal on this agent is waiting in the confirm queue.</ReviewNote>;
+    }
+    return (
+      <>
+        <Panel label="Review" title="Review">
+          <Typography sx={{ fontSize: 14, color: "text.secondary", mb: 1.5 }}>
+            A fraud analyst proposed an outcome for this agent. A compliance officer other than the proposer agrees or overrules it.
+          </Typography>
+          <Box component="dl" sx={{ m: 0, mb: 2, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 3, rowGap: 0.75, alignItems: "center" }}>
+            <Typography component="dt" variant="body2" color="text.secondary">Proposed outcome</Typography>
+            <Box component="dd" sx={{ m: 0 }}><OutcomeChip outcome={proposal.decision_outcome} /></Box>
+            <Typography component="dt" variant="body2" color="text.secondary">Proposed by</Typography>
+            <Typography component="dd" variant="body2" sx={{ m: 0 }}>
+              {`${proposal.reviewer_id}, ${formatDateTime(proposal.decision_timestamp)}`}
+            </Typography>
+            <Typography component="dt" variant="body2" color="text.secondary" sx={{ alignSelf: "start" }}>Note</Typography>
+            <Typography component="dd" variant="body2" sx={{ m: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+              {proposal.notes || "—"}
+            </Typography>
+          </Box>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+            <Button variant="outlined" onClick={() => setDialog("agree")} aria-label={`Agree with the proposal for ${detail.agent_id}`}>Agree</Button>
+            <Button variant="outlined" onClick={() => setDialog("overrule")} aria-label={`Overrule the proposal for ${detail.agent_id}`}>Overrule</Button>
+          </Box>
+        </Panel>
+        {dialog && (
+          <ProposalDialog
+            kind={dialog}
+            decision={proposal}
+            onClose={() => setDialog(null)}
+            onFinish={(message, severity) => {
+              setDialog(null);
+              onDone(message, severity);
+            }}
+          />
+        )}
+      </>
+    );
   }
   return (
     <ReviewNote action={queue}>
@@ -327,8 +367,8 @@ export default function AgentDetail() {
 
   const [loaded, analytics] = result.data;
   const detail = fresh?.agent_id === agentId ? fresh : loaded;
-  const reviewDone = async (message) => {
-    setNotice({ agentId, message });
+  const reviewDone = async (message, severity = "success") => {
+    setNotice({ agentId, message, severity });
     decisions.retry();
     setFresh(await api.getAgentDetail(agentId));
   };
@@ -340,11 +380,12 @@ export default function AgentDetail() {
       {back}
       <PageHeader
         title={`Agent ${detail.agent_id}`}
-        subtitle={`${detail.region ?? "Unknown county"}, registered ${formatDate(detail.registration_timestamp, { recorded: true })}${detail.account_status ? `, account ${detail.account_status}` : ""}`}
+        subtitle={`${detail.region ?? "Unknown county"}, registered ${formatDate(detail.registration_timestamp, { recorded: true })}${detail.account_status ? ` · Account status: ${detail.account_status}` : ""}`}
       >
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1.5 }}>
           <RiskBadge band={detail.score?.risk_band ?? detail.risk_band} />
           <FlagSourceChip source={detail.score?.flag_source ?? detail.flag_source} />
+          <DeactivationChip state={detail.deactivation} />
         </Box>
       </PageHeader>
 
@@ -357,9 +398,15 @@ export default function AgentDetail() {
         </Box>
         <Box sx={{ display: "grid", gap: 3, minWidth: 0 }}>
           {notice?.agentId === agentId && (
-            <Alert severity="success" role="status" onClose={() => setNotice(null)}>{notice.message}</Alert>
+            <Alert severity={notice.severity} role="status" onClose={() => setNotice(null)}>{notice.message}</Alert>
           )}
-          <ReviewSection key={detail.review?.open_decision_id ?? detail.review?.final_decision_id ?? "none"} role={user?.role} detail={detail} onDone={reviewDone} />
+          <ReviewSection
+            key={detail.review?.open_decision_id ?? detail.review?.final_decision_id ?? "none"}
+            role={user?.role}
+            detail={detail}
+            decisions={own.data}
+            onDone={reviewDone}
+          />
           <SectionCard title="Decision history" result={own} panel sx={{ p: 2.5 }}>
             {(list) => <DecisionTimeline decisions={list} />}
           </SectionCard>

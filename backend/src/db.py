@@ -188,6 +188,43 @@ class ReviewCorrection(Base):
     decision = relationship("ReviewDecision", back_populates="corrections")
 
 
+DEACTIVATION_PENDING = "pending_deactivation"
+DEACTIVATION_DONE = "deactivated"
+DEACTIVATION_CANCELLED = "cancelled"
+DEACTIVATION_STATUSES = (DEACTIVATION_PENDING, DEACTIVATION_DONE, DEACTIVATION_CANCELLED)
+
+
+class AgentDeactivation(Base):
+    """
+    A request to mark an agent deactivated inside this application, opened when a review decision's final
+    outcome is confirmed_fraud (src.agent_status). One row per decision. Nothing is ever deleted, and
+    agents.account_status (loaded data) is not changed.
+    """
+    __tablename__ = "agent_deactivations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending_deactivation', 'deactivated', 'cancelled')", name="ck_agent_deactivations_status"),
+    )
+
+    deactivation_id = Column(String, primary_key=True)
+    agent_id = Column(String, ForeignKey("agents.agent_id"), nullable=False, index=True)
+    decision_id = Column(String, ForeignKey("review_decisions.decision_id"), nullable=False, unique=True)
+    requested_by = Column(String, nullable=False)
+    requested_at = Column(DateTime, nullable=False)
+    status = Column(String, nullable=False)
+    actioned_by = Column(String)
+    actioned_at = Column(DateTime)
+    note = Column(Text)
+
+    decision = relationship("ReviewDecision")
+
+    @validates("status")
+    def validate_status(self, key, value):
+        if value not in DEACTIVATION_STATUSES:
+            raise ValueError(f"status must be one of {DEACTIVATION_STATUSES}, got {value!r}")
+        return value
+
+
 # --- Audit trail: Admin Action Log ---
 class AdminActionLog(Base):
     __tablename__ = "admin_action_log"
@@ -405,6 +442,8 @@ def migrate_schema():
         # Issue #28: a detection run only calls migrate_schema(), so the new table is created here too.
         ThreatView.__table__.create(conn, checkfirst=True)
         migrate_review_workflow(conn)
+        # Agent deactivation requests; after review_decisions, which it references.
+        AgentDeactivation.__table__.create(conn, checkfirst=True)
 
 
 REVIEW_DECISION_COLUMNS = {"run_id": "VARCHAR REFERENCES detection_runs (run_id)", "flag_source": "VARCHAR",

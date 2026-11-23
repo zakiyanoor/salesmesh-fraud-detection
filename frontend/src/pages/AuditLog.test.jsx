@@ -45,6 +45,25 @@ describe("Audit log", () => {
     expect(document.title).toBe("Audit log · SalesMesh Fraud Detection");
   });
 
+  it("shows readable labels for the agent deactivation actions", async () => {
+    mockApi(routes("admin", () => ({
+      total: 3, count: 3,
+      entries: [
+        entry(1, { action: "deactivation_requested", details: { deactivation_id: "DA1", decision_id: "RD1", status: "pending_deactivation" } }),
+        entry(2, { action: "deactivation_cancelled", details: { deactivation_id: "DA1", decision_id: "RD1", status: "cancelled" } }),
+        entry(3, { category: "admin", action: "agent_deactivated", actor: "ADM_ADMIN_01", details: { deactivation_id: "DA1", status: "deactivated" } }),
+      ],
+    })));
+    renderApp("/audit-log");
+    const t = await table();
+    for (const label of ["Deactivation requested", "Deactivation request cancelled", "Agent deactivated"]) {
+      expect(within(t).getByText(label)).toBeInTheDocument();
+    }
+    for (const code of ["deactivation_requested", "deactivation_cancelled", "agent_deactivated"]) {
+      expect(within(t).queryByText(code)).not.toBeInTheDocument();
+    }
+  });
+
   it("sends filters and paging to the server and keeps them in the URL", async () => {
     const { calls } = mockApi(routes());
     renderApp("/audit-log?category=review&page=1&size=10");

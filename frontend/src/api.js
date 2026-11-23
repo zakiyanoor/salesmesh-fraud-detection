@@ -142,4 +142,9 @@ export const api = {
   changeAccountRole: (adminId, role) => request(`/admin/accounts/${id(adminId)}/role`, { method: "PATCH", body: { role } }),
   deactivateAccount: (adminId) => request(`/admin/accounts/${id(adminId)}/deactivate`, { method: "POST" }),
   reactivateAccount: (adminId) => request(`/admin/accounts/${id(adminId)}/reactivate`, { method: "POST" }),
+
+  // Agent deactivations (admin)
+  listAgentDeactivations: () => request("/admin/agent-deactivations"),
+  confirmAgentDeactivation: (deactivationId) =>
+    request(`/admin/agent-deactivations/${id(deactivationId)}/confirm`, { method: "POST" }),
 };

@@ -30,6 +30,7 @@ export const PAGES = [
   { key: "analytics", path: "/analytics", label: "Analytics", roles: EVERYONE, menu: true },
   { key: "history", path: "/history", label: "Review history", roles: REVIEWERS, menu: true },
   { key: "confirm", path: "/review/confirm", label: "Confirm queue", roles: [COMPLIANCE_OFFICER], menu: true },
+  { key: "deactivations", path: "/agent-deactivations", label: "Agent deactivations", roles: [ADMIN], menu: true },
   { key: "audit", path: "/audit-log", label: "Audit log", roles: [ADMIN], menu: true },
   { key: "reports", path: "/reports", label: "Reports", roles: [ADMIN], menu: true },
   { key: "accounts", path: "/accounts", label: "Accounts", roles: [ADMIN], menu: true },

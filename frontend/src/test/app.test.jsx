@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ACCOUNTS, mockApi, renderApp, reply, sessionRoutes } from "./server";
+import { ACCOUNTS, FIXTURES, currentLocation, mockApi, renderApp, reply, sessionRoutes } from "./server";
 
 const menu = () => screen.getByRole("navigation", { name: "Main menu" });
 const menuLabels = () => within(menu()).getAllByRole("link").map((link) => link.textContent);
@@ -31,14 +31,15 @@ describe("session restore", () => {
     expect(await screen.findByText("Account is deactivated")).toBeInTheDocument();
   });
 
-  it("signs in with the role from the login response and opens the requested page", async () => {
+  it("signs in with the role from the login response and opens Overview", async () => {
     mockApi({ ...sessionRoutes(null), "POST /api/login": { message: "Login successful", ...ACCOUNTS.admin } });
     renderApp("/accounts");
     await userEvent.type(await screen.findByLabelText("Username"), "admin_01");
     await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
-    expect(await screen.findByRole("heading", { name: "Accounts" })).toBeInTheDocument();
-    expect(await screen.findByRole("table", { name: "Accounts" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
+    expect(currentLocation()).toBe("/");
+    expect(menuLabels()).toContain("Accounts");
   });
 
   it("shows a wrong password on the form", async () => {
@@ -51,11 +52,86 @@ describe("session restore", () => {
   });
 });
 
+async function signIn(username) {
+  await userEvent.type(await screen.findByLabelText("Username"), username);
+  await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
+  await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+}
+
+describe("sign in and sign out navigation", () => {
+  it("signing in from /flagged opens Overview", async () => {
+    mockApi({ ...sessionRoutes(null), "POST /api/login": { message: "Login successful", ...ACCOUNTS.fraud_analyst } });
+    renderApp("/flagged");
+    await signIn("analyst_01");
+    expect(await screen.findByRole("heading", { name: "Overview", level: 1 })).toBeInTheDocument();
+    expect(currentLocation()).toBe("/");
+  });
+
+  it("signing out opens the landing page", async () => {
+    mockApi(sessionRoutes("fraud_analyst"));
+    renderApp("/flagged");
+    await screen.findByRole("heading", { name: "Flagged agents", level: 1 });
+    await userEvent.click(within(menu()).getByRole("button", { name: "Sign out" }));
+    expect(await within(await screen.findByRole("banner")).findByRole("link", { name: "Sign in" })).toBeInTheDocument();
+    expect(currentLocation()).toBe("/");
+    expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+  });
+
+  it("a different role signing in after a sign out opens Overview, not the previous page", async () => {
+    mockApi({
+      ...sessionRoutes("fraud_analyst"),
+      "POST /api/logout": { message: "Logged out" },
+      "POST /api/login": { message: "Login successful", ...ACCOUNTS.admin },
+    });
+    renderApp("/flagged");
+    await screen.findByRole("heading", { name: "Flagged agents", level: 1 });
+    await userEvent.click(within(menu()).getByRole("button", { name: "Sign out" }));
+    await userEvent.click(within(await screen.findByRole("banner")).getByRole("link", { name: "Sign in" }));
+    await signIn("admin_01");
+    expect(await screen.findByRole("heading", { name: "Overview", level: 1 })).toBeInTheDocument();
+    expect(currentLocation()).toBe("/");
+    expect(within(menu()).getByText("admin_01")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Access denied" })).not.toBeInTheDocument();
+  });
+
+  it("signing in again after a 401 opens Overview", async () => {
+    let expired = true;
+    mockApi({
+      ...sessionRoutes("fraud_analyst"),
+      "GET /api/analytics": () => (expired ? reply(401, { error: "Authentication required" }) : FIXTURES["GET /api/analytics"]),
+      "POST /api/login": () => {
+        expired = false;
+        return { message: "Login successful", ...ACCOUNTS.fraud_analyst };
+      },
+    });
+    renderApp("/analytics");
+    expect(await screen.findByText("Your session has ended. Please sign in again.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    await signIn("analyst_01");
+    expect(await screen.findByRole("heading", { name: "Overview", level: 1 })).toBeInTheDocument();
+    expect(currentLocation()).toBe("/");
+  });
+
+  it("a refresh on /flagged stays on /flagged", async () => {
+    mockApi(sessionRoutes("fraud_analyst"));
+    renderApp("/flagged");
+    expect(await screen.findByRole("heading", { name: "Flagged agents", level: 1 })).toBeInTheDocument();
+    expect(currentLocation()).toBe("/flagged");
+  });
+
+  it("an analyst opening /audit-log still gets Access denied", async () => {
+    mockApi(sessionRoutes("fraud_analyst"));
+    renderApp("/audit-log");
+    expect(await screen.findByRole("heading", { name: "Access denied", level: 1 })).toBeInTheDocument();
+    expect(currentLocation()).toBe("/403");
+  });
+});
+
 describe("role-based menus and guards", () => {
   it.each([
     ["fraud_analyst", ["Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history", "Detection guide"]],
     ["compliance_officer", ["Overview", "Flagged agents", "All agents", "Threat intelligence", "Analytics", "Review history", "Confirm queue", "Detection guide"]],
-    ["admin", ["Overview", "Threat intelligence", "Analytics", "Audit log", "Reports", "Accounts", "Detection guide"]],
+    ["admin", ["Overview", "Threat intelligence", "Analytics", "Agent deactivations", "Audit log", "Reports", "Accounts", "Detection guide"]],
   ])("%s sees only its menu", async (role, expected) => {
     mockApi(sessionRoutes(role));
     renderApp("/");
@@ -67,7 +143,9 @@ describe("role-based menus and guards", () => {
     ["fraud_analyst", "/accounts"],
     ["fraud_analyst", "/review/confirm"],
     ["fraud_analyst", "/audit-log"],
+    ["fraud_analyst", "/agent-deactivations"],
     ["compliance_officer", "/audit-log"],
+    ["compliance_officer", "/agent-deactivations"],
     ["compliance_officer", "/reports"],
     ["admin", "/flagged"],
     ["admin", "/agents/A10001"],
@@ -200,10 +278,14 @@ describe("console", () => {
       "POST /api/login": { message: "Login successful", ...ACCOUNTS.fraud_analyst },
       "POST /api/review-decisions": reply(201, { decision_id: "RD9", status: "pending_confirmation", notes: "Checked." }),
     });
-    renderApp("/agents/A10001");
+    renderApp("/");
+    await userEvent.click(within(await screen.findByRole("banner")).getByRole("link", { name: "Sign in" }));
     await userEvent.type(await screen.findByLabelText("Username"), "analyst_01");
     await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await screen.findByRole("heading", { name: "Overview", level: 1 });
+    await userEvent.click(within(menu()).getByRole("link", { name: "Flagged agents" }));
+    await userEvent.click(await screen.findByRole("link", { name: "A10001" }));
     const panel = await screen.findByRole("region", { name: "Propose a decision" });
     await userEvent.click(within(panel).getByLabelText("Legitimate"));
     await userEvent.type(within(panel).getByLabelText(/Notes/), "Checked.");

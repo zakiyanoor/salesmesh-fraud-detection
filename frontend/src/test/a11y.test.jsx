@@ -16,6 +16,14 @@ const DECISION = {
 };
 const DATA = {
   "GET /api/review-decisions": { count: 1, decisions: [DECISION] },
+  "GET /api/admin/agent-deactivations": {
+    count: 1,
+    deactivations: [{
+      deactivation_id: "DA1", agent_id: "A10001", decision_id: "RD1", decision_status: "agreed", final_outcome: "confirmed_fraud",
+      effective_outcome: "confirmed_fraud", requested_by: "ADM_COMPLIANCE_01", requested_at: "2026-10-13T15:10:00",
+      status: "pending_deactivation", actioned_by: null, actioned_at: null, note: null,
+    }],
+  },
   "GET /api/threat-intelligence/timeline": { days: [{ date: "2026-08-01", flagged_agents: 965, other_agents: 3534 }] },
   "GET /api/threat-intelligence/by-region": { regions: [], top_by_flagged_rate: [{ region: "Lamu", agents: 5, flagged: 2, flagged_rate: 0.4 }] },
   "GET /api/threat-intelligence/customer-sharing": {
@@ -61,6 +69,7 @@ const PAGES = [
   ["admin", "/detection-guide", "Detection guide"],
   ["admin", "/reports", "Reports"],
   ["admin", "/accounts", "Accounts"],
+  ["admin", "/agent-deactivations", "Agent deactivations"],
   ["admin", "/flagged", "Access denied"],
   ["fraud_analyst", "/no-such-page", "Page not found"],
 ];

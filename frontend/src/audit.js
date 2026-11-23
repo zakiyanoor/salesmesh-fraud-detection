@@ -21,6 +21,9 @@ export const AUDIT_ACTIONS = {
   correct_decision: "Decision corrected",
   review_refused: "Review action refused",
   customer_viewed: "Customer viewed",
+  deactivation_requested: "Deactivation requested",
+  deactivation_cancelled: "Deactivation request cancelled",
+  agent_deactivated: "Agent deactivated",
   // Before issue #28 an agreement was called a confirmation; older entries keep that action.
   confirm_decision: "Decision confirmed (agreed)",
   role_change: "Role changed",

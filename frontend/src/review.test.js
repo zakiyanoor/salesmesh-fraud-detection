@@ -27,6 +27,12 @@ describe("proposed versus confirmed wording", () => {
     expect(closedMessage("A35485", "overruled", "Legitimate")).toBe("Proposal for A35485 overruled. The final outcome is Legitimate.");
   });
 
+  it("says when an administrator has been asked to deactivate the agent", () => {
+    expect(closedMessage("A35485", "agreed", "Confirmed fraud", true)).toBe(
+      "Proposal for A35485 agreed. The final outcome is Confirmed fraud. An administrator has been asked to deactivate the agent.");
+    expect(closedMessage("A35485", "overruled", "Legitimate", false)).not.toMatch(/administrator/);
+  });
+
   it("a correction says the original decision stays in the history", () => {
     expect(correctedMessage("A35485", "Legitimate")).toMatch(/now Legitimate; the history keeps the original decision/);
     expect(otherOutcome("confirmed_fraud")).toBe("legitimate");

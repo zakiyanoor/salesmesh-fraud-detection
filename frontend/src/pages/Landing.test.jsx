@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ACCOUNTS, currentLocation, mockApi, renderApp, sessionRoutes } from "../test/server";
-import { SHARED_PAGES, signInHref } from "../auth/redirect";
+import { SHARED_PAGES, SIGN_IN_PATH } from "../auth/redirect";
 import { CARDS, COPYRIGHT, HEADLINE, SECURITY_POINTS, SUBLINE, TAGLINE } from "./landingContent";
 
 async function open(width = 1280) {
@@ -34,13 +34,12 @@ describe("Landing page", () => {
     expect(within(header).getByRole("link", { name: "Overview" })).toHaveFocus();
   });
 
-  it("links every shared page to sign in, remembering the page, while signed out", async () => {
+  it("links every shared page to sign in while signed out", async () => {
     await open();
     const nav = screen.getByRole("navigation", { name: "Main" });
     const links = within(nav).getAllByRole("link");
     expect(links.map((a) => a.textContent)).toEqual(SHARED_PAGES.map((page) => page.label));
-    expect(links.map((a) => a.getAttribute("href"))).toEqual(SHARED_PAGES.map((page) => signInHref(page.path)));
-    expect(within(nav).getByRole("link", { name: "Analytics" })).toHaveAttribute("href", "/sign-in?next=%2Fanalytics");
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(SHARED_PAGES.map(() => "/sign-in"));
   });
 
   it("collapses the pages into a menu button with an accessible list", async () => {
@@ -53,7 +52,7 @@ describe("Landing page", () => {
     expect(document.getElementById(button.getAttribute("aria-controls"))).toContainElement(list);
     const items = within(list).getAllByRole("menuitem");
     expect(items.map((item) => item.textContent)).toEqual(SHARED_PAGES.map((page) => page.label));
-    expect(items[1]).toHaveAttribute("href", "/sign-in?next=%2Fthreat-intelligence");
+    expect(items[1]).toHaveAttribute("href", "/sign-in");
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(button).toHaveAttribute("aria-expanded", "false"));
   });
@@ -71,8 +70,8 @@ describe("Landing page", () => {
       const links = within(cards[i]).getAllByRole("link");
       expect(links).toHaveLength(1);
       expect(links[0]).toHaveAccessibleName(card.link);
-      // Signed out, each link goes to sign in and remembers the page.
-      expect(links[0]).toHaveAttribute("href", signInHref(card.path));
+      // Signed out, each link goes to sign in.
+      expect(links[0]).toHaveAttribute("href", SIGN_IN_PATH);
     }
     // Only the links are focus stops: no tabindex on a card, no interface excerpts, no drawings.
     expect(section.querySelectorAll("[tabindex]")).toHaveLength(0);
@@ -85,16 +84,16 @@ describe("Landing page", () => {
     for (const card of CARDS) expect(shared, card.title).toContain(card.path);
   });
 
-  it("opens a card's page after signing in", async () => {
+  it("opens Overview after signing in from a card", async () => {
     mockApi({ ...sessionRoutes(null), "POST /api/login": { message: "Login successful", ...ACCOUNTS.admin } });
     renderApp("/");
     const section = await screen.findByRole("region", { name: "What the platform does" });
     await userEvent.click(within(section).getByRole("link", { name: "Open threat intelligence" }));
-    expect(currentLocation()).toBe("/sign-in?next=%2Fthreat-intelligence");
+    expect(currentLocation()).toBe("/sign-in");
     await userEvent.type(await screen.findByLabelText("Username"), "admin_01");
     await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
-    await waitFor(() => expect(currentLocation()).toBe("/threat-intelligence"));
+    await waitFor(() => expect(currentLocation()).toBe("/"));
   });
 
   it("has a footer with the name, a short line, link groups, the security points and a plain bottom bar", async () => {
@@ -104,7 +103,7 @@ describe("Landing page", () => {
     expect(within(footer).getByText(TAGLINE)).toBeInTheDocument();
     const platform = within(footer).getByRole("navigation", { name: "Platform" });
     expect(within(platform).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")]))
-      .toEqual(SHARED_PAGES.map((page) => [page.label, signInHref(page.path)]));
+      .toEqual(SHARED_PAGES.map((page) => [page.label, SIGN_IN_PATH]));
     expect(within(footer).queryByRole("navigation", { name: "Access" })).not.toBeInTheDocument();
     expect(within(footer).getAllByRole("heading").map((h) => h.textContent)).toEqual(["Platform", "Security"]);
     // The only links in the footer are the Platform pages: no Sign in link anywhere in it.
@@ -174,34 +173,24 @@ describe("Landing page", () => {
     expect(currentLocation()).toBe("/");
   });
 
-  it("signs in from a page link and lands on that page", async () => {
+  it("signs in from a page link and opens Overview", async () => {
     mockApi({ ...sessionRoutes(null), "POST /api/login": { message: "Login successful", ...ACCOUNTS.compliance_officer } });
     renderApp("/");
     const nav = await screen.findByRole("navigation", { name: "Main" });
     await userEvent.click(within(nav).getByRole("link", { name: "Detection guide" }));
-    expect(currentLocation()).toBe("/sign-in?next=%2Fdetection-guide");
+    expect(currentLocation()).toBe("/sign-in");
     await userEvent.type(await screen.findByLabelText("Username"), "compliance_01");
     await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
-    await waitFor(() => expect(currentLocation()).toBe("/detection-guide"));
-    expect(await screen.findByRole("heading", { name: "Detection guide" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
+    expect(currentLocation()).toBe("/");
   });
 
-  it.each([["an external", "https%3A%2F%2Fevil.example"], ["a protocol-relative", "%2F%2Fevil.example"], ["an unknown", "%2Fnowhere"]])(
-    "ignores %s target and opens the usual home page", async (_, next) => {
-      mockApi({ ...sessionRoutes(null), "POST /api/login": { message: "Login successful", ...ACCOUNTS.fraud_analyst } });
-      renderApp(`/sign-in?next=${next}`);
-      await userEvent.type(await screen.findByLabelText("Username"), "analyst_01");
-      await userEvent.type(screen.getByLabelText("Password"), "test-only-password");
-      await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
-      expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
-      expect(currentLocation()).toBe("/");
-    });
-
-  it("opens the remembered page at once when already signed in", async () => {
+  it("opens Overview at once from the sign-in address when already signed in", async () => {
     mockApi(sessionRoutes("admin"));
-    renderApp("/sign-in?next=%2Fanalytics");
-    await waitFor(() => expect(currentLocation()).toBe("/analytics"));
+    renderApp("/sign-in");
+    await waitFor(() => expect(currentLocation()).toBe("/"));
+    expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
   });
 
   it("sends a signed-in user at the root to the usual home page", async () => {

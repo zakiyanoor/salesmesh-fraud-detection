@@ -1,15 +1,14 @@
 import { useMemo, useRef, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { Alert, Box, Button, Divider, Link } from "@mui/material";
 import DataTable from "../components/DataTable";
-import NoteDialog from "../components/NoteDialog";
+import ProposalDialog from "../components/ProposalDialog";
 import PageHeader from "../components/PageHeader";
 import { FlagSourceChip, NoLongerFlaggedChip, OutcomeChip, OverdueChip } from "../components/chips";
 import { LoadStatus } from "../components/states";
 import { nextSort } from "../components/tableState";
 import { useApi } from "../hooks/useApi";
 import { OUTCOME_LABELS, formatDateTime } from "../format";
-import { closedMessage, otherOutcome } from "../review";
 import { mono } from "../theme";
 import { api } from "../api";
 
@@ -21,6 +20,7 @@ const notesSx = { whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxWidth: 42
  */
 export default function ConfirmQueue() {
   const result = useApi(api.getReviewDecisions);
+  const navigate = useNavigate();
   const [done, setDone] = useState(() => new Set());
   const [action, setAction] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -40,19 +40,6 @@ export default function ConfirmQueue() {
     setNotice({ message, severity });
     // The row is gone, so focus moves to the message instead of being lost.
     setTimeout(() => noticeRef.current?.focus(), 0);
-  };
-
-  const submit = async (decision, send) => {
-    try {
-      const closed = await send();
-      finish(decision, closedMessage(decision.agent_id, closed.status, OUTCOME_LABELS[closed.final_outcome]), "success");
-    } catch (err) {
-      if (err.status === 409) {
-        finish(decision, `The proposal for ${decision.agent_id} was already withdrawn or decided by someone else.`, "info");
-        return;
-      }
-      throw err.status === 403 ? new Error(`${err.message}. Another compliance officer must decide it.`) : err;
-    }
   };
 
   const columns = [
@@ -116,9 +103,6 @@ export default function ConfirmQueue() {
   );
   if (!result.data) return <>{header}<LoadStatus result={result} /></>;
 
-  const selected = action?.decision;
-  const summary = selected && `Agent ${selected.agent_id}: ${selected.reviewer_id} proposed ${OUTCOME_LABELS[selected.decision_outcome]} on ${formatDateTime(selected.decision_timestamp)}. Notes: ${selected.notes || "none"}.`;
-
   return (
     <>
       {header}
@@ -139,29 +123,17 @@ export default function ConfirmQueue() {
         rowsPerPage={rowsPerPage}
         onPageChange={setPage}
         onRowsPerPageChange={(size) => { setRowsPerPage(size); setPage(0); }}
+        onRowClick={(d) => d.agent_id && navigate(`/agents/${d.agent_id}`)}
+        keyboardRows
         emptyText="No decisions are waiting for confirmation."
       />
 
-      {action?.kind === "agree" && (
-        <NoteDialog
-          id="agree"
-          title="Agree with this proposal?"
-          description={`${summary} Once you agree, the outcome is final; only a correction can change it.`}
-          submitLabel="Agree"
+      {action && (
+        <ProposalDialog
+          kind={action.kind}
+          decision={action.decision}
           onClose={() => setAction(null)}
-          onSubmit={({ notes }) => submit(selected, () => api.agreeDecision({ decisionId: selected.decision_id, notes }))}
-        />
-      )}
-      {action?.kind === "overrule" && (
-        <NoteDialog
-          id="overrule"
-          title="Overrule this proposal?"
-          description={`${summary} Choose the final outcome and explain why you disagree.`}
-          outcome={otherOutcome(selected.decision_outcome)}
-          noteRequired
-          submitLabel="Overrule"
-          onClose={() => setAction(null)}
-          onSubmit={({ outcome, notes }) => submit(selected, () => api.overruleDecision({ decisionId: selected.decision_id, finalOutcome: outcome, notes }))}
+          onFinish={(message, severity) => finish(action.decision, message, severity)}
         />
       )}
     </>

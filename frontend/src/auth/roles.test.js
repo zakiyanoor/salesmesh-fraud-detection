@@ -20,7 +20,8 @@ describe("menus per role", () => {
 
   it("admin", () => {
     expect(labels("admin")).toEqual([
-      "Overview", "Threat intelligence", "Analytics", "Audit log", "Reports", "Accounts", "Detection guide",
+      "Overview", "Threat intelligence", "Analytics", "Agent deactivations", "Audit log", "Reports", "Accounts",
+      "Detection guide",
     ]);
   });
 
@@ -48,6 +49,9 @@ describe("route access", () => {
     ["admin", "history", false],
     ["admin", "reports", true],
     ["admin", "accounts", true],
+    ["admin", "deactivations", true],
+    ["fraud_analyst", "deactivations", false],
+    ["compliance_officer", "deactivations", false],
     ["admin", "unknown-page", false],
   ])("%s on %s: %s", (role, key, allowed) => {
     expect(canAccess(role, key)).toBe(allowed);
