@@ -9,6 +9,15 @@ describe("audit labels (issue #28)", () => {
     expect(AUDIT_ACTIONS.confirm_decision).toBe("Decision confirmed (agreed)");
   });
 
+  it("names the agent deactivation actions", () => {
+    expect(AUDIT_ACTIONS.deactivation_requested).toBe("Deactivation requested");
+    expect(AUDIT_ACTIONS.deactivation_cancelled).toBe("Deactivation request cancelled");
+    expect(AUDIT_ACTIONS.agent_deactivated).toBe("Agent deactivated");
+    for (const action of ["deactivation_requested", "deactivation_cancelled", "agent_deactivated"]) {
+      expect(auditResult({ action })).toBe("ok");
+    }
+  });
+
   it("shows a refused review action as refused", () => {
     expect(auditResult({ action: "review_refused" })).toBe("refused");
     expect(auditResult({ action: "overrule_decision" })).toBe("ok");

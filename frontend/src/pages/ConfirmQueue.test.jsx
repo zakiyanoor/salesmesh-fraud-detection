@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { mockApi, renderApp, reply, sessionRoutes } from "../test/server";
+import { currentLocation, mockApi, renderApp, reply, sessionRoutes } from "../test/server";
 
 const decision = (id, agent, status, extra = {}) => ({
   decision_id: id, agent_id: agent, reviewer_id: "ADM_ANALYST_01", decision_outcome: "confirmed_fraud",
@@ -70,6 +70,20 @@ describe("Confirm queue", () => {
     expect(within(table).queryByText("A10001")).not.toBeInTheDocument();
     const post = calls.find((c) => c.method === "POST");
     expect([post.path, post.body]).toEqual(["/api/review-decisions/RD1/agree", {}]);
+  });
+
+  it("says an administrator has been asked to deactivate the agent after agreeing a fraud decision", async () => {
+    mockApi(routes("compliance_officer", {
+      "POST /api/review-decisions/RD1/agree": {
+        status: "agreed", final_outcome: "confirmed_fraud", deactivation_requested: true, deactivation: "pending_deactivation",
+      },
+    }));
+    renderApp("/review/confirm");
+    await userEvent.click(within(await queue()).getByRole("button", { name: "Agree with the proposal for A10001" }));
+    await userEvent.click(within(screen.getByRole("dialog", { name: "Agree with this proposal?" })).getByRole("button", { name: "Agree" }));
+    expect(await screen.findByText(
+      "Proposal for A10001 agreed. The final outcome is Confirmed fraud. An administrator has been asked to deactivate the agent.",
+    )).toBeInTheDocument();
   });
 
   it("overrules with the other outcome preset and a required note", async () => {
@@ -143,6 +157,53 @@ describe("Confirm queue", () => {
     mockApi(routes(role));
     renderApp("/review/confirm");
     expect(await screen.findByRole("heading", { name: "Access denied", level: 1 })).toBeInTheDocument();
+  });
+
+  it("opens the agent when a row is clicked", async () => {
+    mockApi(routes());
+    renderApp("/review/confirm");
+    const table = await queue();
+    await userEvent.click(within(rowOf(table, "A10001")).getByText("Notes for A10001"));
+    expect(currentLocation()).toBe("/agents/A10001");
+  });
+
+  it("opens the agent with Enter on a focused row", async () => {
+    mockApi(routes());
+    renderApp("/review/confirm");
+    const row = rowOf(await queue(), "A20002");
+    expect(row).toHaveAttribute("tabindex", "0");
+    row.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(currentLocation()).toBe("/agents/A20002");
+  });
+
+  it("keeps the agent link working on its own", async () => {
+    mockApi(routes());
+    renderApp("/review/confirm");
+    const link = within(rowOf(await queue(), "A10001")).getByRole("link", { name: "A10001" });
+    expect(link).toHaveAttribute("href", "/agents/A10001");
+    await userEvent.click(link);
+    expect(currentLocation()).toBe("/agents/A10001");
+  });
+
+  it.each([
+    ["Agree with", "Agree with this proposal?"],
+    ["Overrule", "Overrule this proposal?"],
+  ])("%s in a row opens its dialog, by click or Enter, without opening the agent", async (verb, title) => {
+    mockApi(routes());
+    renderApp("/review/confirm");
+    const table = await queue();
+    const button = within(table).getByRole("button", { name: `${verb} the proposal for A10001` });
+    await userEvent.click(button);
+    expect(screen.getByRole("dialog", { name: title })).toBeInTheDocument();
+    expect(currentLocation()).toBe("/review/confirm");
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    button.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(await screen.findByRole("dialog", { name: title })).toBeInTheDocument();
+    expect(currentLocation()).toBe("/review/confirm");
   });
 
   it("shows agree and overrule buttons on cards on narrow screens", async () => {

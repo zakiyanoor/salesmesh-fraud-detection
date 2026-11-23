@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { Box, Button, Chip, Divider, InputAdornment, Link, MenuItem, Paper, TextField, Typography } from "@mui/material";
 import SearchIcon from "@mui/icons-material/SearchOutlined";
 import CloseIcon from "@mui/icons-material/CloseOutlined";
@@ -33,6 +33,7 @@ function countLine(shown, total, noun, filtering) {
 
 export default function AgentList({ label, agents, decisions, sources, emptyText, refined = false, noun = "agents" }) {
   const [query, setQuery] = useQueryParams(AGENT_FILTER_DEFAULTS);
+  const navigate = useNavigate();
   const { page, rowsPerPage } = paging(query);
   const latest = useMemo(() => latestDecisionByAgent(decisions), [decisions]);
 
@@ -151,6 +152,8 @@ export default function AgentList({ label, agents, decisions, sources, emptyText
         rowsPerPage={rowsPerPage}
         onPageChange={(next) => setQuery({ page: next })}
         onRowsPerPageChange={(size) => setQuery({ size, page: 0 })}
+        onRowClick={(a) => navigate(`/agents/${a.agent_id}`)}
+        keyboardRows
         emptyText={agents.length === 0 ? emptyText : "No agents match your filters."}
       />
     </>

@@ -18,6 +18,8 @@ const visuallyHidden = {
  * sort is { key, dir }; page and rowsPerPage are numbers. Sorting and paging happen here, unless
  * totalCount is given: then rows are already the current page from the server.
  * onRowClick(row, element) makes rows clickable; the row takes focus so a drawer can return focus to it.
+ * Links, buttons and other controls inside a row keep their own behaviour and do not open the row.
+ * keyboardRows puts each row in the tab order, and Enter on a focused row opens it.
  * refined: the finished look (Flagged agents): 13px secondary headings, hairline rows with a hover and a
  * keyboard focus highlight, tabular numerals, and flat 8px cards on narrow screens.
  */
@@ -29,11 +31,28 @@ const REFINED_TABLE = {
   "& tbody tr:focus-within": { bgcolor: "action.hover" },
 };
 
+// Clicks and keys on these keep their own behaviour and never open the row.
+const INTERACTIVE = "a, button, input, select, textarea, label, [role='button'], [role='link'], [role='checkbox']";
+
+function fromControl(event) {
+  const control = event.target.closest?.(INTERACTIVE);
+  return Boolean(control) && control !== event.currentTarget && event.currentTarget.contains(control);
+}
+
 export default function DataTable({
   label, columns, rows, rowKey, sort, onSort, page, rowsPerPage, onPageChange, onRowsPerPageChange, emptyText,
-  totalCount, onRowClick, refined = false, hidePagingWhenOnePage = false,
+  totalCount, onRowClick, keyboardRows = false, refined = false, hidePagingWhenOnePage = false,
 }) {
   const theme = useTheme();
+  const rowClick = (row) => (e) => {
+    if (!fromControl(e)) onRowClick(row, e.currentTarget);
+  };
+  const rowKeyDown = (row) => (e) => {
+    if (e.key === "Enter" && e.target === e.currentTarget) {
+      e.preventDefault();
+      onRowClick(row, e.currentTarget);
+    }
+  };
   const cards = useMediaQuery(theme.breakpoints.down("md"), { noSsr: true });
 
   const sorted = useMemo(() => {
@@ -80,7 +99,16 @@ export default function DataTable({
         )}
         <Box component="ul" sx={{ listStyle: "none", p: 0, m: 0, display: "grid", gap: 1.5 }}>
           {visible.map((row) => (
-            <Paper component="li" key={rowKey(row)} sx={{ p: 2, ...(refined ? { borderRadius: "8px", boxShadow: "none" } : {}) }}>
+            <Paper
+              component="li"
+              key={rowKey(row)}
+              {...(onRowClick && { onClick: rowClick(row) })}
+              sx={{
+                p: 2,
+                ...(refined ? { borderRadius: "8px", boxShadow: "none" } : {}),
+                ...(onRowClick ? { cursor: "pointer", "&:hover": { bgcolor: "action.hover" } } : {}),
+              }}
+            >
               <Box sx={{ mb: 1 }}>{titleColumn.render(row)}</Box>
               <Box component="dl" sx={{ m: 0, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 2, rowGap: 0.75 }}>
                 {columns.filter((c) => c !== titleColumn && !c.action).map((c) => (
@@ -132,8 +160,9 @@ export default function DataTable({
                 key={rowKey(row)}
                 hover
                 {...(onRowClick && {
-                  tabIndex: -1,
-                  onClick: (e) => onRowClick(row, e.currentTarget),
+                  tabIndex: keyboardRows ? 0 : -1,
+                  onClick: rowClick(row),
+                  ...(keyboardRows && { onKeyDown: rowKeyDown(row) }),
                   sx: { cursor: "pointer", "&:focus-visible": { outline: 2, outlineColor: "primary.main", outlineOffset: -2 } },
                 })}
               >

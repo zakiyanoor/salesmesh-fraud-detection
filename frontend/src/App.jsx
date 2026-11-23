@@ -21,6 +21,7 @@ const PAGE_COMPONENTS = {
   history: lazy(() => import("./pages/ReviewHistory")),
   confirm: lazy(() => import("./pages/ConfirmQueue")),
   threat: lazy(() => import("./pages/ThreatIntelligence")),
+  deactivations: lazy(() => import("./pages/AgentDeactivations")),
   audit: lazy(() => import("./pages/AuditLog")),
   reports: lazy(() => import("./pages/Reports")),
   accounts: lazy(() => import("./pages/Accounts")),
@@ -39,8 +40,8 @@ export default function App() {
     );
   }
   // Signed out at the site root: the landing page (issue #28), unless the sign-in page has a message to show
-  // (for example a deactivated account). Signed out on any other address: after signing in, the same
-  // address opens (if the role allows it); /sign-in opens the usual home page.
+  // (for example a deactivated account). Signed out on any other address: the sign-in page. Every sign in
+  // opens the home page.
   if (status !== "authenticated") return pathname === "/" && !notice ? <Landing /> : <Login />;
 
   return (

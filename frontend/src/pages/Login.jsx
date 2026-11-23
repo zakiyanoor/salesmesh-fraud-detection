@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Box, Paper, TextField, Button, Typography, Alert } from "@mui/material";
 import { useAuth } from "../auth/authContext";
+import { DEFAULT_PATH } from "../auth/redirect";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import ThemeMenu from "../components/ThemeMenu";
 import { RADIUS, TEXTURE_STEP, accentButtonSx, useSurface } from "./surfaces";
@@ -8,6 +10,7 @@ import { TAGLINE } from "./landingContent";
 
 export default function Login() {
   const { login, notice } = useAuth();
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -24,7 +27,9 @@ export default function Login() {
     } catch (err) {
       setError(err.message);
       setSubmitting(false);
+      return;
     }
+    navigate(DEFAULT_PATH, { replace: true });
   };
 
   const message = error || notice;

@@ -43,6 +43,7 @@ Three roles, with separation of duties: an analyst proposes, a compliance office
 | Read the audit log | no | yes | yes |
 | Download reports (CSV, PDF) | no | no | **yes** |
 | List accounts, change roles, deactivate or reactivate accounts | no | no | **yes** |
+| List agent deactivation requests and deactivate an agent | no | no | **yes** |
 
 **Account rules:**
 - An admin cannot change the role of, or deactivate, their own account (`403`).
@@ -78,6 +79,8 @@ Each entry has:
 | `authorization` | `access_denied` (every `401` and `403`, except a `401` on `GET /api/me` with no session) | `route`, `method`, `role`, `status`, `reason` |
 | `review` | `propose_decision`, `withdraw_decision`, `agree_decision`, `overrule_decision`, `correct_decision`, `review_refused`; older entries also have `confirm_decision` (an agreement before issue #28) | all: `decision_id`, `flag_id`, `notes` (the actor's note). Propose: `decision_outcome`, `run_id`, `flag_source`. Withdraw: `decision_outcome`. Agree and overrule: `proposed_by`, `decision_outcome`, `final_outcome`, `proposal_notes`. Correct: `correction_id`, `previous_outcome`, `new_outcome`. Refused (a `409`): `route`, `reason` and the `flag_id` or `decision_id`. `customer_viewed` (every open of a customer, target agent = the page it was opened from, if valid): `customer_ref`, `role`, `opened_from`, `run_id`, `agent_count`, `client_count`, `activations_total`; never the customer ID |
 | `admin` | `role_change`, `account_deactivated`, `account_reactivated`, `password_reset` (local recovery, actor `local:<OS user>`) | `target_admin_id`, `target_username`, `old_role` / `new_role` or `role`; `channel` (`cli` or `local recovery`) |
+| `review` | `deactivation_requested`, `deactivation_cancelled` (written with the agreement, overrule or correction that caused them; target agent = the agent) | `deactivation_id`, `decision_id`, `status` |
+| `admin` | `agent_deactivated` (actor = the administrator; the entry's timestamp is the time) | `deactivation_id`, `decision_id`, `actioned_at` |
 | `report` | `report_download` | `report`, `filename`, `filters`, `row_count`, `bytes`, `sha256` of the file sent, plus `run_id`, `cap`, `load_id` or `data_hash` |
 | `ai_decision` | `ai_detection_run` (one per run, also when it fails); `ai_flag` (per agent whose `flag_source` changed since the previous successful run, or newly flagged) | run: `run_id`, `status`, `trigger`, `model_version`, `threshold`, counts, `flag_changes`, `error`; flag: `change` (`newly flagged`, `cleared`, `flag source changed`), `previous_flag_source`, `flag_source`, `anomaly_score`, `threshold`, `top_features`, `reasons`, `model_version` |
 
@@ -100,6 +103,23 @@ Issue #28. A flag is a request for human review, and a decision never changes a 
 - **Overdue:** an open proposal is `overdue` after 72 hours by the server clock (UTC). Nothing decides a proposal automatically; a detection run leaves review decisions alone.
 - **Refusals:** a broken role rule is a `403` (logged as `access_denied`), a broken workflow rule a `409` (logged as `review_refused`), invalid input a `400`.
 - **Migration** (`python -m src.migrate`, idempotent): adds the columns and `review_corrections`, renames `confirmed` to `agreed` (with `closed_by` from `confirmed_by` and `closed_at` from the `confirm_decision` audit entry), then adds the checks, the index and the triggers. It stops, changing nothing, if a flag has more than one open proposal.
+
+## Agent deactivation
+
+An internal application status for an agent, kept in `agent_deactivations` (`deactivation_id`, `agent_id`, `decision_id`, `requested_by`, `requested_at`, `status`, `actioned_by`, `actioned_at`, `note`), one row per review decision. It is not linked to any outside account system, and `agents.account_status` (loaded data) is never changed.
+
+| Status | Meaning |
+|---|---|
+| `pending_deactivation` | The decision's final outcome is `confirmed_fraud`; waiting for an administrator |
+| `deactivated` | An administrator confirmed it (`actioned_by`, `actioned_at`) |
+| `cancelled` | A correction to `legitimate` while it was still pending |
+
+- **Opened** when a compliance officer agrees with a `confirmed_fraud` proposal, or overrules a `legitimate` one to `confirmed_fraud` (`requested_by` is the officer, `note` the officer's note). A `legitimate` final outcome opens nothing. No request is opened while the agent already has a pending or deactivated request from another decision.
+- **Corrections:** a correction to `legitimate` cancels a pending request; a correction back to `confirmed_fraud` opens it again. A deactivated agent is never reactivated automatically.
+- **Confirmed** once, by an administrator: the status becomes `deactivated`; nothing is deleted. A second confirmation is refused (`409`).
+- A detection run never changes this table.
+- The agent's state (`active`, `pending_deactivation` or `deactivated`; `deactivated` wins) is `deactivation` in `GET /api/agents/<agent_id>`.
+- `python -m src.migrate` creates the table on an existing database. The loader deletes a stale agent's requests before its review decisions.
 
 ## Endpoints
 
@@ -140,6 +160,8 @@ Issue #28. A flag is a request for human review, and a decision never changes a 
 | PATCH | `/api/admin/accounts/<admin_id>/role` | admin | Change an account's role |
 | POST | `/api/admin/accounts/<admin_id>/deactivate` | admin | Deactivate an account |
 | POST | `/api/admin/accounts/<admin_id>/reactivate` | admin | Reactivate an account |
+| GET | `/api/admin/agent-deactivations` | admin | List agent deactivation requests |
+| POST | `/api/admin/agent-deactivations/<deactivation_id>/confirm` | admin | Mark an agent deactivated |
 | GET | `/api/health` | none | Health check |
 
 ### POST /api/login
@@ -244,11 +266,12 @@ Path parameter: `agent_id` (for example `A35485`). `404` if the agent does not e
   ],
   "context": {"client_ids": ["CL09", "CL15"], "categories": ["e-commerce", "education"]},
   "review": {"reviewable": true, "reason": null, "flag_id": "FL93b6b96d", "flag_source": "Both", "open_decision_id": null,
-             "open_proposed_by": null, "open_is_mine": false, "final_decision_id": null, "effective_outcome": null}
+             "open_proposed_by": null, "open_is_mine": false, "final_decision_id": null, "effective_outcome": null},
+  "deactivation": "active"
 }
 ```
 
-`reason` in `duplicate_evidence` is `shared customer` (with `other_agent_id`) or `repeat after completed`. Each entry also has `customer_ref` (issue #28), the reference that opens the customer view.
+`reason` in `duplicate_evidence` is `shared customer` (with `other_agent_id`) or `repeat after completed`. Each entry also has `customer_ref` (issue #28), the reference that opens the customer view. `deactivation` is the agent's state: `active`, `pending_deactivation` or `deactivated` (see "Agent deactivation").
 
 ### GET /api/agents/<agent_id>/activity
 
@@ -413,12 +436,13 @@ Errors: `400` (notes), `403` (wrong role, or not your proposal), `404`, `409` (n
 
 ### POST /api/review-decisions/<decision_id>/agree
 
-**Compliance only, not the proposer.** Body optional: `{"notes": "Evidence checked."}`. Closes the proposal as `agreed` with `final_outcome` equal to the proposed outcome, and records `agree_decision`.
+**Compliance only, not the proposer.** Body optional: `{"notes": "Evidence checked."}`. Closes the proposal as `agreed` with `final_outcome` equal to the proposed outcome, and records `agree_decision`. When the final outcome is `confirmed_fraud`, it also opens a deactivation request and records `deactivation_requested`; `deactivation_requested` in the response says whether it did, and `deactivation` is the agent's state.
 
 ```json
 {"message": "Proposal agreed", "decision_id": "RD1a2b3c4d", "status": "agreed", "decision_outcome": "confirmed_fraud",
  "final_outcome": "confirmed_fraud", "closed_by": "ADM_COMPLIANCE_01", "closed_at": "2026-10-14T10:00:00.000000",
- "close_note": null, "notes": "Shares customers with two agents in Kisumu."}
+ "close_note": null, "notes": "Shares customers with two agents in Kisumu.",
+ "deactivation_requested": true, "deactivation": "pending_deactivation"}
 ```
 
 Errors: `400` (notes given but invalid), `403` (wrong role, or your own proposal), `404`, `409` (no longer open). `POST .../confirm` no longer exists.
@@ -431,12 +455,13 @@ Errors: `400` (notes, `final_outcome`), `403`, `404`, `409`.
 
 ### POST /api/review-decisions/<decision_id>/corrections
 
-**Compliance only, not the proposer** (the officer who decided may correct). Body: `{"new_outcome": "legitimate", "expected_current_outcome": "confirmed_fraud", "notes": "The customer list was from the wrong month."}`. Adds a correction to an agreed or overruled decision and records `correct_decision`; the decision itself is not changed. `expected_current_outcome` is the outcome in force that the officer saw: if another correction changed it meanwhile, the request is refused with `409`.
+**Compliance only, not the proposer** (the officer who decided may correct). Body: `{"new_outcome": "legitimate", "expected_current_outcome": "confirmed_fraud", "notes": "The customer list was from the wrong month."}`. Adds a correction to an agreed or overruled decision and records `correct_decision`; the decision itself is not changed. `expected_current_outcome` is the outcome in force that the officer saw: if another correction changed it meanwhile, the request is refused with `409`. A correction to `legitimate` cancels a pending deactivation request (`deactivation_cancelled`); a correction to `confirmed_fraud` opens it again (`deactivation_requested`). `deactivation` is the agent's state afterwards.
 
 ```json
 {"message": "Correction recorded", "decision_id": "RD1a2b3c4d", "correction_id": "RC5e6f7a8b",
  "previous_outcome": "confirmed_fraud", "new_outcome": "legitimate", "corrected_by": "ADM_COMPLIANCE_02",
- "corrected_at": "2026-10-15T08:30:00.000000", "note": "The customer list was from the wrong month.", "effective_outcome": "legitimate"}
+ "corrected_at": "2026-10-15T08:30:00.000000", "note": "The customer list was from the wrong month.", "effective_outcome": "legitimate",
+ "deactivation": "active"}
 ```
 
 Errors: `400` (notes; outcomes not one of the two values; `new_outcome` equal to `expected_current_outcome`), `403`, `404`, `409` (not agreed or overruled; outcome changed meanwhile).
@@ -659,6 +684,29 @@ The list gives each account `last_login`: its most recent successful sign in, ta
 ```json
 {"message": "Account updated", "changed": true,
  "account": {"admin_id": "ADM_ANALYST_02", "username": "analyst_02", "role": "compliance_officer", "is_active": true}}
+```
+
+### Agent deactivations (admin only)
+
+| Method | Path | Body | Errors |
+|---|---|---|---|
+| GET | `/api/admin/agent-deactivations` | none | none |
+| POST | `/api/admin/agent-deactivations/<deactivation_id>/confirm` | none | `404` unknown, `409` not pending (already deactivated or cancelled) |
+
+The list has every request, pending first, then newest first. `effective_outcome` is the decision's outcome in force.
+
+```json
+{"count": 1, "deactivations": [{"deactivation_id": "DA1a2b3c4d", "agent_id": "A35485", "decision_id": "RD1a2b3c4d",
+  "decision_status": "agreed", "final_outcome": "confirmed_fraud", "effective_outcome": "confirmed_fraud",
+  "requested_by": "ADM_COMPLIANCE_01", "requested_at": "2026-10-14T10:00:00.000000", "status": "pending_deactivation",
+  "actioned_by": null, "actioned_at": null, "note": null}]}
+```
+
+Confirming sets `status` to `deactivated` with `actioned_by` and `actioned_at`, deletes nothing, and records `agent_deactivated` (category `admin`):
+
+```json
+{"message": "Agent deactivated", "deactivation": {"deactivation_id": "DA1a2b3c4d", "agent_id": "A35485", "status": "deactivated",
+  "actioned_by": "ADM_ADMIN_01", "actioned_at": "2026-10-14T11:00:00.000000", "...": "the other fields as listed"}}
 ```
 
 ### GET /api/health

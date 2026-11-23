@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { Drawer, Box, Typography, Button, Divider, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import FlagIcon from "@mui/icons-material/FlagOutlined";
@@ -10,10 +10,12 @@ import FactCheckIcon from "@mui/icons-material/FactCheckOutlined";
 import ReceiptIcon from "@mui/icons-material/ReceiptLongOutlined";
 import DownloadIcon from "@mui/icons-material/FileDownloadOutlined";
 import ManageAccountsIcon from "@mui/icons-material/ManageAccountsOutlined";
+import PersonOffIcon from "@mui/icons-material/PersonOffOutlined";
 import HelpIcon from "@mui/icons-material/HelpOutlineOutlined";
 import ThemeMenu from "./ThemeMenu";
 import { useAuth } from "../auth/authContext";
 import { menuFor, roleLabel } from "../auth/roles";
+import { DEFAULT_PATH } from "../auth/redirect";
 
 export const DRAWER_WIDTH = 240;
 
@@ -25,6 +27,7 @@ const ICONS = {
   analytics: <InsightsIcon />,
   history: <HistoryIcon />,
   confirm: <FactCheckIcon />,
+  deactivations: <PersonOffIcon />,
   audit: <ReceiptIcon />,
   reports: <DownloadIcon />,
   accounts: <ManageAccountsIcon />,
@@ -34,6 +37,12 @@ const ICONS = {
 /** Permanent from md up; below md a temporary drawer that closes after each choice. */
 export default function Sidebar({ variant = "permanent", open = true, onClose, onNavigate }) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const signOut = async () => {
+    await logout();
+    navigate(DEFAULT_PATH, { replace: true });
+  };
 
   return (
     <Drawer
@@ -95,7 +104,7 @@ export default function Sidebar({ variant = "permanent", open = true, onClose, o
           {/* The signed-in account: the username, then its role in smaller muted text. */}
           <Typography sx={{ fontSize: 14, fontWeight: 500, lineHeight: 1.4, overflowWrap: "anywhere" }}>{user?.username}</Typography>
           <Typography sx={{ fontSize: 12, color: "text.secondary", lineHeight: 1.4, mt: 0.25, mb: 1 }}>{roleLabel(user?.role)}</Typography>
-          <Button size="small" onClick={logout} sx={{ px: 0, minWidth: 0 }}>
+          <Button size="small" onClick={signOut} sx={{ px: 0, minWidth: 0 }}>
             Sign out
           </Button>
         </Box>

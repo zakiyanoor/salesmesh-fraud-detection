@@ -237,6 +237,8 @@ def delete_review_rows(flag_id):
     """Removes a flag's review rows (for tests that cannot use the client fixture's cleanup)."""
     with engine.begin() as conn:
         conn.execute(text("SET LOCAL salesmesh.review_maintenance = 'on'"))
+        conn.execute(text("DELETE FROM agent_deactivations WHERE decision_id IN "
+                          "(SELECT decision_id FROM review_decisions WHERE flag_id = :f)"), {"f": flag_id})
         conn.execute(text("DELETE FROM review_corrections WHERE decision_id IN "
                           "(SELECT decision_id FROM review_decisions WHERE flag_id = :f)"), {"f": flag_id})
         conn.execute(text("DELETE FROM review_decisions WHERE flag_id = :f"), {"f": flag_id})

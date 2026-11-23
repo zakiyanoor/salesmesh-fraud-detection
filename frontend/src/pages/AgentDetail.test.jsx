@@ -73,6 +73,15 @@ const PAST = {
   closed_at: "2026-10-13T16:00:00", final_outcome: "confirmed_fraud", effective_outcome: "confirmed_fraud", corrections: [],
   notes: "Shares customers with two agents.",
 };
+const OPEN = withReview({ reason: "This flag already has an open proposal", open_decision_id: "RD2", open_proposed_by: "ADM_ANALYST_01" });
+const OPEN_DECISION = {
+  ...PAST, decision_id: "RD2", decision_timestamp: "2026-11-02T09:30:00", status: "pending_confirmation", closed_by: null,
+  closed_at: null, final_outcome: null, effective_outcome: null, notes: "Shares customers with three agents.",
+};
+const OPEN_ROUTES = {
+  "GET /api/agents/A35485": OPEN,
+  "GET /api/review-decisions": { count: 1, decisions: [OPEN_DECISION] },
+};
 
 function routes(role, extra = {}) {
   return {
@@ -117,6 +126,18 @@ describe("Agent detail", () => {
     expect(screen.queryByText(/Agnes|Omondi/)).not.toBeInTheDocument();
 
     expect(within(screen.getByRole("table", { name: "Duplicate activation evidence" })).getByText("CUST16131148")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["active", "Active"],
+    ["pending_deactivation", "Deactivation pending"],
+    ["deactivated", "Deactivated"],
+  ])("shows the %s deactivation state as a chip in the header", async (state, label) => {
+    mockApi(routes("compliance_officer", { "GET /api/agents/A35485": { ...DETAIL, deactivation: state } }));
+    renderApp("/agents/A35485");
+    await screen.findByText("5.564");
+    const heading = screen.getByRole("heading", { name: "Agent A35485", level: 1 });
+    expect(within(heading.parentElement).getByText(label)).toBeInTheDocument();
   });
 
   it("shows the agent's previous decisions as a timeline", async () => {
@@ -296,6 +317,116 @@ describe("Agent detail", () => {
     await userEvent.type(within(dialog).getByLabelText(/Note/), "Wrong month.");
     await userEvent.click(within(dialog).getByRole("button", { name: "Record correction" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("reload and try again");
+  });
+
+  it("shows a compliance officer the open proposal with Agree and Overrule instead of the confirm queue link", async () => {
+    const { calls } = mockApi(routes("compliance_officer", OPEN_ROUTES));
+    renderApp("/agents/A35485");
+    const card = await screen.findByRole("region", { name: "Review" });
+    expect(await within(card).findByText("Shares customers with three agents.")).toBeInTheDocument();
+    expect(within(card).getByText("Confirmed fraud")).toBeInTheDocument();
+    expect(within(card).getByText(/^ADM_ANALYST_01, /)).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Agree with the proposal for A35485" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Overrule the proposal for A35485" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open the confirm queue" })).not.toBeInTheDocument();
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
+  });
+
+  it("agrees from the detail page with an optional note, then refreshes and shows the final outcome", async () => {
+    let detail = OPEN;
+    let decisions = [OPEN_DECISION];
+    const { calls } = mockApi(routes("compliance_officer", {
+      "GET /api/agents/A35485": () => detail,
+      "GET /api/review-decisions": () => ({ count: decisions.length, decisions }),
+      "POST /api/review-decisions/RD2/agree": () => {
+        detail = withReview({ final_decision_id: "RD2", effective_outcome: "confirmed_fraud" });
+        decisions = [{ ...OPEN_DECISION, status: "agreed", closed_by: "ADM_COMPLIANCE_01", final_outcome: "confirmed_fraud", effective_outcome: "confirmed_fraud" }];
+        return { status: "agreed", final_outcome: "confirmed_fraud", deactivation_requested: true, deactivation: "pending_deactivation" };
+      },
+    }));
+    renderApp("/agents/A35485");
+    await userEvent.click(await screen.findByRole("button", { name: "Agree with the proposal for A35485" }));
+    const dialog = screen.getByRole("dialog", { name: "Agree with this proposal?" });
+    expect(within(dialog).getByText(/Shares customers with three agents\./)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Note (optional)")).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Agree" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Proposal for A35485 agreed. The final outcome is Confirmed fraud. An administrator has been asked to deactivate the agent.",
+    );
+    const post = calls.find((c) => c.method === "POST");
+    expect([post.path, post.body]).toEqual(["/api/review-decisions/RD2/agree", {}]);
+    expect(await screen.findByRole("button", { name: "Record a correction" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Agree with the proposal/ })).not.toBeInTheDocument();
+    expect(calls.filter((c) => c.path === "/api/agents/A35485").length).toBeGreaterThan(1);
+  });
+
+  it("overrules from the detail page with the other outcome preset and a required note", async () => {
+    const { calls } = mockApi(routes("compliance_officer", {
+      ...OPEN_ROUTES,
+      "POST /api/review-decisions/RD2/overrule": { status: "overruled", final_outcome: "legitimate", deactivation_requested: false },
+    }));
+    renderApp("/agents/A35485");
+    await userEvent.click(await screen.findByRole("button", { name: "Overrule the proposal for A35485" }));
+    const dialog = screen.getByRole("dialog", { name: "Overrule this proposal?" });
+    expect(within(dialog).getByLabelText("Legitimate")).toBeChecked();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Overrule" }));
+    expect(within(dialog).getByText("Notes are required.")).toBeInTheDocument();
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
+
+    await userEvent.type(within(dialog).getByLabelText(/Note/), "The shared customers are one family.");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Overrule" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Proposal for A35485 overruled. The final outcome is Legitimate.");
+    const post = calls.find((c) => c.method === "POST");
+    expect([post.path, post.body]).toEqual(["/api/review-decisions/RD2/overrule", { final_outcome: "legitimate", notes: "The shared customers are one family." }]);
+  });
+
+  it("shows the server's refusal when the officer made the proposal", async () => {
+    mockApi(routes("compliance_officer", {
+      ...OPEN_ROUTES,
+      "POST /api/review-decisions/RD2/agree": reply(403, { error: "A decision cannot be agreed or overruled by the admin who proposed it" }),
+    }));
+    renderApp("/agents/A35485");
+    await userEvent.click(await screen.findByRole("button", { name: "Agree with the proposal for A35485" }));
+    const dialog = screen.getByRole("dialog", { name: "Agree with this proposal?" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Agree" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "A decision cannot be agreed or overruled by the admin who proposed it. Another compliance officer must decide it.",
+    );
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("says so when someone else already decided or withdrew the proposal", async () => {
+    mockApi(routes("compliance_officer", {
+      ...OPEN_ROUTES,
+      "POST /api/review-decisions/RD2/agree": reply(409, { error: "Decision RD2 is already agreed" }),
+    }));
+    renderApp("/agents/A35485");
+    await userEvent.click(await screen.findByRole("button", { name: "Agree with the proposal for A35485" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Agree" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("The proposal for A35485 was already withdrawn or decided by someone else.");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("does not show Agree or Overrule to an analyst looking at an open proposal", async () => {
+    mockApi(routes("fraud_analyst", { ...OPEN_ROUTES, "GET /api/agents/A35485": { ...OPEN, review: { ...OPEN.review, open_is_mine: false } } }));
+    renderApp("/agents/A35485");
+    expect(await screen.findByText("A proposal by ADM_ANALYST_01 is waiting for a compliance officer.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Agree|Overrule/ })).not.toBeInTheDocument();
+  });
+
+  it("does not show Agree or Overrule to an administrator", async () => {
+    mockApi(routes("admin", OPEN_ROUTES));
+    renderApp("/agents/A35485");
+    expect(await screen.findByRole("heading", { name: "Access denied", level: 1 })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Agree|Overrule/ })).not.toBeInTheDocument();
+  });
+
+  it("labels the account status in the header", async () => {
+    mockApi(routes("compliance_officer"));
+    renderApp("/agents/A35485");
+    await screen.findByText("5.564");
+    expect(screen.getByText(/Account status: active/)).toBeInTheDocument();
   });
 
   it("sends a compliance officer to the confirm queue instead of showing the form", async () => {

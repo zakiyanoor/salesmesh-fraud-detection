@@ -10,6 +10,13 @@ export const FLAG_SOURCE_LABELS = {
 };
 
 export const OUTCOME_LABELS = { confirmed_fraud: "Confirmed fraud", legitimate: "Legitimate" };
+// An agent's deactivation state in this application, and the status of a deactivation request.
+export const DEACTIVATION_LABELS = {
+  active: "Active",
+  pending_deactivation: "Deactivation pending",
+  deactivated: "Deactivated",
+  cancelled: "Cancelled",
+};
 
 // Issue #28: a proposal is open until the analyst withdraws it or a compliance officer agrees or overrules it.
 export const STATUS_LABELS = {

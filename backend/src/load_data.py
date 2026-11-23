@@ -141,6 +141,8 @@ def remove_stale(conn, frames, allow_deleting_reviews=False):
         conn.execute(text("SET LOCAL salesmesh.review_maintenance = 'on'"))
     stale_decisions = f"SELECT decision_id FROM review_decisions WHERE flag_id IN ({stale_flags})"
     statements = [
+        ("agent_deactivations", f"DELETE FROM agent_deactivations WHERE decision_id IN ({stale_decisions}) "
+                                f"OR agent_id IN ({stale})"),
         ("review_corrections", f"DELETE FROM review_corrections WHERE decision_id IN ({stale_decisions})"),
         ("review_decisions", f"DELETE FROM review_decisions WHERE flag_id IN ({stale_flags})"),
         ("fraud_flags", f"DELETE FROM fraud_flags WHERE vector_id IN ({stale_vectors})"),

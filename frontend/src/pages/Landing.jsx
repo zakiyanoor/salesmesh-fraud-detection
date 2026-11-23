@@ -4,8 +4,7 @@ import { Box, Button, IconButton, Link, Menu, MenuItem, Typography } from "@mui/
 import { alpha } from "@mui/material/styles";
 import MenuIcon from "@mui/icons-material/MenuOutlined";
 import ThemeMenu from "../components/ThemeMenu";
-import { useAuth } from "../auth/authContext";
-import { SHARED_PAGES, signInHref } from "../auth/redirect";
+import { SHARED_PAGES } from "../auth/redirect";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import PlatformCards from "./PlatformCards";
 import { GRID_STEP, RADIUS, TEXTURE_STEP, accentButtonSx, linkSx, useSurface } from "./surfaces";
@@ -17,16 +16,9 @@ const KenyaGlobe = lazy(() => import("../components/globe/KenyaGlobe"));
 const HEADER_HEIGHT = 64;
 const PAGE = { maxWidth: 1180, mx: "auto", px: { xs: 2, sm: 4 }, boxSizing: "border-box", width: "100%" };
 
-/** Where a page link goes: straight there when signed in, otherwise to sign in, remembering the page. */
-function useHref() {
-  const { status } = useAuth();
-  return (path) => (status === "authenticated" ? path : signInHref(path));
-}
-
 /** The pages every role may open; a menu button with a list on narrow screens. */
 function Navigation() {
   const t = useSurface();
-  const href = useHref();
   const [anchor, setAnchor] = useState(null);
   const menuId = useId();
   const navLink = { ...linkSx(t, { color: "text.primary" }), fontSize: 15, fontWeight: 500, px: 1, py: 0.5, display: "inline-block" };
@@ -35,7 +27,7 @@ function Navigation() {
       <Box component="nav" aria-label="Main" sx={{ display: { xs: "none", md: "block" } }}>
         <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0, display: "flex", gap: 1.5 }}>
           {SHARED_PAGES.map((page) => (
-            <li key={page.key}><Link component={RouterLink} to={href(page.path)} sx={navLink}>{page.label}</Link></li>
+            <li key={page.key}><Link component={RouterLink} to={SIGN_IN_PATH} sx={navLink}>{page.label}</Link></li>
           ))}
         </Box>
       </Box>
@@ -54,7 +46,7 @@ function Navigation() {
         <Menu id={menuId} anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}
           slotProps={{ list: { "aria-label": "Main" }, paper: { sx: { borderRadius: RADIUS, border: `1px solid ${t.ruleStrong}`, boxShadow: "none", mt: 0.5 } } }}>
           {SHARED_PAGES.map((page) => (
-            <MenuItem key={page.key} component={RouterLink} to={href(page.path)} onClick={() => setAnchor(null)}
+            <MenuItem key={page.key} component={RouterLink} to={SIGN_IN_PATH} onClick={() => setAnchor(null)}
               sx={{ "&:hover, &.Mui-focusVisible": { bgcolor: alpha(t.accent, 0.08), color: t.link } }}>
               {page.label}
             </MenuItem>
@@ -93,7 +85,6 @@ function FooterGroup({ title, children }) {
 export default function Landing() {
   useDocumentTitle(null);
   const t = useSurface();
-  const href = useHref();
   // Mount the globe after the first paint, so the headline and Sign in appear at once.
   const [globe, setGlobe] = useState(false);
   useEffect(() => {
@@ -156,7 +147,7 @@ export default function Landing() {
             <Typography id="platform-title" component="h2" sx={{ fontSize: { xs: 22, md: 26 }, fontWeight: 600, letterSpacing: "-0.01em", fontFamily: (th) => th.typography.h2.fontFamily, mb: 3 }}>
               What the platform does
             </Typography>
-            <PlatformCards cards={CARDS} href={href} />
+            <PlatformCards cards={CARDS} href={() => SIGN_IN_PATH} />
           </Box>
         </Box>
       </Box>
@@ -173,7 +164,7 @@ export default function Landing() {
           <nav aria-label="Platform">
             <FooterGroup title="Platform">
               {SHARED_PAGES.map((page) => (
-                <li key={page.key}><Link component={RouterLink} to={href(page.path)} sx={{ ...linkSx(t), fontSize: 14 }}>{page.label}</Link></li>
+                <li key={page.key}><Link component={RouterLink} to={SIGN_IN_PATH} sx={{ ...linkSx(t), fontSize: 14 }}>{page.label}</Link></li>
               ))}
             </FooterGroup>
           </nav>

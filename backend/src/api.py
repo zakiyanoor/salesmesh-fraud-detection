@@ -57,7 +57,7 @@ from src.auth import (
     verify_login, login_required, role_required, ROLE_FRAUD_ANALYST, ROLE_COMPLIANCE_OFFICER, ROLE_ADMIN, DEACTIVATED,
     VALID_ROLES, username_exists,
 )
-from src import accounts, activity, customers, model_info, reports, review, ring_graph, threat_intel
+from src import accounts, activity, agent_status, customers, model_info, reports, review, ring_graph, threat_intel
 from src import audit
 from src.config import load_config
 from src.pipeline import compute_client_category_breakdown
@@ -509,6 +509,8 @@ def get_agent_detail(agent_id):
             # Issue #28: whether this agent's flag can be reviewed now (any flag_source but None in the
             # latest run), with its open and final decisions. The screen uses this, not the flag object.
             "review": review.review_block(db_session, vector, flag, run, viewer_id=session.get("admin_id")),
+            # The agent's deactivation state in this application: active, pending_deactivation or deactivated.
+            "deactivation": agent_status.agent_state(db_session, agent.agent_id),
             # Pass-through context from other SalesMesh modules -- not used as a
             # detection feature, kept separate from "features" for that reason.
             # An agent can work across several clients/categories, so this is a
@@ -686,13 +688,17 @@ def close_review_decision(decision_id, final_outcome, notes):
             db_session.rollback()
             return review_refused(e, decision_id=decision_id)
         action = "agree_decision" if decision.status == DECISION_AGREED else "overrule_decision"
+        agent_id = agent_id_for_flag(db_session, decision.flag_id)
         log_admin_action(
             db_session, session["admin_id"], action,
-            target_agent_id=agent_id_for_flag(db_session, decision.flag_id),
+            target_agent_id=agent_id,
             details={"decision_id": decision.decision_id, "flag_id": decision.flag_id,
                      "proposed_by": decision.reviewer_id, "decision_outcome": decision.decision_outcome,
                      "final_outcome": decision.final_outcome, "notes": notes, "proposal_notes": decision.notes},
         )
+        deactivation, deactivation_action = agent_status.apply_outcome(
+            db_session, decision.decision_id, agent_id, decision.final_outcome, session["admin_id"], notes)
+        log_deactivation_change(db_session, deactivation, deactivation_action)
         db_session.commit()
         return jsonify({
             "message": "Proposal agreed" if action == "agree_decision" else "Proposal overruled",
@@ -704,12 +710,25 @@ def close_review_decision(decision_id, final_outcome, notes):
             "closed_at": decision.closed_at.isoformat(),
             "close_note": decision.close_note,
             "notes": decision.notes,
+            "deactivation_requested": deactivation_action == agent_status.REQUESTED,
+            "deactivation": agent_status.agent_state(db_session, agent_id) if agent_id else None,
         })
     except Exception as e:
         db_session.rollback()
         return jsonify({"error": str(e)}), 500
     finally:
         db_session.close()
+
+
+def log_deactivation_change(db_session, deactivation, action):
+    """The audit entry (category review) for a deactivation request opened or cancelled by a review outcome."""
+    if deactivation is None:
+        return
+    log_admin_action(
+        db_session, session["admin_id"], action, target_agent_id=deactivation.agent_id,
+        details={"deactivation_id": deactivation.deactivation_id, "decision_id": deactivation.decision_id,
+                 "status": deactivation.status},
+    )
 
 
 @app.route("/api/review-decisions/<decision_id>/agree", methods=["POST"])
@@ -777,13 +796,17 @@ def correct_review_decision(decision_id):
         except review.ReviewError as e:
             db_session.rollback()
             return review_refused(e, decision_id=decision_id)
+        agent_id = agent_id_for_flag(db_session, decision.flag_id)
         log_admin_action(
             db_session, session["admin_id"], "correct_decision",
-            target_agent_id=agent_id_for_flag(db_session, decision.flag_id),
+            target_agent_id=agent_id,
             details={"decision_id": decision_id, "correction_id": correction.correction_id,
                      "flag_id": decision.flag_id, "previous_outcome": correction.previous_outcome,
                      "new_outcome": correction.new_outcome, "notes": notes},
         )
+        deactivation, deactivation_action = agent_status.apply_outcome(
+            db_session, decision_id, agent_id, correction.new_outcome, session["admin_id"], notes)
+        log_deactivation_change(db_session, deactivation, deactivation_action)
         db_session.commit()
         return jsonify({
             "message": "Correction recorded",
@@ -795,6 +818,7 @@ def correct_review_decision(decision_id):
             "corrected_at": correction.corrected_at.isoformat(),
             "note": correction.note,
             "effective_outcome": correction.new_outcome,
+            "deactivation": agent_status.agent_state(db_session, agent_id) if agent_id else None,
         }), 201
     except Exception as e:
         db_session.rollback()
@@ -1176,6 +1200,41 @@ def reactivate_account(admin_id):
         return account, (None if was_active else {"role": account.role})
 
     return _account_change(apply, "account_reactivated", {})
+
+
+@app.route("/api/admin/agent-deactivations", methods=["GET"])
+@role_required(ROLE_ADMIN)
+def list_agent_deactivations():
+    """Deactivation requests opened by confirmed_fraud decisions, pending first."""
+    db_session = get_session()
+    try:
+        found = agent_status.list_requests(db_session)
+        return jsonify({"count": len(found), "deactivations": found})
+    finally:
+        db_session.close()
+
+
+@app.route("/api/admin/agent-deactivations/<deactivation_id>/confirm", methods=["POST"])
+@role_required(ROLE_ADMIN)
+def confirm_agent_deactivation(deactivation_id):
+    """Marks the agent deactivated in this application, with an audit entry (category admin). Deletes nothing."""
+    db_session = get_session()
+    try:
+        try:
+            request_row = agent_status.confirm(db_session, session["admin_id"], deactivation_id)
+        except agent_status.DeactivationError as e:
+            db_session.rollback()
+            return jsonify({"error": e.message}), e.status
+        log_admin_action(
+            db_session, session["admin_id"], agent_status.DEACTIVATED, target_agent_id=request_row.agent_id,
+            category="admin",
+            details={"deactivation_id": request_row.deactivation_id, "decision_id": request_row.decision_id,
+                     "actioned_at": request_row.actioned_at.isoformat()},
+        )
+        db_session.commit()
+        return jsonify({"message": "Agent deactivated", "deactivation": agent_status.request_payload(request_row)})
+    finally:
+        db_session.close()
 
 
 @app.route("/api/health", methods=["GET"])

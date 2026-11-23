@@ -138,6 +138,26 @@ describe("Flagged agents", () => {
     expect(within(list).getAllByText("Risk")).toHaveLength(3);
   });
 
+  it("opens an agent when its row is clicked, and keeps the agent link", async () => {
+    mockApi(routes());
+    renderApp("/flagged");
+    const rows = await table("Flagged agents");
+    const row = within(rows).getByRole("link", { name: "A20002" }).closest("tr");
+    expect(row).toHaveStyle({ cursor: "pointer" });
+    await userEvent.click(within(row).getByText("Kisumu"));
+    expect(currentLocation()).toBe("/agents/A20002");
+  });
+
+  it("opens an agent with Enter on a focused row", async () => {
+    mockApi(routes());
+    renderApp("/flagged");
+    const row = within(await table("Flagged agents")).getByRole("link", { name: "A30003" }).closest("tr");
+    expect(row).toHaveAttribute("tabindex", "0");
+    row.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(currentLocation()).toBe("/agents/A30003");
+  });
+
   it("explains an empty list and a filter with no match", async () => {
     mockApi(routes([agent("A40004", "None", "low", 1.0)], []));
     renderApp("/flagged");
@@ -155,6 +175,23 @@ describe("All agents", () => {
     expect(within(rows).getAllByText("Not reviewed")).toHaveLength(2);
     const summary = screen.getByRole("region", { name: "Summary" });
     expect(within(summary).getByText("Not flagged")).toBeInTheDocument();
+  });
+
+  it("opens an agent when its row is clicked", async () => {
+    mockApi(routes());
+    renderApp("/all-agents");
+    const rows = await table("All agents");
+    await userEvent.click(within(within(rows).getByRole("link", { name: "A40004" }).closest("tr")).getByText("Not flagged"));
+    expect(currentLocation()).toBe("/agents/A40004");
+  });
+
+  it("opens an agent with Enter on a focused row", async () => {
+    mockApi(routes());
+    renderApp("/all-agents");
+    const row = within(await table("All agents")).getByRole("link", { name: "A10001" }).closest("tr");
+    row.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(currentLocation()).toBe("/agents/A10001");
   });
 
   it("filters by flag source from the URL and reports no match", async () => {
