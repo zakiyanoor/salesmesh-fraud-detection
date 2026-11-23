@@ -8,7 +8,7 @@ import { DeactivationChip, OutcomeChip } from "../components/chips";
 import { LoadStatus } from "../components/states";
 import { nextSort } from "../components/tableState";
 import { useApi } from "../hooks/useApi";
-import { DEACTIVATION_LABELS, formatDateTime } from "../format";
+import { DEACTIVATION_LABELS, OUTCOME_LABELS, formatDateTime } from "../format";
 import { mono } from "../theme";
 import { api } from "../api";
 
@@ -82,13 +82,8 @@ export default function AgentDeactivations() {
     {
       key: "decision",
       label: "Decision",
-      sortValue: (r) => r.decision_id,
-      render: (r) => (
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-          <Box component="span" sx={mono}>{r.decision_id}</Box>
-          {r.effective_outcome && <OutcomeChip outcome={r.effective_outcome} />}
-        </Box>
-      ),
+      sortValue: (r) => OUTCOME_LABELS[r.effective_outcome] ?? "",
+      render: (r) => (r.effective_outcome ? <OutcomeChip outcome={r.effective_outcome} /> : "—"),
     },
     {
       key: "status",

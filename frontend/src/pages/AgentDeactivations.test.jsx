@@ -36,13 +36,25 @@ describe("Agent deactivations", () => {
     expect(within(t).getAllByRole("columnheader").map((c) => c.textContent)).toEqual(["Agent", "Decision", "Status", "Action"]);
     const rows = within(t).getAllByRole("row").slice(1);
     expect(rows.map((r) => r.querySelector("td").textContent)).toEqual(["A10001", "A20002", "A30003"]);
-    expect(within(row(t, "A10001")).getByText("RD1")).toBeInTheDocument();
     expect(within(row(t, "A10001")).getByText("Confirmed fraud")).toBeInTheDocument();
+    expect(within(row(t, "A20002")).getByText("Confirmed fraud")).toBeInTheDocument();
     expect(within(row(t, "A10001")).getByText("Deactivation pending")).toBeInTheDocument();
     expect(within(row(t, "A20002")).getByText("Deactivated")).toBeInTheDocument();
     expect(within(row(t, "A30003")).getByText("Cancelled")).toBeInTheDocument();
     expect(within(row(t, "A30003")).getByText("Legitimate")).toBeInTheDocument();
     expect(document.title).toBe("Agent deactivations · SalesMesh Fraud Detection");
+  });
+
+  it("never shows a decision ID in the table or the confirm dialog", async () => {
+    mockApi(routes());
+    renderApp("/agent-deactivations");
+    const t = await table();
+    for (const id of ["RD1", "RD2", "RD3"]) {
+      expect(t).not.toHaveTextContent(id);
+    }
+    await userEvent.click(within(t).getByRole("button", { name: "Deactivate Agent A10001" }));
+    expect(screen.getByRole("dialog", { name: "Deactivate Agent" })).not.toHaveTextContent("RD1");
+    expect(document.body).not.toHaveTextContent(/RD\d/);
   });
 
   it("offers Deactivate Agent only on pending rows", async () => {
